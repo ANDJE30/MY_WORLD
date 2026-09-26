@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediGest — Gestion des Patients</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- ===================== En-tête ===================== -->
+    <header class="app-header">
+        <div class="logo">
+            <span class="logo-icon">🩺</span>
+            <span class="logo-text">MediGest</span>
+        </div>
+        <p class="tagline">Système de gestion des patients</p>
+    </header>
+
+    <main class="container">
+
+        <!-- ===================== Cartes statistiques ===================== -->
+        <section class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <span class="stat-value" id="stat-total">0</span>
+                <span class="stat-label">Patients enregistrés</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="stat-hommes">0</span>
+                <span class="stat-label">Hommes</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="stat-femmes">0</span>
+                <span class="stat-label">Femmes</span>
+            </div>
+        </section>
+
+        <!-- ===================== Barre d'outils ===================== -->
+        <section class="toolbar">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Rechercher par nom, prénom ou email...">
+            </div>
+            <button class="btn btn-primary" id="btn-add-patient">+ Nouveau patient</button>
+        </section>
+
+        <!-- ===================== Zone de messages ===================== -->
+        <div id="alert-box" class="alert" hidden></div>
+
+        <!-- ===================== Tableau des patients ===================== -->
+        <section class="table-wrapper">
+            <table class="patients-table">
+                <thead>
+                    <tr>
+                        <th>Nom complet</th>
+                        <th>Âge</th>
+                        <th>Genre</th>
+                        <th>Téléphone</th>
+                        <th>Email</th>
+                        <th>Groupe sanguin</th>
+                        <th class="col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="patients-tbody">
+                    <!-- Les lignes sont injectées dynamiquement par js/app.js -->
+                </tbody>
+            </table>
+            <p id="empty-state" class="empty-state" hidden>Aucun patient trouvé.</p>
+        </section>
+    </main>
+
+    <!-- ===================== Modale : Ajouter / Modifier un patient ===================== -->
+    <div class="modal-overlay" id="modal-overlay" hidden>
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title">Nouveau patient</h2>
+                <button class="modal-close" id="modal-close" aria-label="Fermer">&times;</button>
+            </div>
+
+            <form id="patient-form" class="modal-body">
+                <!-- Champ caché contenant l'id lors d'une modification -->
+                <input type="hidden" id="patient-id">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nom">Nom *</label>
+                        <input type="text" id="nom" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prenom">Prénom *</label>
+                        <input type="text" id="prenom" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="date_naissance">Date de naissance *</label>
+                        <input type="date" id="date_naissance" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="genre">Genre *</label>
+                        <select id="genre" required>
+                            <option value="">Sélectionner...</option>
+                            <option value="Homme">Homme</option>
+                            <option value="Femme">Femme</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="telephone">Téléphone</label>
+                        <input type="tel" id="telephone" placeholder="06 00 00 00 00">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" placeholder="exemple@email.com">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group form-group-full">
+                        <label for="adresse">Adresse</label>
+                        <input type="text" id="adresse">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="groupe_sanguin">Groupe sanguin</label>
+                        <select id="groupe_sanguin">
+                            <option value="">Inconnu</option>
+                            <option>A+</option><option>A-</option>
+                            <option>B+</option><option>B-</option>
+                            <option>AB+</option><option>AB-</option>
+                            <option>O+</option><option>O-</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group form-group-full">
+                        <label for="notes_medicales">Notes médicales</label>
+                        <textarea id="notes_medicales" rows="3" placeholder="Allergies, antécédents, traitements en cours..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================== Modale : Confirmation de suppression ===================== -->
+    <div class="modal-overlay" id="confirm-overlay" hidden>
+        <div class="modal modal-small">
+            <div class="modal-header">
+                <h2>Confirmer la suppression</h2>
+            </div>
+            <div class="modal-body">
+                <p>Voulez-vous vraiment supprimer le patient <strong id="confirm-name"></strong> ? Cette action est irréversible.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-delete">Annuler</button>
+                <button class="btn btn-danger" id="btn-confirm-delete">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
