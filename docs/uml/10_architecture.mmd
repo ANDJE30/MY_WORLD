@@ -1,0 +1,32 @@
+flowchart TB
+  subgraph FRONT["Frontend — SPA JavaScript (ES modules, sans framework)"]
+    direction LR
+    F1["app.js<br/>routeur, authentification, coquille responsive"]
+    F2["admin.js / teacher.js / discipline.js<br/>espaces par rôle"]
+    F3["shared.js<br/>éditeur de notes, fiche disciplinaire, EDT"]
+    F4["ui.js<br/>gabarits sûrs (anti-XSS), formulaires, graphiques"]
+    F5["sw.js + manifest<br/>PWA installable"]
+  end
+  subgraph BACK["Backend — Node.js 22 / Express 5"]
+    direction LR
+    M["Middlewares sécurité<br/>CSP, CSRF, débit, session"]
+    R1["routes/auth"]
+    R2["routes/admin"]
+    R3["routes/work<br/>notes, progression, discipline"]
+    R4["routes/pdfRoutes"]
+    R5["routes/common"]
+    AC["access.js<br/>contrôle d'accès par rôle et ressource"]
+    C["calc.js<br/>moyennes, rangs, décisions"]
+    P["pdf.js<br/>documents officiels"]
+    S["security.js<br/>scrypt, sessions, identifiants"]
+    D["db.js<br/>schéma, transactions, audit"]
+  end
+  DB[("SQLite")]
+  FRONT -- "JSON / HTTPS<br/>cookie HttpOnly" --> M
+  M --> R1 & R2 & R3 & R4 & R5
+  R2 & R3 & R4 & R5 --> AC
+  R2 & R4 --> C
+  R4 --> P
+  R1 --> S
+  AC & C & S --> D
+  D --> DB

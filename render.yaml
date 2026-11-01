@@ -1,0 +1,19 @@
+# Déploiement en un clic sur Render (offre gratuite) — instance de DÉMONSTRATION.
+# Le disque de l'offre gratuite est éphémère : la base de démonstration est recréée à chaque redémarrage.
+# Pour la production, voir docs/DEPLOIEMENT.md (Oracle Cloud Always Free ou Render avec disque persistant).
+services:
+  - type: web
+    name: edugest-cm
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --omit=dev
+    startCommand: node --no-warnings server/index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22.13.1"
+      - key: DEMO
+        value: "1"
+      - key: TRUST_PROXY
+        value: "1"

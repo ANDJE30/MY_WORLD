@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> Planifiee : création du calendrier
+  Planifiee --> Ouverte : date de début atteinte
+  Ouverte --> EnSaisie : premières notes / faits saisis
+  EnSaisie --> EnSaisie : modifications (enregistrement auto)
+  EnSaisie --> PreteAClore : toutes les saisies validées
+  PreteAClore --> EnSaisie : une saisie est modifiée (validation annulée)
+  PreteAClore --> Cloturee : clôture par l'administrateur
+  EnSaisie --> Cloturee : clôture forcée (mot de passe + audit)
+  Cloturee --> Ouverte : réouverture (mot de passe + audit)
+  Cloturee --> [*] : nouvelle année scolaire
+  state Cloturee {
+    [*] --> Verrouillee
+    Verrouillee --> DocumentsEdites : bulletins / PV
+  }

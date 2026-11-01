@@ -1,0 +1,65 @@
+classDiagram
+  direction LR
+  class Etablissement {
+    +nom, sigle, immatriculation
+    +type, statut, sousSysteme
+    +delegations, logo, devise
+    +anneeScolaire, seuilReussite
+    +joursActifs, creneauxHoraires
+  }
+  class Utilisateur {
+    <<abstract>>
+    +id, identifiant, motDePasseHache
+    +nomComplet, telephone, email
+    +actif, doitChangerMotDePasse
+    +seConnecter()
+    +changerMotDePasse()
+  }
+  class Administrateur
+  class Enseignant { +specialite, matricule }
+  class ResponsableDisciplinaire { +fonction }
+  class Classe { +nom, niveau, serie, cycle, salle }
+  class Matiere { +intitule, code, groupe [1-3] }
+  class Attribution { +coefficient, heuresParSemaine }
+  class Eleve {
+    +matricule, nom, prenom, sexe
+    +dateNaissance, lieuNaissance
+    +redoublant, parent, telephoneParent
+  }
+  class Sequence {
+    +numero [1-6], dateDebut, dateFin
+    +statut : ouverte|cloturee
+    +cloturer(forcer)
+    +rouvrir()
+  }
+  class Trimestre { +numero [1-3] }
+  class Note { +valeur [0-20], absent }
+  class Progression { +leconsPrevues, leconsFaites, observation }
+  class FicheDisciplinaire {
+    +absJustifiees, absNonJustifiees, retards
+    +consignes, avertissement, blame
+    +joursExclusion, observation
+  }
+  class Incident { +date, nature, gravite, sanction, description }
+  class CreneauEDT { +jour, creneau, salle }
+  class Annonce { +titre, message, destinataires }
+  class JournalAudit { +date, action, detail, ip }
+  Utilisateur <|-- Administrateur
+  Utilisateur <|-- Enseignant
+  Utilisateur <|-- ResponsableDisciplinaire
+  Classe "1" o-- "0..*" Eleve : inscrit
+  Classe "1" *-- "0..*" Attribution
+  Matiere "1" -- "0..*" Attribution
+  Enseignant "0..1" -- "0..*" Attribution : enseigne
+  Enseignant "0..1" -- "0..*" Classe : professeur principal
+  ResponsableDisciplinaire "0..*" -- "0..*" Classe : a la charge de
+  Trimestre "1" *-- "2" Sequence
+  Eleve "1" -- "0..*" Note
+  Attribution "1" -- "0..*" Note
+  Sequence "1" -- "0..*" Note
+  Attribution "1" -- "0..6" Progression
+  Eleve "1" -- "0..6" FicheDisciplinaire
+  Eleve "1" -- "0..*" Incident
+  Attribution "1" -- "0..*" CreneauEDT
+  Administrateur "1" -- "0..*" Annonce : publie
+  Utilisateur "1" -- "0..*" JournalAudit : génère

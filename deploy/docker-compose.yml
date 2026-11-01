@@ -1,0 +1,24 @@
+# Production sur un serveur (VPS Oracle Cloud Always Free, OVH, Contabo, serveur de l'établissement…)
+# Usage : DOMAIN=notes.mon-lycee.cm ADMIN_PASSWORD='MotDePasseFort!2026' docker compose up -d --build
+services:
+  app:
+    build: ..
+    restart: unless-stopped
+    environment:
+      - TRUST_PROXY=1
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+    volumes:
+      - edugest-data:/data
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [app]
+volumes:
+  edugest-data:
+  caddy-data:

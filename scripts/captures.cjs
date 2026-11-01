@@ -16,7 +16,14 @@ async function login(page, u, p) {
   try { await page.waitForSelector('.app', { timeout: 10000 }); }
   catch (e) { console.log('Échec de connexion', u, ':', await page.locator('#loginErr').innerText().catch(() => '?'), (await page.locator('body').innerText()).slice(0, 200)); throw e; }
 }
-const shot = async (page, name, full = false) => { await page.waitForTimeout(450); await page.screenshot({ path: OUT + name + '.png', fullPage: full }); };
+const shot = async (page, name, full = false) => {
+  await page.waitForTimeout(450);
+  if (!full) return page.screenshot({ path: OUT + name + '.png' });
+  // pleine page : on agrandit la fenêtre pour que la barre latérale couvre toute la hauteur
+  const vp = page.viewportSize(); const hgt = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({ width: vp.width, height: Math.max(vp.height, hgt) }); await page.waitForTimeout(300);
+  await page.screenshot({ path: OUT + name + '.png' }); await page.setViewportSize(vp);
+};
 (async () => {
   const browser = await chromium.launch();
   const D = { width: 1440, height: 900 }, M = { width: 390, height: 844 }, T = { width: 1024, height: 1300 };

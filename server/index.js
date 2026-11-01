@@ -3,7 +3,8 @@ import express from 'express';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { db } from './db.js';
+import { db, DB_FILE } from './db.js';
+import fs from 'node:fs';
 import { getSession, purgeSessions, rateLimit, hashPassword, genPassword } from './security.js';
 import authRoutes, { COOKIE } from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
@@ -36,7 +37,9 @@ if (!db.prepare("SELECT 1 FROM users WHERE role = 'admin'").get()) {
 
 export const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', process.env.TRUST_PROXY ? Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY : 1);
+// Derrière un proxy (Render, Caddy, Nginx) : 1. Exposé directement sur Internet : TRUST_PROXY=0
+const tp = process.env.TRUST_PROXY ?? '1';
+app.set('trust proxy', /^\d+$/.test(tp) ? Number(tp) : tp);
 
 // En-têtes de sécurité (équivalent Helmet)
 app.use((req, res, next) => {
@@ -60,7 +63,8 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 
 // API
 const api = express.Router();
-api.use(rateLimit({ windowMs: 60_000, max: 600 }));
+// limite large : un établissement entier peut partager une même IP publique (NAT)
+api.use(rateLimit({ windowMs: 60_000, max: 3000 }));
 api.use((req, _res, next) => { if (req.path === '/admin/restore') return next(); express.json({ limit: '2mb' })(req, _res, next); });
 api.use((req, res, next) => {
   res.set('Cache-Control', 'no-store');
@@ -111,6 +115,22 @@ app.use((err, req, res, _next) => {
 });
 
 setInterval(purgeSessions, 3600_000).unref();
+
+// Sauvegarde automatique quotidienne (instantané cohérent via VACUUM INTO), 14 jours conservés
+export function autoBackup() {
+  if (process.env.DB_MEMORY || process.env.AUTO_BACKUP === '0') return null;
+  const dir = path.join(path.dirname(DB_FILE), 'backups');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `edugest-${new Date().toISOString().slice(0, 10)}.db`);
+  try {
+    if (!fs.existsSync(file)) db.prepare('VACUUM INTO ?').run(file);
+    const all = fs.readdirSync(dir).filter((f) => /^edugest-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort();
+    for (const old of all.slice(0, Math.max(0, all.length - 14))) fs.unlinkSync(path.join(dir, old));
+    return file;
+  } catch (e) { console.error('Sauvegarde automatique impossible :', e.message); return null; }
+}
+autoBackup();
+setInterval(autoBackup, 6 * 3600_000).unref();
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   app.listen(PORT, () => console.log(`EduGest CM démarré sur http://localhost:${PORT}`));

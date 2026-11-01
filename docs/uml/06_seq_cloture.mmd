@@ -1,0 +1,25 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrateur
+  participant N as Navigateur (SPA)
+  participant API as API EduGest
+  participant DB as Base SQLite
+  A->>N: Calendrier ▸ Clôturer la séquence n
+  N->>API: GET /api/admin/periods/n/check
+  API->>DB: Complétude des notes et des fiches disciplinaires
+  API-->>N: Synthèse (matières validées, fiches validées)
+  A->>N: Confirme (option « forcer »)
+  opt Clôture forcée
+    N->>A: Demande le mot de passe
+  end
+  N->>API: POST /api/admin/periods/n/close {force, password}
+  API->>DB: Séquence n-1 clôturée ?
+  API->>API: Date de fin atteinte ? saisies complètes ?
+  alt Conditions non remplies et non forcée
+    API-->>N: 409 + liste des problèmes
+  else Conditions remplies ou forçage confirmé
+    API->>DB: statut = clôturée (verrouille notes, discipline, progression)
+    API->>DB: Journal d'audit SEQUENCE_CLOTUREE
+    API-->>N: 200 OK
+    N->>A: Bulletins et PV disponibles
+  end
