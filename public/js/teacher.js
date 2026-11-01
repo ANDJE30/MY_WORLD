@@ -2,7 +2,7 @@
 import { h, raw, mount, $, $$, icon, toast, fmtNum, kpi, progressBar, empty, seqOptions, periodOptions, DAYS, withBusy } from './ui.js';
 import { get, put, openPdf } from './api.js';
 import { state, go, setLeaveGuard } from './app.js';
-import { notesEditor, timetablePage, timetableHtml, announcementsWidget, periodLabel } from './shared.js';
+import { notesEditor, timetablePage, timetableHtml, announcementsWidget, periodLabel, periodParam } from './shared.js';
 
 export const routes = [
   { path: 'accueil', title: 'Tableau de bord', short: 'Accueil', icon: 'home', group: 'Mon espace', mobile: true, render: home },
@@ -39,7 +39,7 @@ async function home(view) {
     const n = Math.min(a.effectif, a.saisies[seq] || 0); const pct = a.effectif ? (n / a.effectif) * 100 : 0;
     return h`<div class="card cls-card"><div class="top"><div class="tag">${a.classe.split(' ')[0]}</div><div style="min-width:0"><h4>${a.classe} — ${a.subject}</h4><div class="sub">Coef. ${a.coef} • ${a.effectif} élèves • ${a.hours_week} h/sem.</div></div></div>
         <div><div class="row small" style="justify-content:space-between"><span>${n} / ${a.effectif} notes</span>${a.validated.includes(seq) ? h`<span class="badge green">${icon('check', 'sm')} Validée</span>` : h`<span class="badge">${Math.round(pct)} %</span>`}</div>${progressBar(pct)}</div>
-        <div class="foot"><a class="btn btn-primary btn-sm" href="#/saisie?cs=${a.id}&seq=${seq}">${icon('edit', 'sm')} Saisir</a><button class="btn btn-outline btn-sm" data-releve="${a.id}">${icon('pdf', 'sm')} Relevé</button>
+        <div class="foot"><a class="btn btn-primary btn-sm" href="#/saisie?cs=${a.id}&period=S${seq}">${icon('edit', 'sm')} Saisir</a><a class="btn btn-outline btn-sm" href="#/saisie?cs=${a.id}&period=T${Math.ceil(seq / 2)}">${icon('layers', 'sm')} Trimestre</a><button class="btn btn-outline btn-sm" data-releve="${a.id}">${icon('pdf', 'sm')} Relevé</button>
         <a class="btn btn-ghost btn-sm" href="#/progression?cs=${a.id}">${icon('target', 'sm')} Progression</a></div></div>`;
   }) : empty('Aucune attribution', "L'administrateur ne vous a encore attribué aucune classe.", 'layers')}</div></div></div>
     </div>
@@ -50,16 +50,16 @@ async function home(view) {
       ${announcementsWidget(ann)}
     </div>
   </div>`);
-  $('[data-go-saisie]', view).onclick = () => go('saisie', assignments[0] ? { cs: assignments[0].id, seq } : {});
+  $('[data-go-saisie]', view).onclick = () => go('saisie', assignments[0] ? { cs: assignments[0].id, period: `S${seq}` } : {});
   $$('[data-releve]', view).forEach((b) => (b.onclick = () => openPdf(`/releve?cs=${b.dataset.releve}&period=S${seq}`)));
 }
 
 async function saisie(view, params) {
   const { assignments, seq: cur } = await loadAssignments();
   if (!assignments.length) return mount(view, h`<div class="card">${empty('Aucune attribution', "Aucune classe ne vous est attribuée. Contactez l'administrateur.", 'layers')}</div>`);
-  const cs = +params.cs || assignments[0].id, seq = +params.seq || cur;
+  const cs = +params.cs || assignments[0].id, period = periodParam(params, cur);
   mount(view, h`<div data-ed></div>`);
-  await notesEditor($('[data-ed]', view), { cs, seq, assignments, onChangeSeq: (s, c) => go('saisie', { cs: c, seq: s }) });
+  await notesEditor($('[data-ed]', view), { cs, period, assignments, onChange: (p, c) => go('saisie', { cs: c, period: p }) });
 }
 
 async function progression(view, params) {

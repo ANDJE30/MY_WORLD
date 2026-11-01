@@ -1,7 +1,7 @@
 // Espaces de travail : saisie des notes / progression (enseignant) et faits disciplinaires (responsable).
 import { Router } from 'express';
 import { db, tx, audit } from '../db.js';
-import { assertEntryOpen, classStudents, currentSeq } from '../calc.js';
+import { assertEntryOpen, classStudents, currentSeq, parsePeriod } from '../calc.js';
 import { str, num, id, bool, date, oneOf, bad, seqParam, HttpError } from '../util.js';
 import { requireRole, assertCs, assertClass } from './access.js';
 
@@ -26,60 +26,83 @@ r.get('/teacher/assignments', requireRole('teacher', 'admin'), (req, res) => {
   res.json({ assignments: rows, seq: currentSeq() });
 });
 
+/** Séquences concernées : ?period=S2 | T1 (saisie par trimestre) ou ?seq=2 (compatibilité). */
+function entrySeqs(q) {
+  if (q.period) {
+    const p = parsePeriod(q.period);
+    if (p.type === 'A') throw bad('La saisie se fait par séquence ou par trimestre.');
+    return p;
+  }
+  const seq = seqParam(q.seq);
+  return parsePeriod(`S${seq}`);
+}
+const lockOf = (seq) => { try { assertEntryOpen(seq); return null; } catch (e) { return e.message; } };
+
 r.get('/notes/grid', requireRole('teacher', 'admin'), (req, res) => {
   const cs = assertCs(req.user, id(req.query.cs));
-  const seq = seqParam(req.query.seq);
-  const period = db.prepare('SELECT * FROM periods WHERE seq = ?').get(seq);
-  const students = db.prepare(`SELECT st.id, st.matricule, st.nom, st.prenom, st.sexe, n.value, n.absent
-    FROM students st LEFT JOIN notes n ON n.student_id = st.id AND n.class_subject_id = ? AND n.seq = ?
-    WHERE st.class_id = ? AND st.active = 1 ORDER BY st.nom COLLATE NOCASE, st.prenom COLLATE NOCASE`).all(cs.id, seq, cs.class_id);
-  const v = db.prepare('SELECT validated_at FROM note_validations WHERE class_subject_id = ? AND seq = ?').get(cs.id, seq);
-  let locked = null; try { assertEntryOpen(seq); } catch (e) { locked = e.message; }
-  res.json({ cs, seq, period, students, validated_at: v?.validated_at || null, locked });
+  const period = entrySeqs(req.query);
+  const seqs = period.seqs;
+  const students = db.prepare(`SELECT id, matricule, nom, prenom, sexe FROM students WHERE class_id = ? AND active = 1
+    ORDER BY nom COLLATE NOCASE, prenom COLLATE NOCASE`).all(cs.class_id);
+  const notes = db.prepare(`SELECT student_id, seq, value, absent FROM notes WHERE class_subject_id = ? AND seq IN (${seqs.join(',')})`).all(cs.id);
+  for (const st of students) {
+    st.values = Object.fromEntries(seqs.map((q) => { const n = notes.find((x) => x.student_id === st.id && x.seq === q); return [q, n ? { value: n.value, absent: n.absent } : null]; }));
+    if (seqs.length === 1) { const v = st.values[seqs[0]]; st.value = v?.value ?? null; st.absent = v?.absent ?? 0; }
+  }
+  const validated = Object.fromEntries(seqs.map((q) => [q, db.prepare('SELECT validated_at FROM note_validations WHERE class_subject_id = ? AND seq = ?').get(cs.id, q)?.validated_at || null]));
+  const locked = Object.fromEntries(seqs.map((q) => [q, lockOf(q)]));
+  const periods = db.prepare(`SELECT * FROM periods WHERE seq IN (${seqs.join(',')}) ORDER BY seq`).all();
+  res.json({ cs, period: { code: period.code, label: period.label, type: period.type }, seqs, periods, students, validated, locked,
+    // compatibilité (une seule séquence)
+    seq: seqs.length === 1 ? seqs[0] : null, validated_at: seqs.length === 1 ? validated[seqs[0]] : null, locked_msg: seqs.length === 1 ? locked[seqs[0]] : null });
 });
 
 r.put('/notes/grid', requireRole('teacher', 'admin'), (req, res) => {
   const cs = assertCs(req.user, id(req.body.cs));
-  const seq = seqParam(req.body.seq);
-  assertEntryOpen(seq);
   const entries = req.body.entries;
-  if (!Array.isArray(entries) || entries.length > 500) throw bad('Données de saisie invalides');
-  const allowed = new Set(db.prepare('SELECT id FROM students WHERE class_id = ? AND active = 1').all(cs.class_id).map((s) => s.id));
+  if (!Array.isArray(entries) || entries.length > 1000) throw bad('Données de saisie invalides');
+  const seqOf = (e) => seqParam(e.seq ?? req.body.seq);
+  const touched = [...new Set(entries.map(seqOf))];
+  if (!touched.length && req.body.seq != null) touched.push(seqParam(req.body.seq));
+  touched.forEach((q) => assertEntryOpen(q));
+  const allowed = new Set(db.prepare('SELECT id FROM students WHERE class_id = ? AND active = 1').all(cs.class_id).map((x) => x.id));
   let saved = 0;
   tx(() => {
     const up = db.prepare(`INSERT INTO notes(student_id, class_subject_id, seq, value, absent, updated_by, updated_at) VALUES(?,?,?,?,?,?,unixepoch())
       ON CONFLICT(student_id, class_subject_id, seq) DO UPDATE SET value = excluded.value, absent = excluded.absent, updated_by = excluded.updated_by, updated_at = unixepoch()`);
     const del = db.prepare('DELETE FROM notes WHERE student_id = ? AND class_subject_id = ? AND seq = ?');
     for (const e of entries) {
-      const sid = id(e.student_id, 'Élève');
+      const sid = id(e.student_id, 'Élève'); const q = seqOf(e);
       if (!allowed.has(sid)) throw bad("Un élève ne fait pas partie de cette classe");
       const absent = bool(e.absent);
       const value = absent ? null : num(e.value, { min: 0, max: 20, label: 'Note' });
       if (value != null && Math.round(value * 100) !== value * 100) throw bad('Les notes ont au plus 2 décimales');
-      if (value == null && !absent) del.run(sid, cs.id, seq); else up.run(sid, cs.id, seq, value, absent ? 1 : 0, req.user.id);
+      if (value == null && !absent) del.run(sid, cs.id, q); else up.run(sid, cs.id, q, value, absent ? 1 : 0, req.user.id);
       saved++;
     }
-    // toute modification annule la validation : l'enseignant doit revalider
-    db.prepare('DELETE FROM note_validations WHERE class_subject_id = ? AND seq = ?').run(cs.id, seq);
+    // toute modification annule la validation de la séquence concernée : l'enseignant doit revalider
+    for (const q of touched) db.prepare('DELETE FROM note_validations WHERE class_subject_id = ? AND seq = ?').run(cs.id, q);
   });
-  audit(req, 'NOTES_SAISIES', `${cs.classe} / ${cs.subject} / S${seq} : ${saved} note(s)`);
+  audit(req, 'NOTES_SAISIES', `${cs.classe} / ${cs.subject} / S${touched.join('+S')} : ${saved} note(s)`);
   res.json({ ok: true, saved });
 });
 
 r.post('/notes/validate', requireRole('teacher', 'admin'), (req, res) => {
   const cs = assertCs(req.user, id(req.body.cs));
-  const seq = seqParam(req.body.seq);
-  assertEntryOpen(seq);
+  const { seqs } = entrySeqs(req.body);
+  seqs.forEach((q) => assertEntryOpen(q));
   if (bool(req.body.cancel)) {
-    db.prepare('DELETE FROM note_validations WHERE class_subject_id = ? AND seq = ?').run(cs.id, seq);
+    for (const q of seqs) db.prepare('DELETE FROM note_validations WHERE class_subject_id = ? AND seq = ?').run(cs.id, q);
     return res.json({ ok: true });
   }
   const { eff } = db.prepare('SELECT COUNT(*) eff FROM students WHERE class_id = ? AND active = 1').get(cs.class_id);
-  const { done } = db.prepare(`SELECT COUNT(*) done FROM notes n JOIN students st ON st.id = n.student_id AND st.active = 1
-    WHERE n.class_subject_id = ? AND n.seq = ? AND (n.value IS NOT NULL OR n.absent = 1)`).get(cs.id, seq);
-  if (done < eff) throw bad(`Saisie incomplète : ${eff - done} élève(s) sans note. Saisissez une note ou cochez « Absent ».`);
-  db.prepare('INSERT OR REPLACE INTO note_validations(class_subject_id, seq, validated_at, validated_by) VALUES(?,?,unixepoch(),?)').run(cs.id, seq, req.user.id);
-  audit(req, 'NOTES_VALIDEES', `${cs.classe} / ${cs.subject} / S${seq}`);
+  for (const q of seqs) {
+    const { done } = db.prepare(`SELECT COUNT(*) done FROM notes n JOIN students st ON st.id = n.student_id AND st.active = 1
+      WHERE n.class_subject_id = ? AND n.seq = ? AND (n.value IS NOT NULL OR n.absent = 1)`).get(cs.id, q);
+    if (done < eff) throw bad(`Séquence ${q} incomplète : ${eff - done} élève(s) sans note. Saisissez une note ou la mention « Absent ».`);
+  }
+  tx(() => seqs.forEach((q) => db.prepare('INSERT OR REPLACE INTO note_validations(class_subject_id, seq, validated_at, validated_by) VALUES(?,?,unixepoch(),?)').run(cs.id, q, req.user.id)));
+  audit(req, 'NOTES_VALIDEES', `${cs.classe} / ${cs.subject} / S${seqs.join('+S')}`);
   res.json({ ok: true });
 });
 
@@ -129,6 +152,21 @@ r.get('/discipline/classes', requireRole('discipline', 'admin'), (req, res) => {
 
 r.get('/discipline/sheet', requireRole('discipline', 'admin'), (req, res) => {
   const cls = assertClass(req.user, id(req.query.class_id));
+  // Vue récapitulative d'un trimestre (somme des deux séquences, lecture seule)
+  if (/^T[1-3]$/i.test(req.query.period || '')) {
+    const p = parsePeriod(req.query.period); const ph = p.seqs.join(',');
+    const students = db.prepare(`SELECT st.id, st.matricule, st.nom, st.prenom, st.sexe,
+        COALESCE(SUM(d.abs_j),0) abs_j, COALESCE(SUM(d.abs_nj),0) abs_nj, COALESCE(SUM(d.retards),0) retards, COALESCE(SUM(d.consignes),0) consignes,
+        COALESCE(MAX(d.avertissement),0) avertissement, COALESCE(MAX(d.blame),0) blame, COALESCE(SUM(d.exclusion_jours),0) exclusion_jours,
+        GROUP_CONCAT(d.observation, ' / ') observation,
+        (SELECT COUNT(*) FROM incidents i WHERE i.student_id = st.id AND i.seq IN (${ph})) incidents
+      FROM students st LEFT JOIN discipline_records d ON d.student_id = st.id AND d.seq IN (${ph})
+      WHERE st.class_id = ? AND st.active = 1 GROUP BY st.id ORDER BY st.nom COLLATE NOCASE, st.prenom COLLATE NOCASE`).all(cls.id);
+    const val = p.seqs.map((q) => db.prepare('SELECT validated_at FROM discipline_validations WHERE class_id = ? AND seq = ?').get(cls.id, q)?.validated_at || null);
+    return res.json({ classe: cls, seq: null, period: { code: p.code, label: p.label, seqs: p.seqs }, students, recap: true,
+      validated_at: val.every(Boolean) ? Math.max(...val) : null, validated: Object.fromEntries(p.seqs.map((q, i) => [q, val[i]])),
+      locked: `Récapitulatif du ${p.label.toLowerCase()} (séquences ${p.seqs.join(' et ')}) — lecture seule. Choisissez une séquence pour saisir.` });
+  }
   const seq = seqParam(req.query.seq);
   const students = db.prepare(`SELECT st.id, st.matricule, st.nom, st.prenom, st.sexe,
       COALESCE(d.abs_j,0) abs_j, COALESCE(d.abs_nj,0) abs_nj, COALESCE(d.retards,0) retards, COALESCE(d.consignes,0) consignes,
@@ -169,11 +207,14 @@ r.put('/discipline/sheet', requireRole('discipline', 'admin'), (req, res) => {
 
 r.post('/discipline/validate', requireRole('discipline', 'admin'), (req, res) => {
   const cls = assertClass(req.user, id(req.body.class_id));
-  const seq = seqParam(req.body.seq);
-  assertEntryOpen(seq);
-  if (bool(req.body.cancel)) db.prepare('DELETE FROM discipline_validations WHERE class_id = ? AND seq = ?').run(cls.id, seq);
-  else db.prepare('INSERT OR REPLACE INTO discipline_validations(class_id, seq, validated_at, validated_by) VALUES(?,?,unixepoch(),?)').run(cls.id, seq, req.user.id);
-  audit(req, bool(req.body.cancel) ? 'DISCIPLINE_DEVALIDEE' : 'DISCIPLINE_VALIDEE', `${cls.name} / S${seq}`);
+  // une séquence, ou les deux séquences d'un trimestre
+  const { seqs } = entrySeqs(req.body);
+  seqs.forEach((q) => assertEntryOpen(q));
+  tx(() => seqs.forEach((q) => {
+    if (bool(req.body.cancel)) db.prepare('DELETE FROM discipline_validations WHERE class_id = ? AND seq = ?').run(cls.id, q);
+    else db.prepare('INSERT OR REPLACE INTO discipline_validations(class_id, seq, validated_at, validated_by) VALUES(?,?,unixepoch(),?)').run(cls.id, q, req.user.id);
+  }));
+  audit(req, bool(req.body.cancel) ? 'DISCIPLINE_DEVALIDEE' : 'DISCIPLINE_VALIDEE', `${cls.name} / S${seqs.join('+S')}`);
   res.json({ ok: true });
 });
 

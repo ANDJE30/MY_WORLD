@@ -424,3 +424,76 @@ tr.dirty td:first-child { box-shadow: inset 3px 0 0 var(--gold-500); }
   body { background: #fff; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* =========================================================================
+   Interfaces distinctes : console AI721, administration, enseignants, vie scolaire
+   (les variables de couleur sont redéfinies pour toute l'application et la page de connexion)
+   ========================================================================= */
+body[data-portal="superadmin"] {
+  --g-900: #1e1b4b; --g-800: #272463; --g-700: #3730a3; --g-600: #4338ca; --g-500: #4f46e5; --g-400: #6366f1; --g-100: #e0e7ff; --g-50: #eef2ff;
+  --primary: #4338ca; --primary-hover: #3730a3; --primary-soft: #e0e7ff;
+}
+body[data-portal="teacher"] {
+  --g-900: #0b1f4d; --g-800: #10295f; --g-700: #1e40af; --g-600: #1d4ed8; --g-500: #2563eb; --g-400: #3b82f6; --g-100: #dbeafe; --g-50: #eff6ff;
+  --primary: #1d4ed8; --primary-hover: #1e40af; --primary-soft: #dbeafe;
+}
+body[data-portal="discipline"] {
+  --g-900: #3b1606; --g-800: #4a1d08; --g-700: #92400e; --g-600: #b45309; --g-500: #d97706; --g-400: #f59e0b; --g-100: #fef3c7; --g-50: #fffbeb;
+  --primary: #b45309; --primary-hover: #92400e; --primary-soft: #fef3c7;
+}
+[data-theme="dark"] body[data-portal="superadmin"] { --primary: #818cf8; --primary-hover: #a5b4fc; --primary-soft: rgba(129, 140, 248, .16); --g-50: rgba(129, 140, 248, .08); --g-100: rgba(129, 140, 248, .16); }
+[data-theme="dark"] body[data-portal="teacher"] { --primary: #60a5fa; --primary-hover: #93c5fd; --primary-soft: rgba(96, 165, 250, .16); --g-50: rgba(96, 165, 250, .08); --g-100: rgba(96, 165, 250, .16); }
+[data-theme="dark"] body[data-portal="discipline"] { --primary: #fbbf24; --primary-hover: #fcd34d; --primary-soft: rgba(251, 191, 36, .16); --g-50: rgba(251, 191, 36, .08); --g-100: rgba(251, 191, 36, .16); }
+body[data-portal] .login-hero { background: radial-gradient(1200px 600px at -10% -10%, var(--g-500) 0%, transparent 60%), radial-gradient(900px 500px at 120% 110%, #a97a1d 0%, transparent 55%), linear-gradient(160deg, var(--g-800), var(--g-900)); }
+body[data-portal="superadmin"] .login-hero::after { background-image: radial-gradient(#fff 1px, transparent 1.5px); background-size: 22px 22px; opacity: .12; }
+body[data-portal="teacher"] .login-hero::after { background-image: repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 26px); opacity: .1; }
+body[data-portal="discipline"] .login-hero::after { background-image: repeating-linear-gradient(90deg, #fff 0 2px, transparent 2px 30px); opacity: .08; }
+.portal-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .25); font-weight: 700; font-size: 13px; margin-bottom: 18px; letter-spacing: .02em; }
+.portal-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: 12.5px; margin-bottom: 10px; }
+.logo.co { background: linear-gradient(135deg, #c8962e, #8a5f12); color: #fff; font-weight: 900; letter-spacing: .02em; }
+.sb-powered { font-size: 10.5px; color: rgba(217, 235, 229, .45); text-align: center; padding-top: 6px; letter-spacing: .03em; }
+@media (max-width: 1199px) and (min-width: 768px) { .sb-powered { display: none; } }
+
+/* Choix de l'espace d'un établissement */
+.chooser { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 20px; background: radial-gradient(900px 500px at 0% 0%, var(--g-100), transparent 60%), var(--bg); }
+.chooser-card { width: 100%; max-width: 520px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow-lg); padding: 28px; }
+.chooser-card .school { display: flex; gap: 14px; align-items: center; }
+.portal-card { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; color: var(--text); background: var(--surface); transition: .15s; }
+.portal-card:hover { text-decoration: none; transform: translateY(-1px); box-shadow: var(--shadow); }
+.portal-card > div:nth-child(2) { flex: 1; }
+.pc-ico { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; color: #fff; flex: none; }
+.portal-card[data-p="admin"] .pc-ico { background: linear-gradient(135deg, #127a62, #073f33); }
+.portal-card[data-p="teacher"] .pc-ico { background: linear-gradient(135deg, #2563eb, #0b1f4d); }
+.portal-card[data-p="discipline"] .pc-ico { background: linear-gradient(135deg, #d97706, #4a1d08); }
+.portal-card[data-p="admin"]:hover { border-color: #127a62; } .portal-card[data-p="teacher"]:hover { border-color: #2563eb; } .portal-card[data-p="discipline"]:hover { border-color: #d97706; }
+
+/* Site de présentation AI721 TECH STUFF */
+.landing { min-height: 100vh; background: var(--bg); }
+.lp-nav { display: flex; align-items: center; gap: 12px; padding: 16px clamp(16px, 4vw, 48px); background: #1e1b4b; color: #fff; }
+.lp-nav .sp { flex: 1; }
+.lp-nav a { color: #c7d2fe; font-weight: 600; font-size: 14px; }
+.lp-hero { padding: clamp(36px, 6vw, 80px) clamp(16px, 4vw, 48px); color: #fff; background: radial-gradient(1000px 500px at 100% 0%, rgba(200, 150, 46, .35), transparent 60%), linear-gradient(160deg, #272463, #0f0d2e); }
+.lp-hero h1 { font-size: clamp(30px, 4.4vw, 54px); max-width: 860px; margin: 0 0 16px; }
+.lp-hero p { max-width: 700px; color: #c7d2fe; font-size: 17px; }
+.lp-access { margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; max-width: 560px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .18); padding: 10px; border-radius: 16px; }
+.lp-access .input { flex: 1; min-width: 200px; background: #fff; color: #111; }
+.lp-sec { padding: clamp(28px, 5vw, 64px) clamp(16px, 4vw, 48px); max-width: 1280px; margin: 0 auto; }
+.lp-sec h2 { font-size: clamp(22px, 3vw, 32px); margin-bottom: 8px; }
+.lp-feat { padding: 20px; }
+.lp-feat .ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #e0e7ff; color: #4338ca; margin-bottom: 10px; }
+.lp-feat h4 { font-size: 16px; margin-bottom: 4px; }
+.lp-roles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .lp-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .lp-roles { grid-template-columns: 1fr; } }
+.lp-role { border-radius: 16px; padding: 18px; color: #fff; }
+.lp-role b { font-size: 16px; display: block; margin: 8px 0 4px; }
+.lp-role.r0 { background: linear-gradient(135deg, #4f46e5, #1e1b4b); } .lp-role.r1 { background: linear-gradient(135deg, #127a62, #073f33); }
+.lp-role.r2 { background: linear-gradient(135deg, #2563eb, #0b1f4d); } .lp-role.r3 { background: linear-gradient(135deg, #d97706, #4a1d08); }
+.lp-foot { background: #1e1b4b; color: #c7d2fe; padding: 28px clamp(16px, 4vw, 48px); font-size: 14px; }
+.lp-demo a.portal-card { margin-bottom: 8px; }
+
+/* Grille de notes par trimestre */
+.tri-cols th.seqh { text-align: center; }
+.note-input.abs { color: var(--amber-600); font-size: 14px; letter-spacing: .04em; }
+.tri-avg { font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; }
+.secret { font-family: var(--mono); letter-spacing: .02em; }

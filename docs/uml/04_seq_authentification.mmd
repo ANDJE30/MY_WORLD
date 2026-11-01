@@ -4,8 +4,9 @@ sequenceDiagram
   participant N as Navigateur (SPA)
   participant API as API EduGest
   participant DB as Base SQLite
-  U->>N: Saisit identifiant + mot de passe
-  N->>API: POST /api/auth/login (en-tête anti-CSRF)
+  U->>N: Ouvre l'interface de son rôle (/e/code/enseignant…) et saisit ses identifiants
+  N->>API: POST /e/code/api/auth/login {portal} (en-tête anti-CSRF)
+  API->>API: Abonnement de l'établissement valide ? (sinon 402)
   API->>API: Limitation de débit (IP + identifiant)
   API->>DB: Lire l'utilisateur
   alt Compte verrouillé
@@ -14,9 +15,11 @@ sequenceDiagram
     API->>DB: Incrémenter les échecs (verrou au 5e)
     API->>DB: Journal d'audit LOGIN_ECHEC
     API-->>N: 401 « Identifiant ou mot de passe incorrect »
+  else Mauvaise interface (rôle ≠ interface)
+    API-->>N: 403 + lien de la bonne interface (aucune session ouverte)
   else Succès
     API->>DB: Créer la session (jeton haché SHA-256)
-    API-->>N: 200 + cookie HttpOnly / SameSite=Strict
+    API-->>N: 200 + cookie HttpOnly / SameSite=Strict limité à /e/code/
     opt Première connexion
       N->>U: Exige un mot de passe personnel
       U->>N: Nouveau mot de passe

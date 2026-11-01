@@ -5,7 +5,7 @@ flowchart TD
   A3 --> A4[Admin : emplois du temps]
   A4 --> P{{Séquence ouverte}}
   P --> E1[Enseignant : progression<br/>leçons prévues / faites]
-  P --> E2[Enseignant : saisie des notes]
+  P --> E2[Enseignant : saisie des notes<br/>par séquence ou par trimestre]
   P --> D1[Responsable : absences, retards,<br/>sanctions, incidents]
   E2 --> E3{Toutes les notes<br/>saisies ?}
   E3 -- non --> E2
@@ -21,9 +21,11 @@ flowchart TD
   C3 --> C4
   C4 --> B[Bulletins, PV, statistiques]
   B --> T{Fin de trimestre ?}
-  T -- oui --> BT[Bulletins trimestriels<br/>conseil de classe] --> F((Fin))
-  T -- non --> F
+  T -- oui --> BT[Clôture du trimestre<br/>bulletins trimestriels, statistiques PDF] --> Y{Trimestre 3 ?}
+  T -- non --> F((Fin))
+  Y -- non --> F
+  Y -- oui --> AN[Clôture de l'année :<br/>statistiques annuelles + sauvegarde archivées] --> NA[Nouvelle année scolaire<br/>renouvellement de l'abonnement] --> F
   classDef act fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
   classDef dec fill:#fbf1db,stroke:#a97a1d,color:#3b2a06
-  class A1,A2,A3,A4,E1,E2,E4,D1,D2,R,C3,C4,B,BT act
-  class E3,C1,C2,T dec
+  class A1,A2,A3,A4,E1,E2,E4,D1,D2,R,C3,C4,B,BT,AN,NA act
+  class E3,C1,C2,T,Y dec

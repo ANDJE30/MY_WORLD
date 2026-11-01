@@ -6,9 +6,15 @@ import { state, passwordForm, setLeaveGuard, setParams, schoolLogo, rerender } f
 
 export function commonRoutes(role) {
   const r = [{ path: 'profil', title: 'Mon profil', icon: 'user', group: 'Mon compte', render: profilePage }];
-  if (role !== 'admin') r.unshift({ path: 'annonces', title: 'Annonces', icon: 'megaphone', group: 'Mon compte', render: announcementsPage });
+  if (role === 'teacher' || role === 'discipline') r.unshift({ path: 'annonces', title: 'Annonces', icon: 'megaphone', group: 'Mon compte', render: announcementsPage });
   return r;
 }
+
+/** Choix de la période de saisie : une séquence, ou un trimestre (ses deux séquences côte à côte). */
+export const entryPeriodOptions = (sel) => h`<optgroup label="Séquences">${[1, 2, 3, 4, 5, 6].map((q) => h`<option value="S${q}" ${sel === `S${q}` ? raw('selected') : ''}>Séquence ${q} (T${Math.ceil(q / 2)})</option>`)}</optgroup>
+  <optgroup label="Trimestres (2 séquences)">${[1, 2, 3].map((t) => h`<option value="T${t}" ${sel === `T${t}` ? raw('selected') : ''}>Trimestre ${t} — séquences ${t * 2 - 1} et ${t * 2}</option>`)}</optgroup>`;
+/** Normalise ?period=… / ?seq=… en code de période (S2, T1…). */
+export const periodParam = (params, fallbackSeq) => (/^[ST][1-6]$/.test(params.period || '') && !/^T[4-6]$/.test(params.period) ? params.period : `S${+params.seq || fallbackSeq}`);
 
 export const periodLabel = (seq) => {
   const p = state.periods.find((x) => x.seq === +seq);
@@ -120,95 +126,108 @@ function saveBar(el, s) {
   if (s.saved && !s.count) setTimeout(() => { if (!el.dataset.busy) el.classList.add('hidden'); }, 2500);
 }
 
-/* ================= Éditeur de notes (enseignant / administrateur) ================= */
-export async function notesEditor(container, { cs, seq, onChangeSeq, assignments }) {
-  const data = await get(`/notes/grid?cs=${cs}&seq=${seq}`);
-  const locked = data.locked;
-  const rows = data.students.map((s) => ({ ...s, cur: s.absent ? 'ABS' : s.value }));
-  const key = `edugest:draft:notes:${cs}:${seq}`;
+/* ================= Éditeur de notes (enseignant / administrateur) : séquence ou trimestre ================= */
+export async function notesEditor(container, { cs, period, onChange, assignments }) {
+  const data = await get(`/notes/grid?cs=${cs}&period=${period}`);
+  const seqs = data.seqs, multi = seqs.length > 1;
+  const locked = data.locked, validated = data.validated;
+  const openSeqs = seqs.filter((q) => !locked[q]);
+  const rows = data.students.map((st) => ({ ...st, cur: Object.fromEntries(seqs.map((q) => { const v = st.values[q]; return [q, v ? (v.absent ? 'ABS' : v.value) : null]; })) }));
   const saver = createSaver({
-    key, onState: (s) => saveBar($('[data-savebar]', container), s),
-    save: async (entries) => { await put('/notes/grid', { cs, seq, entries }); data.validated_at = null; renderHead(); }
+    key: `edugest:draft:notes:${data.cs.class_id}:${cs}:${period}`, onState: (st) => saveBar($('[data-savebar]', container), st),
+    save: async (entries) => { await put('/notes/grid', { cs, entries }); for (const q of new Set(entries.map((e) => e.seq))) validated[q] = null; renderHead(); }
   });
   setLeaveGuard(() => (saver.size ? 'Des notes ne sont pas encore enregistrées. Quitter quand même ?' : null));
+  const num = (v) => (v === 'ABS' || v == null || Number.isNaN(v) ? null : v);
+  const avgOf = (r) => { const v = seqs.map((q) => num(r.cur[q])).filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const display = (v) => (v === 'ABS' ? 'ABS' : v == null ? '' : String(v).replace('.', ','));
 
-  const stats = () => {
-    const vals = rows.map((r) => (r.cur === 'ABS' ? null : r.cur)).filter((v) => v != null && !Number.isNaN(v));
-    const filled = rows.filter((r) => r.cur != null).length;
-    return { filled, total: rows.length, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, min: vals.length ? Math.min(...vals) : null,
-      max: vals.length ? Math.max(...vals) : null, below: vals.filter((v) => v < 10).length, pass: vals.length ? (vals.filter((v) => v >= 10).length / vals.length) * 100 : null };
-  };
   const renderHead = () => {
-    const s = stats();
+    const vals = rows.map((r) => (multi ? avgOf(r) : num(r.cur[seqs[0]]))).filter((v) => v != null);
+    const filled = Object.fromEntries(seqs.map((q) => [q, rows.filter((r) => r.cur[q] != null).length]));
+    const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    const total = rows.length * seqs.length, done = seqs.reduce((a, q) => a + filled[q], 0);
+    const canValidate = openSeqs.length && openSeqs.every((q) => filled[q] >= rows.length) && openSeqs.some((q) => !validated[q]);
     mount($('[data-head]', container), h`
       <div class="entry-stats">
-        <div>Saisies<br><b>${s.filled} / ${s.total}</b></div><div>Moyenne<br><b class="${noteClass(s.avg)}">${fmtNum(s.avg)}</b></div>
-        <div>Min / Max<br><b>${fmtNum(s.min)} / ${fmtNum(s.max)}</b></div><div>Sous la moyenne<br><b>${s.below}</b></div><div>Réussite<br><b>${s.pass == null ? '—' : fmtNum(s.pass, 1) + ' %'}</b></div>
+        ${seqs.map((q) => h`<div>Saisies S${q}<br><b>${filled[q]} / ${rows.length}</b></div>`)}
+        <div>${multi ? 'Moy. trimestre' : 'Moyenne'}<br><b class="${noteClass(avg)}">${fmtNum(avg)}</b></div>
+        <div>Min / Max<br><b>${fmtNum(vals.length ? Math.min(...vals) : null)} / ${fmtNum(vals.length ? Math.max(...vals) : null)}</b></div>
+        <div>Sous la moyenne<br><b>${vals.filter((v) => v < 10).length}</b></div>
+        <div>Réussite<br><b>${vals.length ? fmtNum((vals.filter((v) => v >= 10).length / vals.length) * 100, 1) + ' %' : '—'}</b></div>
       </div>
-      <div style="flex:1;min-width:160px">${raw(progressHtml(s.total ? (s.filled / s.total) * 100 : 0))}</div>
-      ${locked ? h`<span class="badge red">${icon('lock', 'sm')} Verrouillée</span>` : data.validated_at ? h`<span class="badge green">${icon('check', 'sm')} Saisie validée</span>`
-    : h`<button class="btn btn-gold btn-sm" data-validate ${s.filled < s.total ? raw('disabled title="Toutes les notes doivent être saisies"') : ''}>${icon('checkCircle')} Valider la saisie</button>`}
-      ${data.validated_at && !locked ? h`<button class="btn btn-ghost btn-sm" data-unvalidate>Annuler la validation</button>` : ''}`);
-    $('[data-validate]', container)?.addEventListener('click', async (e) => {
+      <div style="flex:1;min-width:160px">${raw(progressHtml(total ? (done / total) * 100 : 0))}</div>
+      ${seqs.map((q) => (locked[q] ? h`<span class="badge red">${icon('lock', 'sm')} S${q} verrouillée</span>` : validated[q] ? h`<span class="badge green">${icon('check', 'sm')} S${q} validée</span>` : ''))}
+      ${openSeqs.length ? h`<button class="btn btn-gold btn-sm" data-validate ${canValidate ? '' : raw('disabled title="Toutes les notes des séquences ouvertes doivent être saisies"')}>${icon('checkCircle')} ${multi ? 'Valider le trimestre' : 'Valider la saisie'}</button>` : ''}
+      ${openSeqs.some((q) => validated[q]) ? h`<button class="btn btn-ghost btn-sm" data-unvalidate>Annuler la validation</button>` : ''}`);
+    $('[data-validate]', container)?.addEventListener('click', async () => {
       if (!(await saver.flush())) return;
-      const ok = await confirmDialog({ title: 'Valider la saisie', message: `Confirmez-vous que toutes les notes de ${data.cs.classe} en ${data.cs.subject} (séquence ${seq}) sont définitives ? L'administration pourra alors clôturer la séquence.`, okLabel: 'Valider' });
+      const label = openSeqs.map((q) => `séquence ${q}`).join(' et ');
+      const ok = await confirmDialog({ title: multi ? 'Valider le trimestre' : 'Valider la saisie', message: `Confirmez-vous que toutes les notes de ${data.cs.classe} en ${data.cs.subject} (${label}) sont définitives ? L'administration pourra alors clôturer.`, okLabel: 'Valider' });
       if (!ok) return;
-      try { await post('/notes/validate', { cs, seq }); data.validated_at = Date.now() / 1000; toast('Saisie validée. Merci !'); renderHead(); } catch (ex) { toast(ex.message, 'err'); }
+      try { for (const q of openSeqs) { await post('/notes/validate', { cs, seq: q }); validated[q] = Date.now() / 1000; } toast('Saisie validée. Merci !'); renderHead(); }
+      catch (ex) { toast(ex.message, 'err'); }
     });
     $('[data-unvalidate]', container)?.addEventListener('click', async () => {
-      try { await post('/notes/validate', { cs, seq, cancel: true }); data.validated_at = null; renderHead(); } catch (ex) { toast(ex.message, 'err'); }
+      try { for (const q of openSeqs.filter((x) => validated[x])) { await post('/notes/validate', { cs, seq: q, cancel: true }); validated[q] = null; } renderHead(); } catch (ex) { toast(ex.message, 'err'); }
     });
   };
 
   mount(container, h`
     <div class="card"><div class="card-h">
-      <div><h3>${data.cs.classe} — ${data.cs.subject}</h3><div class="sub">Coefficient ${data.cs.coef} • ${data.cs.teacher || 'Sans enseignant'} • ${rows.length} élève(s)</div></div>
+      <div><h3>${data.cs.classe} — ${data.cs.subject}</h3><div class="sub">Coefficient ${data.cs.coef} • ${data.cs.teacher || 'Sans enseignant'} • ${rows.length} élève(s) • ${data.period.label}</div></div>
       <div class="actions">
         ${assignments ? h`<select class="select" style="min-height:36px;width:auto" data-cs>${assignments.map((a) => h`<option value="${a.id}" ${a.id === +cs ? raw('selected') : ''}>${a.classe} — ${a.subject}</option>`)}</select>` : ''}
-        <select class="select" style="min-height:36px;width:auto" data-seq aria-label="Séquence">${seqOptions(seq)}</select>
+        <select class="select" style="min-height:36px;width:auto" data-period aria-label="Période">${entryPeriodOptions(period)}</select>
         <button class="btn btn-outline btn-sm" data-pdf>${icon('pdf')} Relevé PDF</button>
       </div></div>
       <div class="card-b"><div class="entry-head" data-head></div>
-        ${locked ? h`<div class="alert warn mt">${icon('lock')}<div>${locked}</div></div>` : h`<div class="small muted mt hide-mobile">
-          Astuces : <span class="kbd">Entrée</span> ou <span class="kbd">↓</span> pour passer à l'élève suivant • tapez <span class="kbd">a</span> pour « absent » • collez une colonne depuis Excel pour remplir toute la liste • virgule ou point acceptés.</div>`}
+        ${seqs.filter((q) => locked[q]).map((q) => h`<div class="alert warn mt">${icon('lock')}<div>${locked[q]}</div></div>`)}
+        ${openSeqs.length ? h`<div class="small muted mt hide-mobile">Astuces : <span class="kbd">Entrée</span> ou <span class="kbd">↓</span> élève suivant • <span class="kbd">a</span> = absent •
+          collez une colonne depuis Excel pour remplir toute la liste${multi ? ' (dans la colonne de la séquence voulue)' : ''} • virgule ou point acceptés.</div>` : ''}
       </div>
-      <div class="table-wrap"><table class="t entry-table"><thead><tr><th class="hide-mobile center" style="width:50px">N°</th><th>Élève</th><th class="center">Note /20</th><th class="center">Absent</th><th class="hide-mobile">Appréciation</th></tr></thead>
+      <div class="table-wrap"><table class="t entry-table ${multi ? 'tri-cols' : ''}"><thead><tr><th class="hide-mobile center" style="width:50px">N°</th><th>Élève</th>
+        ${seqs.map((q) => h`<th class="center seqh">${multi ? `Séq. ${q}` : 'Note /20'}${locked[q] ? h` ${icon('lock', 'sm')}` : ''}</th>`)}
+        ${multi ? h`<th class="center">Moy. T${data.period.code.slice(1)}</th>` : h`<th class="center">Absent</th>`}<th class="hide-mobile">Appréciation</th></tr></thead>
       <tbody>${rows.map((r, i) => h`<tr data-i="${i}"><td class="hide-mobile center muted">${i + 1}</td>
         <td class="name-cell"><div class="strong">${r.nom} ${r.prenom}</div><div class="cell-sub">${r.matricule}${r.sexe ? ' • ' + r.sexe : ''}</div></td>
-        <td class="center"><input class="input note-input ${noteClass(r.cur === 'ABS' ? null : r.cur)}" inputmode="decimal" enterkeyhint="next" autocomplete="off" aria-label="Note de ${r.nom} ${r.prenom}"
-          value="${r.cur === 'ABS' || r.cur == null ? '' : String(r.cur).replace('.', ',')}" ${locked || r.cur === 'ABS' ? raw('disabled') : ''}></td>
-        <td class="center"><label class="check" style="justify-content:center"><input type="checkbox" data-abs ${r.cur === 'ABS' ? raw('checked') : ''} ${locked ? raw('disabled') : ''} aria-label="Absent"></label></td>
-        <td class="hide-mobile small" data-app>${r.cur === 'ABS' ? 'Absent' : appreciation(r.cur)}</td></tr>`)}</tbody></table></div>
+        ${seqs.map((q) => h`<td class="center"><input class="input note-input ${r.cur[q] === 'ABS' ? 'abs' : noteClass(num(r.cur[q]))}" data-seq="${q}" inputmode="decimal" enterkeyhint="next" autocomplete="off"
+          aria-label="Note de ${r.nom} ${r.prenom}, séquence ${q}" value="${display(r.cur[q])}" ${locked[q] ? raw('disabled') : ''}></td>`)}
+        ${multi ? h`<td class="tri-avg ${noteClass(avgOf(r))}" data-avg>${fmtNum(avgOf(r))}</td>`
+    : h`<td class="center"><label class="check" style="justify-content:center"><input type="checkbox" data-abs ${r.cur[seqs[0]] === 'ABS' ? raw('checked') : ''} ${locked[seqs[0]] ? raw('disabled') : ''} aria-label="Absent"></label></td>`}
+        <td class="hide-mobile small" data-app>${multi ? appreciation(avgOf(r)) : r.cur[seqs[0]] === 'ABS' ? 'Absent' : appreciation(num(r.cur[seqs[0]]))}</td></tr>`)}</tbody></table></div>
       ${!rows.length ? empty('Aucun élève', "Aucun élève n'est inscrit dans cette classe.", 'users') : ''}
     </div>
     <div class="savebar hidden" data-savebar><div class="msg"></div><button class="btn btn-outline btn-sm" data-save>${icon('save')} Enregistrer maintenant</button></div>`);
   renderHead();
 
-  const setRow = (i, cur, { fromInput = false } = {}) => {
-    const r = rows[i]; r.cur = cur;
-    const tr = $(`tr[data-i="${i}"]`, container), inp = $('.note-input', tr), abs = $('[data-abs]', tr);
-    abs.checked = cur === 'ABS'; inp.disabled = cur === 'ABS';
-    if (!fromInput) inp.value = cur == null || cur === 'ABS' ? '' : String(cur).replace('.', ',');
-    inp.className = `input note-input ${noteClass(cur === 'ABS' ? null : cur)}`;
-    $('[data-app]', tr).textContent = cur === 'ABS' ? 'Absent' : appreciation(cur);
+  const setCell = (i, q, cur, { fromInput = false } = {}) => {
+    const r = rows[i]; r.cur[q] = cur;
+    const tr = $(`tr[data-i="${i}"]`, container), inp = $(`.note-input[data-seq="${q}"]`, tr);
+    if (!fromInput || cur === 'ABS') inp.value = display(cur);
+    inp.className = `input note-input ${cur === 'ABS' ? 'abs' : noteClass(num(cur))}`;
+    const abs = $('[data-abs]', tr); if (abs) abs.checked = cur === 'ABS';
+    if (multi) { const a = avgOf(r); const td = $('[data-avg]', tr); td.textContent = fmtNum(a); td.className = `tri-avg ${noteClass(a)}`; }
+    $('[data-app]', tr).textContent = multi ? appreciation(avgOf(r)) : cur === 'ABS' ? 'Absent' : appreciation(num(cur));
     tr.classList.add('dirty');
-    saver.set(r.id, { student_id: r.id, value: cur === 'ABS' ? null : cur, absent: cur === 'ABS' });
+    saver.set(`${r.id}|${q}`, { student_id: r.id, seq: q, value: cur === 'ABS' ? null : cur, absent: cur === 'ABS' });
     renderHead();
   };
-  const inputs = () => $$('.note-input', container);
-  const focusNext = (inp, d) => { const all = inputs(); let k = all.indexOf(inp) + d; while (all[k] && all[k].disabled) k += d; all[k]?.focus(); all[k]?.select(); };
+  const inputsOf = (q) => $$(`.note-input[data-seq="${q}"]`, container);
+  const focusNext = (inp, d) => { const all = inputsOf(inp.dataset.seq); let k = all.indexOf(inp) + d; while (all[k] && all[k].disabled) k += d; all[k]?.focus(); all[k]?.select(); };
   container.addEventListener('input', (e) => {
     const inp = e.target.closest('.note-input'); if (!inp) return;
-    const i = +inp.closest('tr').dataset.i;
-    if (/^a/i.test(inp.value)) { setRow(i, 'ABS'); focusNext(inp, 1); return; }
+    const i = +inp.closest('tr').dataset.i, q = +inp.dataset.seq;
+    if (/^a/i.test(inp.value) && inp.value !== 'ABS') { setCell(i, q, 'ABS'); focusNext(inp, 1); return; }
+    if (inp.value === 'ABS') return;
     const v = parseNote(inp.value);
     const bad = Number.isNaN(v) || (v != null && (v < 0 || v > 20 || Math.round(v * 100) !== v * 100));
     inp.classList.toggle('invalid', bad);
-    if (!bad) setRow(i, v, { fromInput: true });
+    if (!bad) setCell(i, q, v, { fromInput: true });
   });
   container.addEventListener('change', (e) => {
     const cb = e.target.closest('[data-abs]'); if (!cb) return;
-    const i = +cb.closest('tr').dataset.i; setRow(i, cb.checked ? 'ABS' : null);
+    const i = +cb.closest('tr').dataset.i; setCell(i, seqs[0], cb.checked ? 'ABS' : null);
     if (!cb.checked) $('.note-input', cb.closest('tr')).focus();
   });
   container.addEventListener('keydown', (e) => {
@@ -219,28 +238,27 @@ export async function notesEditor(container, { cs, seq, onChangeSeq, assignments
   container.addEventListener('focusin', (e) => { const inp = e.target.closest('.note-input'); if (inp) inp.select(); });
   container.addEventListener('paste', (e) => {
     const inp = e.target.closest('.note-input'); if (!inp) return;
-    const text = e.clipboardData.getData('text');
-    const lines = text.split(/\r?\n/).map((x) => x.split('\t')[0].trim()).filter((x, k, a) => x !== '' || k < a.length - 1);
+    const lines = e.clipboardData.getData('text').split(/\r?\n/).map((x) => x.split('\t')[0].trim()).filter((x, k, a) => x !== '' || k < a.length - 1);
     if (lines.length < 2) return;
     e.preventDefault();
-    let i = +inp.closest('tr').dataset.i, n = 0;
+    const q = +inp.dataset.seq; let i = +inp.closest('tr').dataset.i, n = 0;
     for (const l of lines) {
       if (i >= rows.length) break;
-      if (/^a(bs)?/i.test(l)) { setRow(i, 'ABS'); n++; } else { const v = parseNote(l); if (v != null && !Number.isNaN(v) && v >= 0 && v <= 20) { setRow(i, Math.round(v * 100) / 100); n++; } }
+      if (/^a(bs)?/i.test(l)) { setCell(i, q, 'ABS'); n++; } else { const v = parseNote(l); if (v != null && !Number.isNaN(v) && v >= 0 && v <= 20) { setCell(i, q, Math.round(v * 100) / 100); n++; } }
       i++;
     }
-    toast(`${n} note(s) collée(s)`);
+    toast(`${n} note(s) collée(s) en séquence ${q}`);
   });
   $('[data-save]', container).onclick = () => saver.flush();
-  $('[data-seq]', container).onchange = async (e) => { if (await saver.flush()) onChangeSeq(+e.target.value, cs); else e.target.value = seq; };
-  $('[data-cs]', container)?.addEventListener('change', async (e) => { if (await saver.flush()) onChangeSeq(seq, +e.target.value); else e.target.value = cs; });
-  $('[data-pdf]', container).onclick = async () => { await saver.flush(); openPdf(`/releve?cs=${cs}&period=S${seq}`); };
+  $('[data-period]', container).onchange = async (e) => { if (await saver.flush()) onChange(e.target.value, cs); else e.target.value = period; };
+  $('[data-cs]', container)?.addEventListener('change', async (e) => { if (await saver.flush()) onChange(period, +e.target.value); else e.target.value = cs; });
+  $('[data-pdf]', container).onclick = async () => { await saver.flush(); openPdf(`/releve?cs=${cs}&period=${period}`); };
 
   // Brouillon non synchronisé (coupure réseau précédente)
   const draft = saver.draft();
-  if (draft?.length && !locked) {
+  if (draft?.length && openSeqs.length) {
     const ok = await confirmDialog({ title: 'Saisie non synchronisée', message: `${draft.length} note(s) saisie(s) précédemment sur cet appareil n'ont pas pu être envoyées. Voulez-vous les restaurer et les enregistrer ?`, okLabel: 'Restaurer' });
-    if (ok) for (const [sid, v] of draft) { const i = rows.findIndex((r) => r.id === +sid); if (i >= 0) setRow(i, v.absent ? 'ABS' : v.value); }
+    if (ok) for (const [, v] of draft) { const i = rows.findIndex((r) => r.id === v.student_id); if (i >= 0 && !locked[v.seq]) setCell(i, v.seq, v.absent ? 'ABS' : v.value); }
     else saver.clearDraft();
   }
 }
@@ -248,12 +266,14 @@ const progressHtml = (pct) => { const d = document.createElement('div'); mount(d
 
 /* ================= Fiche disciplinaire (responsable / administrateur) ================= */
 const DFIELDS = [['abs_j', 'Abs. J (h)'], ['abs_nj', 'Abs. NJ (h)'], ['retards', 'Retards'], ['consignes', 'Consignes (h)']];
-export async function disciplineEditor(container, { class_id, seq, classes, onChange }) {
-  const data = await get(`/discipline/sheet?class_id=${class_id}&seq=${seq}`);
+export async function disciplineEditor(container, { class_id, period, classes, onChange }) {
+  const recap = /^T/.test(period);
+  const seq = recap ? null : +period.slice(1);
+  const data = await get(`/discipline/sheet?class_id=${class_id}&${recap ? 'period=' + period : 'seq=' + seq}`);
   const locked = data.locked;
   const rows = data.students;
   const saver = createSaver({
-    key: `edugest:draft:disc:${class_id}:${seq}`, onState: (s) => saveBar($('[data-savebar]', container), s),
+    key: `edugest:draft:disc:${class_id}:${period}`, onState: (s) => saveBar($('[data-savebar]', container), s),
     save: async (entries) => { await put('/discipline/sheet', { class_id, seq, entries }); data.validated_at = null; renderHead(); }
   });
   setLeaveGuard(() => (saver.size ? 'Des données ne sont pas enregistrées. Quitter quand même ?' : null));
@@ -264,8 +284,9 @@ export async function disciplineEditor(container, { class_id, seq, classes, onCh
       <div>Abs. justifiées<br><b>${sum('abs_j')} h</b></div><div>Abs. non justifiées<br><b class="${sum('abs_nj') ? 'low' : ''}">${sum('abs_nj')} h</b></div>
       <div>Retards<br><b>${sum('retards')}</b></div><div>Avertissements<br><b>${sum('avertissement')}</b></div><div>Blâmes<br><b>${sum('blame')}</b></div><div>Incidents<br><b>${sum('incidents')}</b></div></div>
       <div style="flex:1"></div>
-      ${locked ? h`<span class="badge red">${icon('lock', 'sm')} Verrouillée</span>` : data.validated_at ? h`<span class="badge green">${icon('check', 'sm')} Fiche validée</span> <button class="btn btn-ghost btn-sm" data-unvalidate>Annuler la validation</button>`
-    : h`<button class="btn btn-gold btn-sm" data-validate>${icon('checkCircle')} Valider la fiche</button>`}`);
+      ${recap ? h`${data.period.seqs.map((q) => (data.validated[q] ? h`<span class="badge green">${icon('check', 'sm')} S${q} validée</span>` : h`<span class="badge amber">S${q} non validée</span>`))}`
+    : locked ? h`<span class="badge red">${icon('lock', 'sm')} Verrouillée</span>` : data.validated_at ? h`<span class="badge green">${icon('check', 'sm')} Fiche validée</span> <button class="btn btn-ghost btn-sm" data-unvalidate>Annuler la validation</button>`
+      : h`<button class="btn btn-gold btn-sm" data-validate>${icon('checkCircle')} Valider la fiche</button>`}`);
     $('[data-validate]', container)?.addEventListener('click', async () => {
       if (!(await saver.flush())) return;
       const ok = await confirmDialog({ title: 'Valider la fiche disciplinaire', message: `Confirmez-vous que tous les faits disciplinaires de la classe ${data.classe.name} pour la séquence ${seq} ont été saisis ?`, okLabel: 'Valider' });
@@ -275,14 +296,14 @@ export async function disciplineEditor(container, { class_id, seq, classes, onCh
     $('[data-unvalidate]', container)?.addEventListener('click', async () => { try { await post('/discipline/validate', { class_id, seq, cancel: true }); data.validated_at = null; renderHead(); } catch (ex) { toast(ex.message, 'err'); } });
   };
   mount(container, h`<div class="card"><div class="card-h">
-      <div><h3>Classe de ${data.classe.name}</h3><div class="sub">${rows.length} élève(s) • Séquence ${seq}</div></div>
+      <div><h3>Classe de ${data.classe.name}</h3><div class="sub">${rows.length} élève(s) • ${recap ? data.period.label + ' (récapitulatif)' : 'Séquence ' + seq}</div></div>
       <div class="actions">
         <select class="select" style="min-height:36px;width:auto" data-class aria-label="Classe">${classes.map((c) => h`<option value="${c.id}" ${c.id === +class_id ? raw('selected') : ''}>${c.name}</option>`)}</select>
-        <select class="select" style="min-height:36px;width:auto" data-seq aria-label="Séquence">${seqOptions(seq)}</select>
+        <select class="select" style="min-height:36px;width:auto" data-seq aria-label="Période">${entryPeriodOptions(period)}</select>
         <button class="btn btn-outline btn-sm" data-incident ${dis}>${icon('flag')} Signaler un incident</button>
         <button class="btn btn-outline btn-sm" data-pdf>${icon('pdf')} Fiche PDF</button>
       </div></div>
-      <div class="card-b"><div class="entry-head" data-head></div>${locked ? h`<div class="alert warn mt">${icon('lock')}<div>${locked}</div></div>` : ''}</div>
+      <div class="card-b"><div class="entry-head" data-head></div>${locked ? h`<div class="alert ${recap ? 'info' : 'warn'} mt">${icon(recap ? 'info' : 'lock')}<div>${locked}</div></div>` : ''}</div>
       <div class="table-wrap"><table class="t rt compact"><thead><tr><th>Élève</th>${DFIELDS.map(([, l]) => h`<th class="center">${l}</th>`)}<th class="center">Avert.</th><th class="center">Blâme</th><th class="center">Excl. (j)</th><th>Observation</th><th class="center">Inc.</th></tr></thead>
       <tbody>${rows.map((r, i) => h`<tr data-i="${i}">
         <td class="primary-cell"><div class="strong">${r.nom} ${r.prenom}</div><div class="cell-sub">${r.matricule}</div></td>
@@ -307,10 +328,10 @@ export async function disciplineEditor(container, { class_id, seq, classes, onCh
     saver.set(r.id, collect(r)); renderHead();
   });
   $('[data-save]', container).onclick = () => saver.flush();
-  $('[data-seq]', container).onchange = async (e) => { if (await saver.flush()) onChange(class_id, +e.target.value); };
-  $('[data-class]', container).onchange = async (e) => { if (await saver.flush()) onChange(+e.target.value, seq); };
-  $('[data-pdf]', container).onclick = async () => { await saver.flush(); openPdf(`/discipline?class_id=${class_id}&period=S${seq}`); };
-  $('[data-incident]', container).onclick = async () => { if (await incidentModal({ students: rows, seq })) { await saver.flush(); onChange(class_id, seq); } };
+  $('[data-seq]', container).onchange = async (e) => { if (await saver.flush()) onChange(class_id, e.target.value); };
+  $('[data-class]', container).onchange = async (e) => { if (await saver.flush()) onChange(+e.target.value, period); };
+  $('[data-pdf]', container).onclick = async () => { await saver.flush(); openPdf(`/discipline?class_id=${class_id}&period=${period}`); };
+  $('[data-incident]', container).onclick = async () => { if (await incidentModal({ students: rows, seq: seq || state.current })) { await saver.flush(); onChange(class_id, period); } };
   container.addEventListener('click', (e) => { const b = e.target.closest('[data-hist]'); if (b) studentHistory(+b.dataset.hist); });
 }
 

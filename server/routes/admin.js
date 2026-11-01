@@ -1,10 +1,14 @@
 import { Router } from 'express';
-import express from 'express';
-import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy } from '../db.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy, periodPlan } from '../db.js';
+import { seal, unseal } from '../vault.js';
+import { inPlatform, pdb, TENANTS_DIR } from '../platform.js';
+import { renderPdfBuffer, statsReport } from '../pdf.js';
 import { hashPassword, genPassword, genUsername, verifyPassword, slug, destroyUserSessions } from '../security.js';
-import { completeness, currentSeq, computeClassResults, TRIMESTRES, round2 } from '../calc.js';
+import { completeness, currentSeq, computeClassResults, TRIMESTRES, round2, parsePeriod } from '../calc.js';
 import { str, num, id, bool, date, oneOf, bad, seqParam, HttpError } from '../util.js';
-import { requireRole } from './access.js';
+import { requireRole, portalLink } from './access.js';
 
 const r = Router();
 r.use(requireRole('admin'));
@@ -55,7 +59,7 @@ r.get('/settings', (_req, res) => res.json(getSettings()));
 r.put('/settings', (req, res) => {
   const b = req.body || {}; const out = {};
   for (const k of Object.keys(DEFAULT_SETTINGS)) {
-    if (!(k in b)) continue;
+    if (!(k in b) || k === 'annee_cloturee') continue;
     const def = DEFAULT_SETTINGS[k];
     if (k === 'logo') {
       if (b.logo && !/^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/.test(b.logo)) throw bad('Logo : PNG ou JPEG uniquement');
@@ -388,7 +392,8 @@ function normDate(v) {
 r.get('/users', (req, res) => {
   const role = oneOf(req.query.role, ['teacher', 'discipline', 'admin'], 'Rôle');
   const users = db.prepare(`SELECT id, role, username, full_name, sexe, phone, email, matricule, specialite, active, must_change, last_login,
-      locked_until > unixepoch() locked, created_at FROM users WHERE role = ? ORDER BY full_name COLLATE NOCASE`).all(role);
+      locked_until > unixepoch() locked, created_at, pw_enc IS NOT NULL has_pw, pw_set_at, pw_user_changed_at
+    FROM users WHERE role = ? ORDER BY full_name COLLATE NOCASE`).all(role);
   for (const u of users) {
     if (role === 'teacher') u.assignments = db.prepare(`SELECT cs.id, c.name classe, s.name subject, cs.coef, cs.hours_week FROM class_subjects cs
       JOIN classes c ON c.id = cs.class_id JOIN subjects s ON s.id = cs.subject_id WHERE cs.teacher_id = ? ORDER BY c.name`).all(u.id);
@@ -404,12 +409,13 @@ function createUser(req, role, b, classIds) {
   const username = b.username ? str(b.username, { max: 40 }).toLowerCase().replace(/[^a-z0-9._-]/g, '') : genUsername(u.full_name, role);
   if (!username) throw bad('Identifiant invalide');
   const password = genPassword();
-  const info = db.prepare(`INSERT INTO users(role, username, pass_hash, full_name, sexe, phone, email, matricule, specialite, must_change) VALUES(?,?,?,?,?,?,?,?,?,1)`)
-    .run(role, username, hashPassword(password), u.full_name, u.sexe, u.phone, u.email, u.matricule, u.specialite);
+  // le mot de passe généré reste valable et consultable par l'administrateur (coffre chiffré) jusqu'à ce que l'utilisateur le change
+  const info = db.prepare(`INSERT INTO users(role, username, pass_hash, full_name, sexe, phone, email, matricule, specialite, must_change, pw_enc, pw_set_at)
+    VALUES(?,?,?,?,?,?,?,?,?,0,?,unixepoch())`).run(role, username, hashPassword(password), u.full_name, u.sexe, u.phone, u.email, u.matricule, u.specialite, seal(password));
   const uid = Number(info.lastInsertRowid);
   if (role === 'discipline' && classIds?.length) setOfficerClasses(uid, classIds);
   audit(req, 'COMPTE_CREE', `${role} ${username}`);
-  return { id: uid, role, full_name: u.full_name, username, password };
+  return { id: uid, role, full_name: u.full_name, username, password, link: portalLink(req, role) };
 }
 function setOfficerClasses(uid, classIds) {
   db.prepare('DELETE FROM officer_classes WHERE user_id = ?').run(uid);
@@ -445,10 +451,12 @@ r.post('/users/:id/reset', (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(uid);
   if (!u) throw new HttpError(404, 'Utilisateur introuvable');
   const password = genPassword();
-  db.prepare('UPDATE users SET pass_hash = ?, must_change = 1, failed_attempts = 0, locked_until = 0 WHERE id = ?').run(hashPassword(password), uid);
+  if (u.role === 'admin') throw bad("Le mot de passe de l'administrateur est géré par AI721 TECH STUFF.");
+  db.prepare(`UPDATE users SET pass_hash = ?, must_change = 0, failed_attempts = 0, locked_until = 0, pw_enc = ?, pw_set_at = unixepoch(), pw_user_changed_at = NULL
+    WHERE id = ?`).run(hashPassword(password), seal(password), uid);
   destroyUserSessions(uid);
   audit(req, 'MOT_DE_PASSE_REINITIALISE', u.username);
-  res.json({ id: uid, role: u.role, full_name: u.full_name, username: u.username, password });
+  res.json({ id: uid, role: u.role, full_name: u.full_name, username: u.username, password, link: portalLink(req, u.role) });
 });
 r.post('/users/:id/toggle', (req, res) => {
   const uid = id(req.params.id);
@@ -467,6 +475,22 @@ r.delete('/users/:id', (req, res) => {
   db.prepare('DELETE FROM users WHERE id = ?').run(uid);
   audit(req, 'COMPTE_SUPPRIME', u.username);
   res.json({ ok: true });
+});
+
+/* ============ Coffre des accès (personnels de l'établissement) ============ */
+r.get('/acces', (req, res) => {
+  const rows = db.prepare(`SELECT id, role, username, full_name, phone, specialite, active, last_login, locked_until > unixepoch() locked,
+      pw_enc IS NOT NULL has_pw, pw_set_at, pw_user_changed_at FROM users WHERE role IN ('teacher','discipline') ORDER BY role DESC, full_name COLLATE NOCASE`).all();
+  res.json({ links: { teacher: portalLink(req, 'teacher'), discipline: portalLink(req, 'discipline'), admin: portalLink(req, 'admin') },
+    users: rows.map((u) => ({ ...u, link: portalLink(req, u.role) })) });
+});
+r.post('/users/:id/reveal', (req, res) => {
+  const u = db.prepare("SELECT id, role, username, full_name, pw_enc, pw_user_changed_at FROM users WHERE id = ? AND role IN ('teacher','discipline')").get(id(req.params.id));
+  if (!u) throw new HttpError(404, 'Utilisateur introuvable');
+  const password = unseal(u.pw_enc);
+  audit(req, 'COFFRE_CONSULTATION', u.username);
+  res.json({ id: u.id, role: u.role, full_name: u.full_name, username: u.username, password, link: portalLink(req, u.role),
+    changed_by_user: !!u.pw_user_changed_at && !password });
 });
 
 /* ============ Emplois du temps ============ */
@@ -566,10 +590,10 @@ r.post('/timetable/:classId/generate', (req, res) => {
 
 /* ============ Résultats & statistiques ============ */
 r.get('/results', (req, res) => res.json(computeClassResults(id(req.query.class_id), req.query.period || 'S1')));
-r.get('/stats', (req, res) => {
-  const period = req.query.period || 'S1';
+export function computeStats(periodCode) {
+  const period = parsePeriod(periodCode || 'S1');
   const classes = db.prepare('SELECT id FROM classes ORDER BY name').all();
-  const all = classes.map((c) => computeClassResults(c.id, period));
+  const all = classes.map((c) => computeClassResults(c.id, period.code));
   const bySubject = {}, byType = {};
   for (const cr of all) for (const ss of cr.subjectStats) {
     const b = (bySubject[ss.subject] ??= { subject: ss.subject, sum: 0, n: 0, pass: 0 });
@@ -581,19 +605,25 @@ r.get('/stats', (req, res) => {
   }
   const students = all.flatMap((cr) => cr.results.filter((x) => x.general != null).map((x) => ({ nom: `${x.student.nom} ${x.student.prenom}`, sexe: x.student.sexe, classe: cr.classe.name, general: x.general, seuil: cr.seuil })));
   const g = (sx) => { const l = students.filter((x) => x.sexe === sx); return { n: l.length, reussite: l.length ? round2((l.filter((x) => x.general >= x.seuil).length / l.length) * 100) : null }; };
-  res.json({
-    period, classes: all.map((cr) => ({ id: cr.classe.id, classe: cr.classe.name, ...cr.stats })),
+  const ph = period.seqs.join(',');
+  return {
+    period: period.code, label: period.label, classes: all.map((cr) => ({ id: cr.classe.id, classe: cr.classe.name, ...cr.stats })),
     subjects: Object.values(bySubject).map((b) => ({ subject: b.subject, moyenne: b.n ? round2(b.sum / b.n) : null, reussite: b.n ? round2((b.pass / b.n) * 100) : null, n: b.n }))
       .sort((a, b) => (b.moyenne ?? -1) - (a.moyenne ?? -1)),
     types: Object.values(byType).map((b) => ({ type: b.type, moyenne: b.n ? round2(b.sum / b.n) : null, reussite: b.n ? round2((b.pass / b.n) * 100) : null, n: b.n })),
     top: students.sort((a, b) => b.general - a.general).slice(0, 10),
-    global: { n: students.length, reussite: students.length ? round2((students.filter((x) => x.general >= x.seuil).length / students.length) * 100) : null,
+    global: { effectif: all.reduce((a, cr) => a + cr.stats.effectif, 0), n: students.length,
+      admis: students.filter((x) => x.general >= x.seuil).length,
+      reussite: students.length ? round2((students.filter((x) => x.general >= x.seuil).length / students.length) * 100) : null,
       moyenne: students.length ? round2(students.reduce((a, x) => a + x.general, 0) / students.length) : null, garcons: g('M'), filles: g('F') },
     discipline: db.prepare(`SELECT c.name classe, COALESCE(SUM(d.abs_nj),0) abs_nj, COALESCE(SUM(d.abs_j),0) abs_j, COALESCE(SUM(d.retards),0) retards,
-      (SELECT COUNT(*) FROM incidents i JOIN students s2 ON s2.id = i.student_id WHERE s2.class_id = c.id) incidents
-      FROM classes c LEFT JOIN students s ON s.class_id = c.id LEFT JOIN discipline_records d ON d.student_id = s.id GROUP BY c.id ORDER BY c.name`).all()
-  });
-});
+      COALESCE(SUM(d.avertissement),0) avertissements, COALESCE(SUM(d.blame),0) blames,
+      (SELECT COUNT(*) FROM incidents i JOIN students s2 ON s2.id = i.student_id WHERE s2.class_id = c.id AND i.seq IN (${ph})) incidents
+      FROM classes c LEFT JOIN students s ON s.class_id = c.id LEFT JOIN discipline_records d ON d.student_id = s.id AND d.seq IN (${ph})
+      GROUP BY c.id ORDER BY c.name`).all()
+  };
+}
+r.get('/stats', (req, res) => res.json(computeStats(req.query.period || 'S1')));
 
 /* ============ Suivi de saisie (progressions des enseignants) ============ */
 r.get('/progressions', (_req, res) => {
@@ -622,15 +652,19 @@ r.get('/audit', (req, res) => {
 
 /* ============ Sauvegarde / restauration / nouvelle année ============ */
 const TABLES = ['settings', 'users', 'classes', 'subject_groups', 'subject_types', 'subjects', 'class_subjects', 'students', 'officer_classes', 'periods', 'notes', 'note_validations',
-  'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'timetable', 'announcements'];
-r.get('/backup', (req, res) => {
-  const dump = { app: 'EduGest CM', version: 1, created_at: new Date().toISOString(), tables: {} };
+  'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'timetable', 'announcements', 'year_archives'];
+function buildDump() {
+  const dump = { app: 'EduGest CM', version: 2, created_at: new Date().toISOString(), tables: {} };
   for (const t of TABLES) dump.tables[t] = db.prepare(`SELECT * FROM ${t}`).all();
+  return dump;
+}
+r.get('/backup', (req, res) => {
+  const dump = buildDump();
   audit(req, 'SAUVEGARDE');
   res.setHeader('Content-Disposition', `attachment; filename="edugest-sauvegarde-${new Date().toISOString().slice(0, 10)}.json"`);
   res.json(dump);
 });
-r.post('/restore', express.json({ limit: '50mb' }), (req, res) => {
+r.post('/restore', (req, res) => {
   confirmPassword(req);
   const dump = req.body.dump;
   if (!dump || dump.app !== 'EduGest CM' || typeof dump.tables !== 'object') throw bad('Fichier de sauvegarde invalide');
@@ -652,23 +686,69 @@ r.post('/restore', express.json({ limit: '50mb' }), (req, res) => {
     const legacy = (dump.tables.subjects || []).filter((x) => x.groupe != null && x.group_id === undefined);
     for (const x of legacy) { const t = legacyTaxonomy(x.groupe); db.prepare('UPDATE subjects SET group_id = ?, type_id = ? WHERE id = ?').run(t.group_id, t.type_id, x.id); }
   });
+  // le coffre d'AI721 ne reste valable que si le mot de passe de l'administrateur est inchangé
+  const t = req.tenant;
+  const admin = db.prepare("SELECT id, pass_hash FROM users WHERE role = 'admin' ORDER BY username = ? DESC, id LIMIT 1").get(t.admin_username || '');
+  const vaultPw = inPlatform(() => unseal(pdb.prepare('SELECT admin_pw_enc FROM tenants WHERE id = ?').get(t.id)?.admin_pw_enc));
+  const stillValid = vaultPw && admin && verifyPassword(vaultPw, admin.pass_hash);
+  inPlatform(() => pdb.prepare('UPDATE tenants SET admin_user_id = ?, admin_pw_enc = CASE WHEN ? THEN admin_pw_enc ELSE NULL END WHERE id = ?').run(admin?.id ?? null, stillValid ? 1 : 0, t.id));
   audit(req, 'RESTAURATION', dump.created_at);
   res.json({ ok: true });
 });
 r.post('/new-year', (req, res) => {
   confirmPassword(req);
   const annee = str(req.body.annee_scolaire, { max: 9, required: true, label: 'Année scolaire' });
-  if (!/^\d{4}-\d{4}$/.test(annee)) throw bad('Format attendu : 2026-2027');
+  if (!/^\d{4}-\d{4}$/.test(annee) || +annee.slice(5) !== +annee.slice(0, 4) + 1) throw bad('Format attendu : 2026-2027');
+  const s = getSettings();
+  if (s.annee_cloturee !== s.annee_scolaire && !bool(req.body.force))
+    throw new HttpError(409, `Clôturez d'abord l'année ${s.annee_scolaire} (statistiques annuelles et sauvegarde), ou forcez le passage.`);
   tx(() => {
     for (const t of ['notes', 'note_validations', 'progressions', 'discipline_records', 'incidents', 'discipline_validations']) db.exec(`DELETE FROM ${t}`);
     db.exec("UPDATE periods SET status = 'open', closed_at = NULL, closed_by = NULL, forced = 0");
-    const y = +annee.slice(0, 4);
-    const plan = [[`${y}-09-02`, `${y}-10-18`], [`${y}-10-21`, `${y}-12-06`], [`${y + 1}-01-06`, `${y + 1}-02-14`], [`${y + 1}-02-17`, `${y + 1}-03-28`], [`${y + 1}-03-31`, `${y + 1}-05-09`], [`${y + 1}-05-12`, `${y + 1}-06-13`]];
-    plan.forEach((p, i) => db.prepare('UPDATE periods SET start_date = ?, end_date = ? WHERE seq = ?').run(p[0], p[1], i + 1));
+    periodPlan(+annee.slice(0, 4)).forEach((p, i) => db.prepare('UPDATE periods SET start_date = ?, end_date = ? WHERE seq = ?').run(p[0], p[1], i + 1));
     saveSettings({ annee_scolaire: annee });
   });
   audit(req, 'NOUVELLE_ANNEE', annee);
   res.json({ ok: true });
+});
+
+/* ============ Clôture de l'année : statistiques annuelles + sauvegarde archivées ============ */
+const archivesDir = (req) => { const d = path.join(TENANTS_DIR, req.tenant.code, 'archives'); fs.mkdirSync(d, { recursive: true }); return d; };
+r.post('/annee/cloturer', async (req, res) => {
+  confirmPassword(req);
+  const s = getSettings(); const annee = s.annee_scolaire;
+  if (db.prepare('SELECT 1 FROM year_archives WHERE annee = ?').get(annee)) throw bad(`L'année ${annee} est déjà clôturée.`);
+  const open = db.prepare("SELECT seq FROM periods WHERE status = 'open' ORDER BY seq").all().map((x) => x.seq);
+  if (open.length && !bool(req.body.force))
+    throw new HttpError(409, `Séquence(s) ${open.join(', ')} encore ouverte(s) : clôturez les trois trimestres, ou forcez la clôture de l'année.`);
+  if (open.length) db.prepare("UPDATE periods SET status = 'closed', closed_at = unixepoch(), closed_by = ?, forced = 1 WHERE status = 'open'").run(req.user.username);
+  const stats = computeStats('A');
+  const dir = archivesDir(req);
+  const report = `rapport-annuel-${annee}.pdf`, backup = `sauvegarde-fin-${annee}.json`, snap = `base-fin-${annee}.db`;
+  fs.writeFileSync(path.join(dir, report), await renderPdfBuffer({ title: `Rapport statistique annuel ${annee}` }, (doc) => statsReport(doc, stats, { annual: true })));
+  fs.writeFileSync(path.join(dir, backup), JSON.stringify(buildDump()));
+  fs.rmSync(path.join(dir, snap), { force: true });
+  db.prepare('VACUUM INTO ?').run(path.join(dir, snap));
+  const info = db.prepare('INSERT INTO year_archives(annee, closed_at, closed_by, stats_json, report_file, backup_file) VALUES(?,unixepoch(),?,?,?,?)')
+    .run(annee, req.user.username, JSON.stringify({ global: stats.global, classes: stats.classes.map((c) => ({ classe: c.classe, moyenne: c.moyenne, reussite: c.reussite, effectif: c.effectif })) }), report, backup);
+  saveSettings({ annee_cloturee: annee });
+  audit(req, 'ANNEE_CLOTUREE', `${annee}${open.length ? ' (forcée)' : ''}`);
+  res.json({ ok: true, id: Number(info.lastInsertRowid), annee, global: stats.global });
+});
+r.get('/archives', (_req, res) => {
+  res.json(db.prepare('SELECT id, annee, closed_at, closed_by, stats_json FROM year_archives ORDER BY annee DESC').all()
+    .map((a) => ({ ...a, stats: JSON.parse(a.stats_json || '{}'), stats_json: undefined })));
+});
+r.get('/archives/:id/:kind', (req, res) => {
+  const a = db.prepare('SELECT * FROM year_archives WHERE id = ?').get(id(req.params.id));
+  if (!a) throw new HttpError(404, 'Archive introuvable');
+  const kind = oneOf(req.params.kind, ['rapport', 'sauvegarde'], 'Document');
+  const file = path.join(archivesDir(req), path.basename(kind === 'rapport' ? a.report_file : a.backup_file));
+  if (!fs.existsSync(file)) throw new HttpError(404, 'Fichier d\'archive introuvable sur le serveur');
+  audit(req, 'ARCHIVE_TELECHARGEE', `${a.annee} ${kind}`);
+  if (kind === 'rapport') { res.type('application/pdf'); res.setHeader('Content-Disposition', `inline; filename="${path.basename(file)}"`); }
+  else res.setHeader('Content-Disposition', `attachment; filename="${path.basename(file)}"`);
+  res.sendFile(file);
 });
 
 export default r;

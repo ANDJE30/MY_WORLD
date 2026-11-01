@@ -9,10 +9,10 @@ today = datetime.date.today().strftime('%d/%m/%Y')
 
 D = Doc('Cahier des charges — EduGest CM', 'Cahier des charges')
 D.cover('Cahier des charges fonctionnel et technique', 'EduGest CM',
-        "Application web responsive de gestion des notes, des faits disciplinaires et des emplois du temps des établissements d'enseignement secondaire général et technique du Cameroun",
-        [('Projet', 'EduGest CM — plateforme de gestion scolaire'), ('Document', 'Cahier des charges (spécifications fonctionnelles, techniques et conception UML)'),
-         ('Version', '1.1'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
-         ('Historique', '1.0 : version initiale.  1.1 : groupe et type de matière dissociés, référentiels administrables, statistiques par type.'),
+        "Plateforme web responsive (SaaS) de gestion des notes, des faits disciplinaires et des emplois du temps des établissements d'enseignement secondaire général et technique du Cameroun — proposée par AI721 TECH STUFF",
+        [('Projet', 'EduGest CM — plateforme de gestion scolaire multi-établissements'), ('Éditeur', 'AI721 TECH STUFF (super administrateur : AI721)'), ('Document', 'Cahier des charges (spécifications fonctionnelles, techniques et conception UML)'),
+         ('Version', '2.0'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
+         ('Historique', '1.0 : version initiale.  1.1 : groupe et type de matière dissociés.  2.0 : plateforme multi-établissements AI721 (abonnements annuels, console super admin, quatre interfaces de connexion, coffre des accès), saisie et statistiques par trimestre, statistiques PDF, clôture annuelle.'),
          ('Destinataires', "Chefs d'établissement, censeurs, surveillants généraux, enseignants, promoteurs d'établissements privés, équipe technique"),
          ('Rédaction', 'Équipe de développement full stack EduGest CM')], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
 D.toc()
@@ -28,6 +28,11 @@ D.p("Les établissements d'enseignement secondaire du Cameroun, placés sous la 
 D.p("Dans la majorité des établissements, ces opérations reposent encore sur des cahiers, des fiches papier et des tableurs dispersés. Il en résulte "
     "des retards dans la remise des notes, des erreurs de calcul de moyennes et de rangs, des pertes de données, une difficulté à suivre la progression "
     "des programmes et une charge de travail considérable pour l'administration à chaque fin de séquence.", align='justify')
+D.p("**EduGest CM est proposé par l'entreprise AI721 TECH STUFF** sous forme de service en ligne (SaaS). Les établissements souscrivent un **abonnement annuel** "
+    "moyennant un montant fixé par AI721 ; leurs identifiants de connexion sont valables **du 1er septembre de l'année en cours au 31 août de l'année suivante**, "
+    "c'est-à-dire pour une année scolaire. Le super administrateur **AI721** crée les comptes des établissements, suit les abonnements et les paiements, "
+    "et transmet à chaque administrateur d'établissement le lien de sa plateforme ; l'administrateur transmet à son tour les liens et identifiants à ses enseignants "
+    "et responsables disciplinaires.", align='justify')
 D.h2('1.2 Problématique')
 D.bullets(["Comment permettre à chaque enseignant de saisir ses notes **où qu'il soit**, depuis un ordinateur, une tablette ou un simple smartphone, même avec une connexion instable ?",
            "Comment garantir que les moyennes, rangs et décisions soient **calculés sans erreur** et que les documents officiels soient **conformes** à la présentation administrative camerounaise ?",
@@ -40,38 +45,58 @@ D.table(['Objectif', 'Indicateur de réussite'], [
     ["Supprimer les erreurs de calcul", "Moyennes pondérées, rangs ex æquo et statistiques calculés automatiquement et testés"],
     ["Piloter l'établissement", "Tableau de bord en temps réel : taux de saisie, moyennes, réussite, discipline"],
     ["Garantir sécurité et traçabilité", "Accès par rôle, verrouillage des séquences clôturées, journal d'audit complet"],
-    ["Être utilisable partout", "Interface responsive (ordinateur, tablette, smartphone), installable comme une application"]],
+    ["Être utilisable partout", "Interface responsive (ordinateur, tablette, smartphone), installable comme une application"],
+    ["Commercialiser la plateforme (AI721)", "Création d'un établissement abonné en moins de 2 minutes ; abonnements, paiements et échéances suivis depuis une console unique"]],
     widths=[7.5, 9], caption='Objectifs du projet')
 D.h2('1.4 Périmètre')
-D.p("Le périmètre couvre un établissement (lycée, collège ou CES, général ou technique, public ou privé, francophone, anglophone ou bilingue) "
-    "et une année scolaire active, avec passage à l'année suivante. Il comprend :", align='justify')
+D.p("Le périmètre couvre **plusieurs établissements abonnés** (lycées, collèges, CES, général ou technique, public ou privé, francophones, anglophones ou bilingues), "
+    "chacun disposant de sa propre base de données, et pour chacun une année scolaire active avec passage à l'année suivante. Il comprend :", align='justify')
+D.bullets(["la **console de la plateforme** (AI721) : établissements, abonnements annuels, paiements et reçus, accès des administrateurs, tableau de bord ;"])
 D.bullets(["la gestion administrative de référence : établissement, classes, matières, coefficients, élèves, personnels, attributions ;",
            "la gestion pédagogique : calendrier des séquences, saisie des notes, progression annuelle, résultats, bulletins, statistiques ;",
            "la gestion disciplinaire : absences, retards, consignes, sanctions, registre des incidents ;",
            "la gestion des emplois du temps : conception, génération automatique, détection des conflits ;",
            "l'édition de tous les documents officiels au format PDF ;",
-           "l'administration technique : sauvegarde, restauration, journal d'audit, nouvelle année scolaire."])
+           "l'administration technique : sauvegarde, restauration, journal d'audit, clôture de l'année et nouvelle année scolaire."])
 D.p("Sont **hors périmètre de la version 1.0** (mais prévus dans la feuille de route, § 13) : le portail parents/élèves, la gestion financière "
-    "(frais de scolarité), les notifications SMS et la gestion multi-établissements centralisée.", align='justify')
+    "(frais de scolarité des élèves), les notifications SMS et le paiement en ligne automatisé des abonnements.", align='justify')
 
 # ------------------------------------------------------------------ 2
 D.h1('2. Acteurs et profils utilisateurs')
-D.p("L'application distingue trois profils. Chaque utilisateur ne voit que les menus et les données correspondant à son rôle ; le contrôle est "
-    "appliqué côté serveur pour chaque requête (et pas seulement dans l'interface).", align='justify')
+D.p("La plateforme distingue **quatre profils**, chacun avec **sa propre interface de connexion** (adresse, couleurs et page distinctes). Chaque utilisateur ne voit que les menus et "
+    "les données correspondant à son rôle ; le contrôle est appliqué côté serveur pour chaque requête (et pas seulement dans l'interface).", align='justify')
 D.table(['Profil', 'Personnes concernées', 'Responsabilités principales', 'Périmètre de données'], [
+    ["**Super administrateur (AI721)**", "AI721 TECH STUFF, éditeur de la plateforme", "Établissements abonnés, abonnements et paiements, comptes et mots de passe des administrateurs d'établissement, liens de la plateforme, tableau de bord commercial", "Toute la plateforme (registre des établissements)"],
     ["**Administrateur**", "Proviseur, directeur, principal, censeur, secrétaire de direction", "Paramétrage, comptes, attributions, calendrier, clôtures, emplois du temps, bulletins, statistiques, sauvegardes", "Tout l'établissement"],
     ["**Enseignant**", "Professeurs titulaires et vacataires", "Progression annuelle, saisie et validation des notes, relevés PDF", "Uniquement les classes et matières qui lui sont attribuées"],
     ["**Responsable disciplinaire**", "Surveillant général, surveillants de secteur, conseillers d'orientation", "Saisie des faits disciplinaires, incidents, validation des fiches, fiches PDF", "Uniquement les classes qui lui sont confiées"]],
     widths=[3.2, 3.8, 5.8, 3.8], caption='Profils utilisateurs')
+D.table(['Interface de connexion', 'Adresse', 'Couleur', 'Comptes acceptés'], [
+    ['Console AI721', '/console', 'Indigo', 'Super administrateur'], ['Administration', '/e/<code>/admin', 'Vert', "Administrateur de l'établissement"],
+    ['Enseignants', '/e/<code>/enseignant', 'Bleu', 'Enseignants'], ['Vie scolaire', '/e/<code>/discipline', 'Ambre', 'Responsables disciplinaires']],
+    widths=[3.6, 4.4, 2.2, 6.4], caption="Quatre interfaces de connexion distinctes (<code> = code de l'établissement, ex. lpey)")
+D.p("Une page d'accueil par établissement (/e/<code>) oriente vers les trois espaces ; le site de présentation (/) permet d'accéder à son établissement par son code. "
+    "Un compte qui tente de se connecter par une interface qui n'est pas la sienne est refusé, avec l'indication de la bonne adresse.", align='justify')
 
 # ------------------------------------------------------------------ 3
 D.h1('3. Exigences fonctionnelles')
 D.p("Chaque exigence est identifiée (EF-xx) et priorisée selon la méthode MoSCoW : **M** = indispensable (Must), **S** = important (Should), "
     "**C** = souhaitable (Could). Toutes les exigences M et S, ainsi que les exigences C signalées, sont **réalisées** dans la version livrée.", align='justify')
 EF = [
+ ('3.0 Super administrateur — console AI721 TECH STUFF', [
+   ('EF-100', 'Interface dédiée', "Connexion par une interface propre (/console), compte AI721 créé au premier démarrage (mot de passe défini par SUPERADMIN_PASSWORD).", 'M'),
+   ('EF-101', "Création d'un établissement", "Nom, sigle, code d'adresse (proposé automatiquement), type, statut, région, ville, contact ; création d'une base dédiée, du calendrier de l'année et du compte administrateur (identifiant admin.<code>, mot de passe facile à retenir).", 'M'),
+   ('EF-102', 'Abonnement annuel', "Année scolaire, montant (tarif par défaut paramétrable, en FCFA), paiement reçu ou non, mode (espèces, Mobile Money, Orange Money, virement, chèque), référence ; validité du 1er septembre au 31 août.", 'M'),
+   ('EF-103', "Contrôle d'accès par abonnement", "Toutes les connexions d'un établissement sont refusées si l'abonnement est expiré, à venir, impayé ou si l'établissement est suspendu, avec un message explicite.", 'M'),
+   ('EF-104', 'Coffre des accès (super admin)', "Consultation de l'identifiant et du mot de passe généré de chaque administrateur d'établissement, et des liens des trois interfaces ; nouveau mot de passe en un clic.", 'M'),
+   ('EF-105', 'Transmission des accès', "Fiche d'accès PDF (lien, identifiants, mise en route), message prêt à copier ou à envoyer par WhatsApp.", 'M'),
+   ('EF-106', 'Tableau de bord', "Établissements abonnés, actifs et inactifs, élèves et enseignants gérés, recettes de l'année et cumulées, relances (impayés, échéances < 30 jours), répartition par région, activité.", 'M'),
+   ('EF-107', 'Gestion du cycle de vie', "Renouvellement (option : nouveaux identifiants), encaissement, suspension et réactivation (sessions fermées), suppression avec archivage des données.", 'M'),
+   ('EF-108', 'Documents', "Reçu de paiement PDF, liste des établissements abonnés PDF, export CSV.", 'S'),
+   ('EF-109', 'Paramètres et journal', "Coordonnées de l'entreprise (raison sociale, RCCM, NIU, tarif, devise) reprises sur les documents ; journal d'audit de la console.", 'S')]),
  ('3.1 Authentification et compte (tous profils)', [
-   ('EF-01', 'Connexion', "Connexion par identifiant et mot de passe ; message d'erreur générique ; nombre d'essais restants affiché.", 'M'),
-   ('EF-02', 'Première connexion', "Changement de mot de passe obligatoire avant tout accès (mot de passe généré par l'administrateur).", 'M'),
+   ('EF-01', 'Connexion', "Connexion par identifiant et mot de passe sur l'interface propre au rôle ; message d'erreur générique ; nombre d'essais restants affiché ; refus et redirection si le compte n'appartient pas à cette interface.", 'M'),
+   ('EF-02', 'Mot de passe généré', "Le mot de passe généré (facile à retenir) reste valable et consultable dans le coffre ; l'utilisateur peut le remplacer par un mot de passe personnel, qui n'est alors plus consultable.", 'M'),
    ('EF-03', 'Verrouillage', "Compte verrouillé 15 minutes après 5 échecs ; déverrouillage possible par l'administrateur.", 'M'),
    ('EF-04', 'Changement de mot de passe', "Indicateur de robustesse ; déconnexion automatique des autres appareils après changement.", 'M'),
    ('EF-05', 'Profil', "Consultation du profil, mise à jour du téléphone et de l'e-mail, date de dernière connexion.", 'S'),
@@ -90,7 +115,9 @@ EF = [
    ('EF-23', 'Clôture forcée', "Possibilité de passer outre les conditions, avec confirmation par mot de passe et trace dans le journal d'audit.", 'S'),
    ('EF-24', 'Clôture de trimestre', "Clôture en une opération des deux séquences du trimestre.", 'M'),
    ('EF-25', 'Réouverture', "Réouverture d'une séquence (dans l'ordre inverse), confirmée par mot de passe.", 'S'),
-   ('EF-26', 'Verrouillage', "Une séquence clôturée est en lecture seule pour les notes, la progression et la discipline.", 'M')]),
+   ('EF-26', 'Verrouillage', "Une séquence clôturée est en lecture seule pour les notes, la progression et la discipline.", 'M'),
+   ('EF-27', "Clôture de l'année", "Après les trois trimestres : calcul des statistiques annuelles, rapport PDF archivé, sauvegarde complète archivée (JSON + base), année marquée clôturée ; préalable au démarrage de la nouvelle année.", 'M'),
+   ('EF-28', 'Suivi par trimestre', "Suivi des saisies d'un trimestre (deux séquences côte à côte) pour les notes et les fiches disciplinaires.", 'M')]),
  ('3.4 Administrateur — scolarité', [
    ('EF-30', 'Classes', "Création, modification, suppression (si vide) ; niveau (6e … Terminale, Form 1 … Upper Sixth, années du technique), série/spécialité, cycle, salle, professeur principal ; copie des matières d'une classe parallèle.", 'M'),
    ('EF-31', 'Matières', "Catalogue avec intitulé, abréviation, **groupe** et **type** choisis indépendamment ; filtre par type ; ajout du programme officiel en un clic.", 'M'),
@@ -105,7 +132,9 @@ EF = [
    ('EF-42', "Fiches d'identifiants", "Affichage unique des identifiants, copie et impression PDF de fiches découpables (le mot de passe n'est jamais stocké en clair).", 'M'),
    ('EF-43', 'Responsables disciplinaires', "Mêmes fonctions + affectation des classes à charge (sélection multiple).", 'M'),
    ('EF-44', 'Import des personnels', "Import CSV avec génération automatique des comptes et des fiches.", 'S'),
-   ('EF-45', 'Réinitialisation', "Réinitialisation individuelle ou groupée des mots de passe avec impression des nouvelles fiches.", 'M')]),
+   ('EF-45', 'Réinitialisation', "Réinitialisation individuelle ou groupée des mots de passe avec impression des nouvelles fiches.", 'M'),
+   ('EF-46', 'Coffre des accès (administrateur)', "Liste des enseignants et responsables avec identifiant, mot de passe généré (affichage à la demande, tracé), lien de leur interface, état (généré / personnel), dernière connexion ; impression groupée des fiches.", 'M'),
+   ('EF-47', 'Transmission des liens', "Fiche PDF et message prêt à envoyer (copie, WhatsApp) comportant le lien de l'interface du rôle et les identifiants.", 'M')]),
  ('3.6 Administrateur — emplois du temps', [
    ('EF-50', 'Grille', "Grille hebdomadaire par classe (jours × créneaux), édition case par case (matière, salle).", 'M'),
    ('EF-51', 'Conflits', "Refus d'un créneau si l'enseignant ou la salle est déjà occupé ailleurs ; signalement dans la liste des matières.", 'M'),
@@ -116,7 +145,7 @@ EF = [
    ('EF-61', 'Suivi des saisies', "Avancement par classe/matière/enseignant ; filtre « à compléter » ; ouverture et correction d'une grille ; export CSV.", 'M'),
    ('EF-62', 'Résultats', "Classement par période (séquence, trimestre, année) : moyenne, rang, appréciation, décision, absences ; statistiques par matière.", 'M'),
    ('EF-63', 'Bulletins', "Bulletins PDF par élève ou pour toute la classe ; procès-verbal de conseil de classe.", 'M'),
-   ('EF-64', 'Statistiques', "Réussite par classe, par matière, par type de matière, par sexe ; tableau d'honneur ; discipline par classe.", 'S'),
+   ('EF-64', 'Statistiques', "Par séquence, trimestre ou année : réussite par classe, par matière, par type de matière, par sexe ; tableau d'honneur ; discipline par classe ; **export PDF** pour exploitation.", 'M'),
    ('EF-65', 'Discipline (supervision)', "Accès à toutes les fiches disciplinaires et au registre des incidents.", 'S'),
    ('EF-66', 'Annonces', "Publication de messages ciblés (tous, enseignants, responsables), affichés sur les tableaux de bord.", 'S'),
    ('EF-67', "Journal d'audit", "Traçabilité des actions sensibles (connexions, échecs, saisies, clôtures, suppressions, exports) ; recherche et export.", 'M'),
@@ -125,7 +154,7 @@ EF = [
  ('3.8 Enseignant', [
    ('EF-70', 'Tableau de bord', "Classes et matières attribuées, avancement de la saisie de la séquence en cours, couverture du programme, cours du jour, annonces.", 'M'),
    ('EF-71', 'Progression annuelle', "Pour chaque classe/matière et chaque séquence : leçons prévues, leçons faites, taux de couverture, observations ; fiche PDF.", 'M'),
-   ('EF-72', 'Saisie des notes', "Grille par classe et séquence : note sur 20 (virgule ou point, 2 décimales), case « absent », appréciation et statistiques en direct.", 'M'),
+   ('EF-72', 'Saisie des notes', "Grille par classe et par **séquence** ou par **trimestre** (deux séquences côte à côte et moyenne trimestrielle en direct) : note sur 20 (virgule ou point, 2 décimales), absent, appréciation et statistiques ; chaque séquence garde son propre verrou.", 'M'),
    ('EF-73', 'Ergonomie de saisie', "Navigation clavier (Entrée/↓/↑), touche « a » pour absent, collage d'une colonne Excel, enregistrement automatique, brouillon conservé hors ligne.", 'M'),
    ('EF-74', 'Validation', "« Valider la saisie » lorsque tous les élèves ont une note ou sont absents ; toute modification ultérieure annule la validation.", 'M'),
    ('EF-75', 'Relevés PDF', "Relevé de notes officiel par classe/matière et par période (séquence, trimestre, année) avec rang et statistiques.", 'M'),
@@ -135,6 +164,7 @@ EF = [
    ('EF-81', 'Fiche disciplinaire', "Par classe et séquence : absences justifiées et non justifiées (heures), retards, consignes, avertissement et blâme de conduite, jours d'exclusion, observation.", 'M'),
    ('EF-82', 'Incidents', "Signalement daté (nature, gravité, sanction, description), registre filtrable, historique par élève, suppression tant que la séquence est ouverte.", 'M'),
    ('EF-83', 'Validation', "Validation de la fiche d'une classe pour la séquence (prérequis à la clôture).", 'M'),
+   ('EF-85', 'Récapitulatif trimestriel', "Vue par trimestre cumulant les deux séquences (absences, retards, sanctions, incidents) et fiche PDF du trimestre.", 'S'),
    ('EF-84', 'Exports PDF', "Fiche des faits disciplinaires de la classe (séquence, trimestre ou année) et fiche individuelle de l'élève.", 'M')]),
  ('3.10 Exigences transverses', [
    ('EF-90', 'Responsive', "Interface adaptée à l'ordinateur (barre latérale), à la tablette (rail d'icônes) et au smartphone (menu tiroir + barre d'onglets).", 'M'),
@@ -166,6 +196,11 @@ D.table(['Réf.', 'Règle'], [
   ['RG-16', "Une classe ne peut être supprimée que si elle ne contient aucun élève ; une matière ne peut être supprimée si des notes existent."],
   ['RG-17', "Emploi du temps : un enseignant ou une salle ne peut être affecté à deux classes sur le même créneau ; les créneaux de pause ne sont pas affectables."],
   ['RG-18', "Il doit toujours exister au moins un compte administrateur ; un administrateur ne peut ni supprimer ni désactiver son propre compte."],
+  ['RG-20', "Un abonnement couvre une année scolaire : du 1er septembre au 31 août suivant. L'accès d'un établissement exige un abonnement couvrant la date du jour, **payé**, et un établissement non suspendu ; un seul abonnement par établissement et par année."],
+  ['RG-21', "Chaque compte n'est accepté que sur son interface : AI721 sur /console, l'administrateur sur /e/<code>/admin, les enseignants sur /e/<code>/enseignant, les responsables sur /e/<code>/discipline. La session est limitée à l'établissement (cookie restreint à /e/<code>/)."],
+  ['RG-22', "Seuls les mots de passe **générés** sont conservés (chiffrés) dans le coffre. Un mot de passe choisi par l'utilisateur n'est jamais conservé : le coffre l'indique et un nouveau mot de passe peut être généré."],
+  ['RG-23', "La nouvelle année scolaire ne peut démarrer qu'après la clôture de l'année en cours (statistiques et sauvegarde archivées), sauf passage forcé."],
+  ['RG-24', "Saisie par trimestre : seules les séquences ouvertes du trimestre sont modifiables ; la moyenne trimestrielle d'une matière est la moyenne des notes disponibles des deux séquences."],
   ['RG-19', "Chaque matière a exactement un groupe et un type, choisis indépendamment. Sur le bulletin, les matières sont regroupées et sous-totalisées par groupe, dans l'ordre des positions. Un groupe ou un type utilisé par une matière ne peut être supprimé ; il en reste toujours au moins un de chaque. Les libellés sont uniques (sans distinction de casse)."]],
   widths=[1.6, 15], caption='Règles de gestion', font=9.5)
 
@@ -174,7 +209,7 @@ D.h1('5. Exigences non fonctionnelles')
 D.h2('5.1 Sécurité (« security by design »)')
 D.table(['Menace', 'Mesure mise en œuvre'], [
   ['Vol de mots de passe', "Hachage **scrypt** (N = 16384, sel aléatoire de 16 octets) ; comparaison à temps constant ; mots de passe jamais stockés ni journalisés en clair."],
-  ['Attaque par force brute', "Limitation de débit par IP (150 essais / 15 min, adapté aux établissements derrière une même IP) et par identifiant (10 / 15 min) ; verrouillage du compte après 5 échecs ; temps de réponse égalisé pour les identifiants inconnus."],
+  ['Attaque par force brute', "Limitation de débit par IP (150 essais / 15 min, adapté aux établissements derrière une même IP) et par identifiant (10 échecs / 15 min — les connexions réussies ne sont pas comptées) ; verrouillage du compte après 5 échecs ; temps de réponse égalisé pour les identifiants inconnus."],
   ['Vol de session', "Jeton aléatoire de 256 bits, stocké **haché** en base ; cookie HttpOnly, SameSite=Strict, Secure en HTTPS ; expiration (2 h d'inactivité, 8 h max) ; révocation à la déconnexion, au changement ou à la réinitialisation du mot de passe."],
   ['CSRF', "En-tête personnalisé obligatoire sur toute requête d'écriture + vérification de l'origine + cookie SameSite=Strict."],
   ['XSS', "Politique CSP stricte (aucun script en ligne ni externe) ; gabarits HTML à échappement automatique dans l'interface."],
@@ -182,6 +217,9 @@ D.table(['Menace', 'Mesure mise en œuvre'], [
   ['Élévation de privilèges', "Contrôle d'accès par rôle **et** par ressource (classe, matière) sur chaque route serveur ; principe du moindre privilège."],
   ['Altération des résultats', "Verrouillage des séquences clôturées ; validation des saisies ; journal d'audit horodaté avec adresse IP."],
   ['Perte de données', "Base SQLite en mode WAL avec transactions ; sauvegardes automatiques toutes les 6 h (14 jours conservés) ; sauvegarde/restauration manuelles."],
+  ["Accès d'un établissement aux données d'un autre", "**Une base de données par établissement** ; chaque requête s'exécute dans le contexte de son établissement (AsyncLocalStorage) ; cookie de session limité au chemin /e/<code>/ ; sessions distinctes par base."],
+  ['Fuite du coffre des accès', "Chiffrement **AES-256-GCM** (authentifié) des seuls mots de passe générés ; clé hors de la base (variable VAULT_KEY ou fichier vault.key, droits 600) ; consultation à la demande et tracée (COFFRE_CONSULTATION)."],
+  ['Usage hors abonnement', "Contrôle de l'abonnement et de la suspension sur chaque requête de l'établissement (réponse 402) ; suspension = fermeture immédiate des sessions."],
   ['Fuite d\'informations', "Messages d'erreur génériques avec référence ; en-têtes HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, COOP/CORP."]],
   widths=[3.6, 13], caption='Mesures de sécurité', font=9.5)
 D.note("**Conformité.** Les données traitées (identité, date de naissance, résultats, discipline de mineurs) sont des données personnelles au sens de la "
@@ -211,7 +249,8 @@ D.bullets(["Architecture modulaire (routes par domaine, moteur de calcul et mote
 D.h1('6. Conception UML')
 D.p("Les diagrammes suivants modélisent le système livré. Leurs sources (format Mermaid) sont versionnées dans le dossier docs/uml du projet.", align='justify')
 D.h2('6.1 Diagrammes de cas d\'utilisation')
-D.figure(u('01a_cas_utilisation_admin.png'), "Cas d'utilisation de l'administrateur", max_h=19)
+D.figure(u('01c_cas_utilisation_superadmin.png'), "Cas d'utilisation du super administrateur AI721", max_h=15)
+D.figure(u('01a_cas_utilisation_admin.png'), "Cas d'utilisation de l'administrateur d'établissement", max_h=19)
 D.figure(u('01b_cas_utilisation_ens_resp.png'), "Cas d'utilisation de l'enseignant et du responsable disciplinaire", max_h=17)
 def wide():
     D.h2('6.2 Diagramme de classes (modèle du domaine)')
@@ -225,8 +264,10 @@ D.h2('6.4 Diagrammes de séquence')
 D.figure(u('04_seq_authentification.png'), 'Séquence « Authentification »', max_h=14)
 D.figure(u('05_seq_saisie_notes.png'), 'Séquence « Saisie des notes avec enregistrement automatique »', max_h=14)
 D.figure(u('06_seq_cloture.png'), 'Séquence « Clôture d\'une séquence »', max_h=13)
+D.figure(u('11_seq_souscription.png'), "Séquence « Souscription d'un établissement et transmission des accès »", max_h=10)
 D.h2("6.5 Diagramme d'états-transitions")
 D.figure(u('07_etats_sequence.png'), "Cycle de vie d'une séquence d'évaluation", max_h=13)
+D.figure(u('12_etats_abonnement.png'), "Cycle de vie d'un abonnement", max_h=11)
 D.h2("6.6 Diagramme d'activités")
 D.figure(u('08_activite_sequence.png'), "Déroulement d'une séquence, de la préparation aux bulletins", max_h=21)
 D.h2('6.7 Diagrammes de composants et de déploiement')
@@ -236,6 +277,7 @@ D.figure(u('09_deploiement.png'), 'Diagramme de déploiement')
 # ------------------------------------------------------------------ 7
 D.h1('7. Architecture technique et choix technologiques')
 D.table(['Couche', 'Technologie', 'Justification'], [
+  ['Multi-établissements', 'Base SQLite par établissement + base « plateforme »', "Isolation forte des données, sauvegarde et suppression par établissement, aucune requête ne peut mélanger deux établissements."],
   ['Serveur', 'Node.js 22 LTS, Express 5', "Écosystème mature, très performant pour une API JSON ; Express 5 gère nativement les erreurs asynchrones."],
   ['Base de données', 'SQLite (module natif node:sqlite), mode WAL', "Zéro administration, un seul fichier facile à sauvegarder, transactions ACID, largement suffisant pour un établissement (des dizaines de milliers d'enregistrements)."],
   ['Documents', 'PDFKit', "Génération côté serveur de PDF vectoriels légers, identiques sur tous les terminaux."],
@@ -247,14 +289,17 @@ D.table(['Couche', 'Technologie', 'Justification'], [
   widths=[2.8, 4.6, 9.2], caption='Pile technologique', font=9.5)
 D.h2('7.1 Organisation du code source')
 D.table(['Chemin', 'Contenu'], [
-  ['server/index.js', "Démarrage, en-têtes de sécurité, sessions, CSRF, gestion des erreurs, sauvegardes automatiques"],
+  ['server/index.js', "Démarrage, routage /console/api et /e/<code>/api, en-têtes de sécurité, sessions, CSRF, contrôle d'abonnement, sauvegardes automatiques"],
+  ['server/platform.js', "Base plateforme : établissements, abonnements, super admin, création d'établissement, migration d'une installation 1.x"],
+  ['server/context.js', "Contexte de requête : base de l'établissement courant"], ['server/vault.js', "Coffre des accès (AES-256-GCM)"],
+  ['server/routes/platform.js', "API de la console AI721"],
   ['server/db.js', "Schéma de la base, transactions, paramètres, journal d'audit"],
   ['server/security.js', "Hachage, génération des identifiants, sessions, limitation de débit"],
   ['server/calc.js', "Moyennes, rangs, appréciations, décisions, complétude, calendrier"],
   ['server/pdf.js', "Mise en page des documents officiels"],
   ['server/routes/*.js', "auth, admin, work (notes, progression, discipline), pdfRoutes, common, access (contrôle d'accès)"],
   ['server/seed.js', "Jeu de démonstration (établissement fictif)"],
-  ['public/js/*.js', "app (coquille, routeur), ui (composants), api, shared, admin, teacher, discipline"],
+  ['public/js/*.js', "app (détection de l'interface, connexion, coquille, routeur), landing, console, admin, teacher, discipline, shared, ui, api"],
   ['public/css/app.css', "Design system responsive"],
   ['test/api.test.js', "Tests d'intégration"], ['deploy/', "docker-compose, Caddyfile, script d'installation serveur"]],
   widths=[4.2, 12.4], font=9.5)
@@ -262,8 +307,12 @@ D.table(['Chemin', 'Contenu'], [
 # ------------------------------------------------------------------ 8
 D.h1('8. Dictionnaire des données')
 D.table(['Table', 'Rôle', 'Champs principaux'], [
+  ['platform.db : tenants', 'Établissements abonnés', "code, name, sigle, type, région, ville, contact, admin_username, admin_pw_enc (coffre), status"],
+  ['platform.db : subscriptions', 'Abonnements annuels', "tenant_id, annee, valid_from (01/09), valid_to (31/08), montant, paid, paid_at, mode, reference"],
+  ['platform.db : users, sessions, audit_log, settings', "Super admin, sessions, journal, paramètres de l'entreprise", "même structure que dans un établissement"],
+  ['year_archives', 'Années clôturées', "annee, closed_at, closed_by, stats_json, report_file, backup_file"],
   ['settings', "Paramètres de l'établissement (clé/valeur JSON)", "nom, sigle, type, délégations, logo, année, seuil, horaires…"],
-  ['users', 'Comptes (3 rôles)', "role, username, pass_hash, full_name, active, must_change, failed_attempts, locked_until"],
+  ['users', 'Comptes (3 rôles)', "role, username, pass_hash, full_name, active, failed_attempts, locked_until, pw_enc (mot de passe généré chiffré), pw_set_at, pw_user_changed_at"],
   ['sessions', 'Sessions actives', "token_hash, user_id, expires_at, last_seen, ip"],
   ['classes', 'Classes', "name, level, serie, cycle, room, titulaire_id"],
   ['subjects', 'Matières', "name, code, group_id, type_id"],
@@ -285,19 +334,22 @@ D.table(['Table', 'Rôle', 'Champs principaux'], [
 
 # ------------------------------------------------------------------ 9
 D.h1('9. Interface de programmation (API REST)')
-D.p("Toutes les routes sont préfixées par /api, échangent du JSON et exigent une session valide (sauf connexion et informations publiques).")
+D.p("Les routes de la console sont préfixées par **/console/api** ; celles d'un établissement par **/e/<code>/api**. Elles échangent du JSON et exigent une session valide "
+    "(sauf connexion et informations publiques). Les routes d'un établissement exigent en outre un abonnement valide.")
 D.table(['Domaine', 'Principales routes'], [
-  ['Authentification', "POST auth/login, auth/logout, auth/password ; GET auth/me, auth/public ; PUT auth/profile"],
+  ['Console AI721', "GET dashboard, tenants, tenants/:id, subscriptions, settings, audit, code-suggestion ; POST tenants, tenants/:id/subscriptions|toggle|reveal|reset-admin ; PUT tenants/:id, subscriptions/:id, settings ; DELETE tenants/:id, subscriptions/:id ; GET pdf/acces/:id, pdf/recu/:id, pdf/etablissements"],
+  ['Authentification', "POST auth/login (avec l'interface : portal), auth/logout, auth/password ; GET auth/me, auth/public ; PUT auth/profile"],
   ['Commun', "GET periods, announcements, classes/mine, timetable/class/:id, timetable/teacher/:id, search"],
   ['Administration', "GET admin/dashboard ; GET|PUT admin/settings ; PUT admin/periods/:seq ; GET admin/periods/:seq/check ; POST admin/periods/:seq/close|reopen ; POST admin/trimestres/:n/close"],
   ['Scolarité', "CRUD admin/classes, admin/subjects, admin/subject-groups, admin/subject-types, admin/class-subjects, admin/students ; POST admin/students/import|bulk ; POST admin/classes/:id/copy-subjects"],
   ['Personnels', "GET|POST admin/users ; POST admin/users/import ; PUT|DELETE admin/users/:id ; POST admin/users/:id/reset|toggle"],
   ['Emplois du temps', "GET admin/timetable/:classId ; PUT|DELETE admin/timetable ; POST admin/timetable/:classId/generate"],
   ['Résultats', "GET admin/results, admin/stats, admin/progressions, admin/audit"],
-  ['Maintenance', "GET admin/backup ; POST admin/restore, admin/new-year ; POST|DELETE admin/announcements"],
-  ['Enseignant', "GET teacher/assignments ; GET|PUT notes/grid ; POST notes/validate ; GET|PUT progression"],
+  ['Maintenance', "GET admin/backup, admin/archives, admin/archives/:id/rapport|sauvegarde ; POST admin/restore, admin/annee/cloturer, admin/new-year ; POST|DELETE admin/announcements"],
+  ['Coffre', "GET admin/acces ; POST admin/users/:id/reveal ; POST pdf/credentials {ids}"],
+  ['Enseignant', "GET teacher/assignments ; GET notes/grid?period=S2|T1 ; PUT notes/grid (séquence par note) ; POST notes/validate ; GET|PUT progression"],
   ['Discipline', "GET discipline/classes ; GET|PUT discipline/sheet ; POST discipline/validate ; GET|POST|DELETE discipline/incidents ; GET discipline/student/:id"],
-  ['Documents PDF', "GET pdf/releve, pdf/progression, pdf/discipline, pdf/discipline-eleve, pdf/bulletins, pdf/pv, pdf/liste, pdf/timetable ; POST pdf/credentials"]],
+  ['Documents PDF', "GET pdf/releve, pdf/progression, pdf/discipline, pdf/discipline-eleve, pdf/bulletins, pdf/pv, pdf/liste, pdf/timetable, pdf/stats ; POST pdf/credentials"]],
   widths=[3.4, 13.2], caption="Routes de l'API", font=9)
 
 # ------------------------------------------------------------------ 10
@@ -315,12 +367,13 @@ D.p("**Choix retenu :** Render (gratuit) pour l'instance de démonstration acces
 D.h2('10.2 Procédures')
 D.bullets([("Démonstration (Render) : ", "connecter le dépôt GitHub à Render ▸ « New Blueprint » ▸ le fichier render.yaml crée le service ; l'URL publique est fournie par Render."),
            ("Production (serveur Linux) : ", "créer une VM Ubuntu, faire pointer un nom de domaine vers son IP, puis exécuter deploy/oracle-cloud-init.sh ; Docker et Caddy installent l'application avec HTTPS automatique."),
-           ("Premier démarrage : ", "le compte « admin » est créé ; son mot de passe est défini par la variable ADMIN_PASSWORD ou affiché une fois dans les journaux du serveur."),
-           ("Variables d'environnement : ", "PORT, DATA_DIR (dossier de la base), ADMIN_USERNAME, ADMIN_PASSWORD, DEMO (1 = démonstration), TRUST_PROXY, AUTO_BACKUP.")])
+           ("Premier démarrage : ", "le compte super administrateur « AI721 » est créé ; son mot de passe est défini par SUPERADMIN_PASSWORD ou affiché une fois dans les journaux. Une installation 1.x existante est automatiquement convertie en premier établissement de la plateforme."),
+           ("Variables d'environnement : ", "PORT, DATA_DIR (données : platform.db, tenants/<code>/, backups/, vault.key), SUPERADMIN_PASSWORD, VAULT_KEY (clé du coffre, recommandée en production), DEMO (1 = démonstration avec 4 établissements fictifs), TRUST_PROXY, AUTO_BACKUP."),
+           ("Sauvegarde du serveur : ", "sauvegarder l'intégralité du dossier DATA_DIR, y compris vault.key (sans cette clé, les mots de passe du coffre ne sont plus lisibles).")])
 
 # ------------------------------------------------------------------ 11
 D.h1('11. Recette et assurance qualité')
-D.p("La qualité est assurée par une suite de tests d'intégration automatisés (17 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
+D.p("La qualité est assurée par une suite de tests d'intégration automatisés (25 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
     "dans un navigateur réel (Playwright) qui visite toutes les pages des trois profils sur ordinateur, tablette et smartphone sans aucune erreur.", align='justify')
 D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Connexion correcte / incorrecte', "200 / 401, cookie HttpOnly", 'Réussi'], ['Requête sans en-tête anti-CSRF ou d\'origine étrangère', '403', 'Réussi'],
@@ -337,7 +390,15 @@ D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Génération de tous les documents (9 types de PDF)', 'Fichiers PDF valides (signature %PDF)', 'Réussi'], ['Sauvegarde puis restauration', 'Données identiques après restauration', 'Réussi'],
   ['Groupes et types : création, doublon, combinaison libre, suppression protégée', '201 / 409 / 400, statistiques ventilées par type', 'Réussi'],
   ["Restauration d'une sauvegarde de la version 1.0", 'Groupe et type correctement reconstitués', 'Réussi'],
-  ["Migration automatique d'une base de la version 1.0", 'Colonnes migrées, ancienne colonne retirée, données conservées', 'Réussi']],
+  ["Migration d'une installation 1.x vers la plateforme", "Établissement créé, base déplacée, abonnement de l'année, matières migrées", 'Réussi'],
+  ['Console : connexion AI721, tableau de bord, statuts des 4 établissements', 'Actif, actif, expiré, impayé ; comptes croisés refusés', 'Réussi'],
+  ['Quatre interfaces : compte sur une autre interface', '403 + lien de la bonne interface, aucune session', 'Réussi'],
+  ['Abonnements : expiré, impayé, suspension, encaissement', '402 puis accès rétabli après paiement / réactivation', 'Réussi'],
+  ["Création d'établissement, coffre, nouveau mot de passe, renouvellement, suppression", 'Base vierge isolée, ancien mot de passe refusé, doublon 409, PDF', 'Réussi'],
+  ["Isolation : cookie d'un établissement sur un autre", '401 ; cookie limité à /e/<code>/', 'Réussi'],
+  ['Saisie par trimestre, récapitulatif disciplinaire, statistiques PDF', 'Séquence clôturée verrouillée, autre séquence enregistrée', 'Réussi'],
+  ["Clôture de l'année puis nouvelle année", 'Nouvelle année refusée avant clôture ; rapport et sauvegarde archivés', 'Réussi'],
+  ['Limitation de débit : échecs seulement', '10 échecs → blocage ; 12 connexions réussies → jamais bloquées', 'Réussi']],
   widths=[7.2, 7.4, 2], caption='Plan de tests automatisés', font=9)
 D.p("**Recette utilisateur.** Avant la mise en production, l'établissement réalise une recette sur le mode démonstration puis sur ses propres données "
     "(import d'une classe, saisie d'une séquence complète, clôture, édition des bulletins) en s'appuyant sur le manuel d'utilisation.", align='justify')
@@ -366,7 +427,8 @@ D.table(['Module', 'Description'], [
   ['Examens officiels', "Préparation des listes de candidats (BEPC, CAP, Probatoire, Baccalauréat, GCE O/A Level), moyennes d'admission."],
   ['Cahier de textes numérique', "Contenu des leçons par séance, lié à la progression annuelle et à l'emploi du temps."],
   ['Gestion des absences enseignants', "Suivi des heures dues/effectuées, remplacements, statistiques de présence."],
-  ['Multi-établissements', "Console d'un promoteur ou d'une délégation pour plusieurs établissements ; statistiques consolidées."],
+  ['Paiement en ligne des abonnements', "Encaissement automatique (Mobile Money, Orange Money) et activation instantanée de l'abonnement."],
+  ['Console multi-utilisateurs', "Comptes commerciaux et support d'AI721 avec droits différenciés ; statistiques consolidées par région."],
   ['Mode hors ligne complet', "Saisie entièrement hors ligne avec synchronisation différée (le brouillon local actuel en est la première étape)."],
   ['Authentification renforcée', "Double authentification (code par SMS ou application) pour les comptes administrateurs."]],
   widths=[4.2, 12.4], caption='Feuille de route', font=9.5)
@@ -375,7 +437,9 @@ D.table(['Module', 'Description'], [
 D.h1('14. Glossaire')
 D.table(['Terme', 'Définition'], [
   ['Séquence / situation', "Période d'évaluation ; l'année en compte six."], ['Trimestre', "Regroupement de deux séquences, sanctionné par un bulletin trimestriel."],
-  ['Coefficient', "Poids d'une matière dans le calcul de la moyenne générale."], ['Conseil de classe', "Réunion qui arrête les résultats et décisions de fin de période."],
+  ['Coefficient', "Poids d'une matière dans le calcul de la moyenne générale."],
+  ['Abonnement', "Droit d'utilisation annuel d'un établissement, du 1er septembre au 31 août."], ['Coffre des accès', "Liste chiffrée des identifiants et mots de passe générés, consultable par AI721 (administrateurs) et par l'administrateur (personnel)."],
+  ['Interface (portail)', "Page de connexion propre à un rôle : console, administration, enseignants, vie scolaire."], ['Super administrateur', "Compte AI721 de l'éditeur, qui gère les établissements abonnés."], ['Conseil de classe', "Réunion qui arrête les résultats et décisions de fin de période."],
   ['Consigne', "Retenue de l'élève (en heures) à titre de sanction."], ['Avertissement / blâme', "Sanctions de conduite (ou de travail) mentionnées au bulletin."],
   ['Attribution', "Affectation d'une matière d'une classe à un enseignant, avec son coefficient."], ['Clôture', "Verrouillage d'une séquence après la fin des saisies."],
   ['PWA', "Progressive Web App : site web installable comme une application."], ['CSRF / XSS', "Attaques web visant à faire exécuter une action ou un script à l'insu de l'utilisateur."],

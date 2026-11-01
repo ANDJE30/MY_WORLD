@@ -2,7 +2,7 @@
 import { h, raw, mount, $, $$, icon, kpi, empty, periodOptions, progressBar } from './ui.js';
 import { get, openPdf } from './api.js';
 import { state, go } from './app.js';
-import { disciplineEditor, incidentsPage, announcementsWidget, periodLabel, timetablePage, studentHistory } from './shared.js';
+import { disciplineEditor, incidentsPage, announcementsWidget, periodLabel, timetablePage, studentHistory, periodParam } from './shared.js';
 
 export const routes = [
   { path: 'accueil', title: 'Tableau de bord', short: 'Accueil', icon: 'home', group: 'Vie scolaire', mobile: true, render: home },
@@ -37,9 +37,9 @@ async function home(view) {
 async function saisie(view, params) {
   const { classes, seq: cur } = await get('/discipline/classes');
   if (!classes.length) return mount(view, h`<div class="card">${empty('Aucune classe', "Aucune classe ne vous est attribuée. Contactez l'administrateur.", 'layers')}</div>`);
-  const cid = +params.class || classes[0].id, seq = +params.seq || cur;
+  const cid = +params.class || classes[0].id, period = periodParam(params, cur);
   mount(view, h`<div data-ed></div>`);
-  await disciplineEditor($('[data-ed]', view), { class_id: cid, seq, classes, onChange: (c, s) => go('saisie', { class: c, seq: s }) });
+  await disciplineEditor($('[data-ed]', view), { class_id: cid, period, classes, onChange: (c, p) => go('saisie', { class: c, period: p }) });
 }
 
 async function fiches(view) {

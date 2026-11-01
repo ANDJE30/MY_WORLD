@@ -1,5 +1,20 @@
 classDiagram
   direction LR
+  class Entreprise {
+    +raisonSociale = AI721 TECH STUFF
+    +contacts, RCCM, NIU, tarif
+  }
+  class SuperAdministrateur
+  class EtablissementAbonne {
+    +code (adresse /e/code)
+    +statut : actif|suspendu
+    +identifiantAdmin, motDePasseChiffre
+  }
+  class Abonnement {
+    +anneeScolaire, du 01/09 au 31/08
+    +montant, paye, mode, reference
+    +estValide(date)
+  }
   class Etablissement {
     +nom, sigle, immatriculation
     +type, statut, sousSysteme
@@ -11,7 +26,7 @@ classDiagram
     <<abstract>>
     +id, identifiant, motDePasseHache
     +nomComplet, telephone, email
-    +actif, doitChangerMotDePasse
+    +actif, motDePasseGenereChiffre (coffre)
     +seConnecter()
     +changerMotDePasse()
   }
@@ -46,6 +61,11 @@ classDiagram
   class CreneauEDT { +jour, creneau, salle }
   class Annonce { +titre, message, destinataires }
   class JournalAudit { +date, action, detail, ip }
+  Utilisateur <|-- SuperAdministrateur
+  Entreprise "1" o-- "1..*" SuperAdministrateur
+  Entreprise "1" o-- "0..*" EtablissementAbonne : commercialise
+  EtablissementAbonne "1" *-- "1..*" Abonnement
+  EtablissementAbonne "1" -- "1" Etablissement : base dédiée
   Utilisateur <|-- Administrateur
   Utilisateur <|-- Enseignant
   Utilisateur <|-- ResponsableDisciplinaire

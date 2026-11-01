@@ -1,15 +1,15 @@
 flowchart LR
   ENS["👤 Enseignant"]
   RD["👤 Responsable<br/>disciplinaire"]
-  subgraph SYS["Système EduGest CM — espaces Enseignant et Responsable disciplinaire"]
+  subgraph SYS["Interfaces Enseignants (/e/code/enseignant) et Vie scolaire (/e/code/discipline)"]
     direction TB
     C0(["S'authentifier / changer son mot de passe"])
     C1(["Consulter emploi du temps et annonces"])
     E1(["Saisir la progression annuelle<br/>(leçons prévues / faites par séquence)"])
-    E2(["Saisir les notes de ses classes"])
+    E2(["Saisir les notes de ses classes<br/>(par séquence ou par trimestre)"])
     E3(["Valider la saisie d'une séquence"])
     E4(["Exporter les relevés de notes PDF"])
-    D1(["Saisir absences, retards, consignes, sanctions"])
+    D1(["Saisir absences, retards, consignes, sanctions<br/>(récapitulatif par trimestre)"])
     D2(["Signaler un incident disciplinaire"])
     D3(["Valider la fiche disciplinaire d'une classe"])
     D4(["Exporter les fiches disciplinaires PDF<br/>(classe / individuelle)"])

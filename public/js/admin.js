@@ -1,9 +1,9 @@
 // Espace administrateur.
 import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, seqOptions, periodOptions,
   barsH, barsV, parseCSV, downloadCSV, readFileText, copyText, withBusy, ROLE_LABEL, DAYS, initials, noteClass, debounce, fieldHtml, readForm, colorFor } from './ui.js';
-import { get, post, put, del, openPdf, postPdf } from './api.js';
+import { get, post, put, del, openPdf, postPdf, apiUrl } from './api.js';
 import { state, go, refreshPeriods, setParams, rerender } from './app.js';
-import { notesEditor, disciplineEditor, incidentsPage, timetableHtml, periodLabel, studentHistory } from './shared.js';
+import { notesEditor, disciplineEditor, incidentsPage, timetableHtml, periodLabel, studentHistory, entryPeriodOptions, periodParam } from './shared.js';
 
 export const routes = [
   { path: 'dashboard', title: 'Tableau de bord', short: 'Accueil', icon: 'home', group: 'Pilotage', mobile: true, render: dashboard },
@@ -18,6 +18,7 @@ export const routes = [
   { path: 'edt', title: 'Emplois du temps', icon: 'calendar', group: 'Scolarité', render: edt },
   { path: 'enseignants', title: 'Enseignants', icon: 'teacher', group: 'Personnel', render: (v, p) => staff(v, p, 'teacher') },
   { path: 'responsables', title: 'Resp. disciplinaires', icon: 'shield', group: 'Personnel', render: (v, p) => staff(v, p, 'discipline') },
+  { path: 'acces', title: 'Coffre des accès', short: 'Accès', icon: 'key', group: 'Personnel', render: acces },
   { path: 'discipline', title: 'Discipline', icon: 'flag', group: 'Vie scolaire', render: disciplineAdmin },
   { path: 'incidents', title: 'Registre des incidents', icon: 'clipboard', group: 'Vie scolaire', render: async (v, p) => incidentsPage(v, p, await get('/classes/mine')) },
   { path: 'annonces', title: 'Annonces', icon: 'megaphone', group: 'Communication', render: annonces },
@@ -159,12 +160,16 @@ const slotRow = (t, i) => h`<tr><td class="muted">${i + 1}</td><td><input class=
 async function calendrier(view) {
   await refreshPeriods();
   const ps = state.periods;
+  const [archives, settings] = await Promise.all([get('/admin/archives'), get('/admin/settings')]);
+  const yearClosed = settings.annee_cloturee === settings.annee_scolaire;
+  const allClosed = ps.every((p) => p.status === 'closed');
   const today = new Date().toISOString().slice(0, 10);
   const triClosed = (t) => ps.filter((p) => Math.ceil(p.seq / 2) === t).every((p) => p.status === 'closed');
   mount(view, h`<div class="page-head"><div><h2>Calendrier & clôtures</h2><p>Définissez les dates des 6 séquences et clôturez-les lorsque toutes les saisies sont terminées. Une séquence clôturée est verrouillée en écriture.</p></div></div>
   <div class="alert info mb">${icon('info')}<div>Règles de clôture : ordre chronologique, date de fin atteinte, toutes les notes saisies et validées par les enseignants, toutes les fiches disciplinaires validées. Une clôture anticipée ou incomplète est possible en la forçant (confirmation par mot de passe, tracée dans le journal d'audit).</div></div>
   <div class="timeline">${[1, 2, 3].map((t) => h`<div class="tri"><div class="tri-h">${icon('calendar')}<h3>Trimestre ${t}</h3><div style="flex:1"></div>
-      ${triClosed(t) ? h`<span class="badge green">${icon('lock', 'sm')} Clôturé</span>` : h`<button class="btn btn-outline btn-sm" data-close-tri="${t}">${icon('lock', 'sm')} Clôturer le trimestre</button>`}</div>
+      ${triClosed(t) ? h`<span class="badge green">${icon('lock', 'sm')} Clôturé</span><a class="btn btn-ghost btn-sm" href="#/resultats?period=T${t}">${icon('trophy', 'sm')} Résultats</a>`
+    : h`<a class="btn btn-ghost btn-sm" href="#/suivi?period=T${t}" title="Saisies du trimestre">${icon('eye', 'sm')}</a><button class="btn btn-outline btn-sm" data-close-tri="${t}">${icon('lock', 'sm')} Clôturer le trimestre</button>`}</div>
     ${ps.filter((p) => Math.ceil(p.seq / 2) === t).map((p) => {
     const ended = p.end_date && p.end_date < today;
     return h`<div class="seq-card"><div class="row1"><h4>Séquence ${p.seq}</h4>${periodLabel(p.seq)}${p.forced ? h`<span class="badge amber" title="Clôture forcée">forcée</span>` : ''}</div>
@@ -172,7 +177,32 @@ async function calendrier(view) {
         ${p.status === 'closed' ? h`<div class="small muted mt">Clôturée le ${fmtTs(p.closed_at)} par ${p.closed_by}</div>` : ''}
         <div class="acts">${p.status === 'open' ? h`<button class="btn btn-ghost btn-sm" data-dates="${p.seq}">${icon('edit', 'sm')} Dates</button><button class="btn btn-outline btn-sm" data-check="${p.seq}">${icon('eye', 'sm')} État des saisies</button>
           <button class="btn btn-primary btn-sm" data-close="${p.seq}">${icon('lock', 'sm')} Clôturer</button>` : h`<button class="btn btn-ghost btn-sm" data-reopen="${p.seq}">${icon('unlock', 'sm')} Rouvrir</button><a class="btn btn-outline btn-sm" href="#/resultats?period=S${p.seq}">${icon('trophy', 'sm')} Résultats</a>`}</div></div>`;
-  })}</div>`)}</div>`);
+  })}</div>`)}</div>
+  <div class="card mt"><div class="card-h"><h3>${icon('flag')} Clôture de l'année scolaire ${settings.annee_scolaire}</h3>
+    ${yearClosed ? h`<span class="badge green">${icon('lock', 'sm')} Année clôturée</span>` : allClosed ? h`<span class="badge gold">Prête</span>` : h`<span class="badge">${ps.filter((p) => p.status === 'closed').length}/6 séquences clôturées</span>`}
+    <div class="actions">${!yearClosed ? h`<button class="btn btn-primary" data-close-year>${icon('lock')} Clôturer l'année</button>` : h`<a class="btn btn-outline" href="#/sauvegarde">${icon('refresh')} Préparer la nouvelle année</a>`}</div></div>
+    <div class="card-b"><p class="small muted" style="margin-top:0">En fin d'année, après la clôture des trois trimestres : production des <b>statistiques annuelles</b> (rapport PDF archivé) et <b>sauvegarde complète</b> conservée sur le serveur.
+      L'année clôturée reste consultable ; vous pouvez ensuite démarrer la nouvelle année scolaire.</p>
+    ${archives.length ? h`<div class="table-wrap"><table class="t rt"><thead><tr><th>Année</th><th>Clôturée le</th><th class="num">Moyenne</th><th class="num">Réussite</th><th class="num">Élèves</th><th></th></tr></thead>
+      <tbody>${archives.map((a) => h`<tr><td class="primary-cell">${a.annee}</td><td data-label="Clôturée">${fmtTs(a.closed_at)} <span class="cell-sub">par ${a.closed_by}</span></td>
+        <td class="num ${noteClass(a.stats.global?.moyenne)}" data-label="Moyenne">${fmtNum(a.stats.global?.moyenne)}</td><td class="num" data-label="Réussite">${a.stats.global?.reussite == null ? '—' : fmtNum(a.stats.global.reussite, 1) + ' %'}</td>
+        <td class="num" data-label="Élèves">${a.stats.global?.effectif ?? '—'}</td>
+        <td class="actions-cell"><button class="btn btn-outline btn-sm" data-arch="${a.id}" data-kind="rapport">${icon('pdf', 'sm')} Rapport annuel</button>
+          <a class="btn btn-ghost btn-sm" href="${apiUrl(`/admin/archives/${a.id}/sauvegarde`)}" download>${icon('download', 'sm')} Sauvegarde</a></td></tr>`)}</tbody></table></div>`
+    : h`<div class="small muted">Aucune année archivée pour l'instant.</div>`}</div></div>`);
+  $$('[data-arch]', view).forEach((b) => (b.onclick = () => openPdf(`/admin/archives/${b.dataset.arch}/rapport`)));
+  $('[data-close-year]', view)?.addEventListener('click', async () => {
+    const c = await confirmDialog({ title: `Clôturer l'année ${settings.annee_scolaire}`,
+      message: allClosed ? 'Les statistiques annuelles seront calculées et archivées (rapport PDF) avec une sauvegarde complète de l’année.'
+        : `Attention : ${ps.filter((p) => p.status === 'open').length} séquence(s) encore ouverte(s). Cochez « Forcer » pour les clôturer automatiquement.`,
+      checkbox: allClosed ? null : 'Forcer (clôturer aussi les séquences restantes)', requirePassword: true, okLabel: "Clôturer l'année" });
+    if (!c) return;
+    try {
+      const r = await post('/admin/annee/cloturer', { password: c.password, force: c.checked });
+      toast(`Année ${r.annee} clôturée : moyenne ${fmtNum(r.global.moyenne)}, réussite ${fmtNum(r.global.reussite, 1)} %`, 'ok', 7000);
+      openPdf(`/admin/archives/${r.id}/rapport`); rerender();
+    } catch (ex) { toast(ex.message, 'err', 8000); }
+  });
   const closeFlow = async (seq, tri) => {
     const comp = tri ? null : await get(`/admin/periods/${seq}/check`);
     const s = comp?.summary;
@@ -205,41 +235,50 @@ async function calendrier(view) {
   $$('[data-check]', view).forEach((b) => (b.onclick = () => go('suivi', { seq: b.dataset.check })));
 }
 
-/* ========================= Suivi des saisies ========================= */
+/* ========================= Suivi des saisies (par séquence ou par trimestre) ========================= */
 async function suivi(view, params) {
-  const seq = +params.seq || state.current;
+  const period = periodParam(params, state.current);
   if (params.cs) {
-    mount(view, h`<div class="toolbar"><a class="btn btn-ghost btn-sm" href="#/suivi?seq=${seq}">${icon('arrowRight', 'sm')} Retour au suivi</a></div><div data-ed></div>`);
-    return notesEditor($('[data-ed]', view), { cs: +params.cs, seq, onChangeSeq: (s, c) => go('suivi', { cs: c, seq: s }) });
+    mount(view, h`<div class="toolbar"><a class="btn btn-ghost btn-sm" href="#/suivi?period=${period}">← Retour au suivi</a></div><div data-ed></div>`);
+    return notesEditor($('[data-ed]', view), { cs: +params.cs, period, onChange: (p, c) => go('suivi', { cs: c, period: p }) });
   }
-  const c = await get(`/admin/periods/${seq}/check`);
+  const seqs = period[0] === 'T' ? [+period[1] * 2 - 1, +period[1] * 2] : [+period.slice(1)];
+  const checks = await Promise.all(seqs.map((q) => get(`/admin/periods/${q}/check`)));
+  // fusion des séquences du trimestre
+  const notes = checks[0].notes.map((n) => ({ ...n, per: Object.fromEntries(seqs.map((q, k) => [q, checks[k].notes.find((x) => x.id === n.id)])) }));
+  const disc = checks[0].discipline.map((d) => ({ ...d, per: Object.fromEntries(seqs.map((q, k) => [q, checks[k].discipline.find((x) => x.class_id === d.class_id)])) }));
+  const ok = (x) => x && x.validated_at && x.saisies >= x.effectif;
+  const sum = { notesDone: notes.filter((n) => n.effectif > 0 && seqs.every((q) => ok(n.per[q]))).length, notesTotal: notes.filter((n) => n.effectif > 0).length,
+    discDone: disc.filter((d) => seqs.every((q) => d.per[q]?.validated_at)).length, discTotal: disc.length };
+  sum.percent = Math.round(((sum.notesDone + sum.discDone) / Math.max(1, sum.notesTotal + sum.discTotal)) * 100);
+  sum.ready = sum.notesDone === sum.notesTotal && sum.discDone === sum.discTotal;
   const filter = params.f || 'all';
-  const notes = c.notes.filter((n) => filter === 'all' || (filter === 'todo' ? !(n.validated_at && n.saisies >= n.effectif) : n.validated_at));
-  mount(view, h`<div class="page-head"><div><h2>Suivi des saisies</h2><p>Avancement des enseignants et des responsables disciplinaires — séquence ${seq}.</p></div>
-    <div class="actions"><select class="select" style="width:auto" data-seq>${seqOptions(seq)}</select>
+  const shown = notes.filter((n) => filter === 'all' || (filter === 'todo' ? !seqs.every((q) => ok(n.per[q])) : seqs.every((q) => ok(n.per[q]))));
+  const cell = (x) => {
+    const pct = x?.effectif ? Math.min(100, (x.saisies / x.effectif) * 100) : 0;
+    return h`<div class="small">${x?.saisies ?? 0}/${x?.effectif ?? 0} ${x?.validated_at ? h`<span class="badge green">${icon('check', 'sm')}</span>` : ''}</div>${progressBar(pct, pct < 100 ? 'gold' : '')}`;
+  };
+  mount(view, h`<div class="page-head"><div><h2>Suivi des saisies</h2><p>Avancement des enseignants et des responsables disciplinaires — ${period[0] === 'T' ? `trimestre ${period[1]} (séquences ${seqs.join(' et ')})` : `séquence ${seqs[0]}`}.</p></div>
+    <div class="actions"><select class="select" style="width:auto" data-period>${entryPeriodOptions(period)}</select>
     <button class="btn btn-outline" data-csv>${icon('download')} Exporter (CSV)</button></div></div>
   <div class="grid g-3">
-    ${kpi('edit', `${c.summary.notesDone}/${c.summary.notesTotal}`, 'Matières validées', 'Notes complètes et validées')}
-    ${kpi('shield', `${c.summary.discDone}/${c.summary.discTotal}`, 'Fiches disciplinaires validées', '', 'gold')}
-    <div class="card kpi"><div class="ico ${c.summary.ready ? '' : 'red'}">${icon(c.summary.ready ? 'checkCircle' : 'alert')}</div><div class="v">${c.summary.percent} %</div><div class="l">${c.summary.ready ? 'Prête à être clôturée' : 'Clôture non recommandée'}</div>${progressBar(c.summary.percent)}</div>
+    ${kpi('edit', `${sum.notesDone}/${sum.notesTotal}`, 'Matières validées', 'Notes complètes et validées')}
+    ${kpi('shield', `${sum.discDone}/${sum.discTotal}`, 'Fiches disciplinaires validées', '', 'gold')}
+    <div class="card kpi"><div class="ico ${sum.ready ? '' : 'red'}">${icon(sum.ready ? 'checkCircle' : 'alert')}</div><div class="v">${sum.percent} %</div><div class="l">${sum.ready ? 'Prête à être clôturée' : 'Clôture non recommandée'}</div>${progressBar(sum.percent)}</div>
   </div>
   <div class="card mt"><div class="card-h"><h3>Notes par classe et matière</h3><div class="actions"><div class="seg">${[['all', 'Toutes'], ['todo', 'À compléter'], ['done', 'Validées']].map(([k, l]) => h`<button class="${filter === k ? 'on' : ''}" data-f="${k}">${l}</button>`)}</div></div></div>
-    <div class="table-wrap"><table class="t rt"><thead><tr><th>Classe</th><th>Matière</th><th>Enseignant</th><th>Saisie</th><th>État</th><th></th></tr></thead>
-    <tbody>${notes.map((n) => {
-    const pct = n.effectif ? Math.min(100, (n.saisies / n.effectif) * 100) : 0;
-    return h`<tr><td class="primary-cell">${n.classe}</td><td data-label="Matière">${n.subject}</td><td data-label="Enseignant">${n.teacher || h`<span class="badge red">Non attribuée</span>`}</td>
-      <td data-label="Saisie" style="min-width:150px"><div class="small">${n.saisies}/${n.effectif}</div>${progressBar(pct, pct < 100 ? 'gold' : '')}</td>
-      <td data-label="État">${n.validated_at ? h`<span class="badge green">${icon('check', 'sm')} Validée</span>` : pct >= 100 ? h`<span class="badge blue">Complète</span>` : h`<span class="badge amber">En cours</span>`}</td>
-      <td class="actions-cell"><a class="btn btn-ghost btn-sm" href="#/suivi?cs=${n.id}&seq=${seq}">${icon('eye', 'sm')} Ouvrir</a></td></tr>`;
-  })}</tbody></table></div>${!notes.length ? empty('Rien à afficher', '', 'checkCircle') : ''}</div>
-  <div class="card"><div class="card-h"><h3>Fiches disciplinaires</h3></div><div class="table-wrap"><table class="t rt"><thead><tr><th>Classe</th><th>Responsable(s)</th><th>État</th><th></th></tr></thead>
-    <tbody>${c.discipline.map((d) => h`<tr><td class="primary-cell">${d.classe}</td><td data-label="Responsable">${d.officers || h`<span class="badge red">Aucun</span>`}</td>
-    <td data-label="État">${d.validated_at ? h`<span class="badge green">Validée</span>` : h`<span class="badge amber">En cours</span>`}</td>
-    <td class="actions-cell"><a class="btn btn-ghost btn-sm" href="#/discipline?class=${d.class_id}&seq=${seq}">${icon('eye', 'sm')} Ouvrir</a></td></tr>`)}</tbody></table></div></div>`);
-  $('[data-seq]', view).onchange = (e) => go('suivi', { seq: e.target.value });
-  $$('[data-f]', view).forEach((b) => (b.onclick = () => go('suivi', { seq, f: b.dataset.f })));
-  $('[data-csv]', view).onclick = () => downloadCSV(`suivi_S${seq}.csv`, [['Classe', 'Matière', 'Enseignant', 'Saisies', 'Effectif', 'Validée'],
-    ...c.notes.map((n) => [n.classe, n.subject, n.teacher || '', n.saisies, n.effectif, n.validated_at ? 'Oui' : 'Non'])]);
+    <div class="table-wrap"><table class="t rt"><thead><tr><th>Classe</th><th>Matière</th><th>Enseignant</th>${seqs.map((q) => h`<th>Séquence ${q}</th>`)}<th></th></tr></thead>
+    <tbody>${shown.map((n) => h`<tr><td class="primary-cell">${n.classe}</td><td data-label="Matière">${n.subject}</td><td data-label="Enseignant">${n.teacher || h`<span class="badge red">Non attribuée</span>`}</td>
+      ${seqs.map((q) => h`<td data-label="Séquence ${q}" style="min-width:130px">${cell(n.per[q])}</td>`)}
+      <td class="actions-cell"><a class="btn btn-ghost btn-sm" href="#/suivi?cs=${n.id}&period=${period}">${icon('eye', 'sm')} Ouvrir</a></td></tr>`)}</tbody></table></div>${!shown.length ? empty('Rien à afficher', '', 'checkCircle') : ''}</div>
+  <div class="card"><div class="card-h"><h3>Fiches disciplinaires</h3></div><div class="table-wrap"><table class="t rt"><thead><tr><th>Classe</th><th>Responsable(s)</th>${seqs.map((q) => h`<th>Séquence ${q}</th>`)}<th></th></tr></thead>
+    <tbody>${disc.map((d) => h`<tr><td class="primary-cell">${d.classe}</td><td data-label="Responsable">${d.officers || h`<span class="badge red">Aucun</span>`}</td>
+    ${seqs.map((q) => h`<td data-label="Séquence ${q}">${d.per[q]?.validated_at ? h`<span class="badge green">Validée</span>` : h`<span class="badge amber">En cours</span>`}</td>`)}
+    <td class="actions-cell"><a class="btn btn-ghost btn-sm" href="#/discipline?class=${d.class_id}&period=${period}">${icon('eye', 'sm')} Ouvrir</a></td></tr>`)}</tbody></table></div></div>`);
+  $('[data-period]', view).onchange = (e) => go('suivi', { period: e.target.value });
+  $$('[data-f]', view).forEach((b) => (b.onclick = () => go('suivi', { period, f: b.dataset.f })));
+  $('[data-csv]', view).onclick = () => downloadCSV(`suivi_${period}.csv`, [['Classe', 'Matière', 'Enseignant', ...seqs.flatMap((q) => [`S${q} saisies`, `S${q} effectif`, `S${q} validée`])],
+    ...notes.map((n) => [n.classe, n.subject, n.teacher || '', ...seqs.flatMap((q) => [n.per[q]?.saisies, n.per[q]?.effectif, n.per[q]?.validated_at ? 'Oui' : 'Non'])])]);
 }
 
 /* ========================= Résultats & bulletins ========================= */
@@ -286,7 +325,7 @@ async function statistiques(view, params) {
   const period = params.period || `S${state.periods.filter((p) => p.status === 'closed').pop()?.seq || state.current}`;
   const s = await get(`/admin/stats?period=${period}`);
   mount(view, h`<div class="page-head"><div><h2>Statistiques</h2><p>Indicateurs de performance de l'établissement.</p></div>
-    <div class="actions"><select class="select" style="width:auto" data-period>${periodOptions(period)}</select></div></div>
+    <div class="actions"><select class="select" style="width:auto" data-period>${periodOptions(period)}</select><button class="btn btn-primary" data-pdf>${icon('pdf')} Exporter en PDF</button></div></div>
   <div class="grid g-4">
     ${kpi('target', fmtNum(s.global.moyenne), 'Moyenne générale', `${s.global.n} élèves classés`)}
     ${kpi('checkCircle', s.global.reussite == null ? '—' : `${fmtNum(s.global.reussite, 1)} %`, "Taux de réussite de l'établissement", '', 'gold')}
@@ -310,6 +349,7 @@ async function statistiques(view, params) {
   <div class="card mt"><div class="card-h"><h3>Discipline par classe (année)</h3></div><div class="table-wrap"><table class="t"><thead><tr><th>Classe</th><th class="num">Abs. justifiées (h)</th><th class="num">Abs. non justifiées (h)</th><th class="num">Retards</th><th class="num">Incidents</th></tr></thead>
     <tbody>${s.discipline.map((d) => h`<tr><td>${d.classe}</td><td class="num">${d.abs_j}</td><td class="num ${d.abs_nj > 50 ? 'low' : ''}">${d.abs_nj}</td><td class="num">${d.retards}</td><td class="num">${d.incidents}</td></tr>`)}</tbody></table></div></div>`);
   $('[data-period]', view).onchange = (e) => go('statistiques', { period: e.target.value });
+  $('[data-pdf]', view).onclick = () => openPdf(`/stats?period=${period}`);
 }
 
 /* ========================= Élèves ========================= */
@@ -684,22 +724,79 @@ const edtHead = (mode) => h`<div class="page-head"><div><h2>Emplois du temps</h2
 const bindModeSeg = (view) => $$('[data-mode]', view).forEach((b) => (b.onclick = () => go('edt', { mode: b.dataset.mode })));
 
 /* ========================= Personnel (enseignants / responsables) ========================= */
-const sessionCreds = []; // identifiants générés pendant la session (en mémoire uniquement)
+const sessionCreds = []; // identifiants générés pendant la session
+/** Message prêt à envoyer (WhatsApp, SMS, e-mail) avec le lien de l'interface et les identifiants. */
+const accessMessage = (c) => `Bonjour ${c.full_name},\nVoici vos accès à la plateforme EduGest CM — ${state.school.nom} :\n• Adresse (${ROLE_LABEL[c.role].toLowerCase()}) : ${c.link}\n`
+  + `• Identifiant : ${c.username}\n• Mot de passe : ${c.password || '(demandez-le à l’administration)'}\nConservez-les précieusement et ne les partagez pas.\n${state.user.full_name}`;
+const waLink = (phone, text) => { let d = String(phone || '').replace(/\D/g, ''); if (d.length === 9) d = '237' + d; return `https://wa.me/${d}?text=${encodeURIComponent(text)}`; };
 async function showCredentials(items, { record = true } = {}) {
   if (record) sessionCreds.push(...items);
   await modal({
-    title: items.length > 1 ? `${items.length} comptes générés` : 'Identifiants du compte', size: items.length > 1 ? 'lg' : '',
-    body: h`<div class="alert warn mb">${icon('alert')}<div>Notez ou imprimez ces identifiants <b>maintenant</b> : pour des raisons de sécurité, le mot de passe n'est jamais stocké en clair et ne pourra plus être affiché. L'utilisateur devra le changer à sa première connexion.</div></div>
-      <div class="stack">${items.map((c) => h`<div class="card"><div class="card-b"><div class="row" style="justify-content:space-between"><b>${c.full_name}</b><span class="badge">${ROLE_LABEL[c.role]}</span></div>
+    title: items.length > 1 ? `${items.length} comptes` : 'Identifiants du compte', size: items.length > 1 ? 'lg' : '',
+    body: h`<div class="alert info mb">${icon('key')}<div>Ces identifiants sont conservés (chiffrés) dans votre <a href="#/acces" data-close>coffre des accès</a> : vous pourrez les retrouver en cas d'oubli. Transmettez à chacun le <b>lien de son interface</b> avec ses identifiants.</div></div>
+      <div class="stack">${items.map((c, i) => h`<div class="card"><div class="card-b"><div class="row" style="justify-content:space-between"><b>${c.full_name}</b><span class="badge">${ROLE_LABEL[c.role]}</span></div>
         <div class="grid g-2 mt" style="gap:8px"><div class="cred"><span><span class="small muted">Identifiant</span><br>${c.username}</span><button class="btn btn-ghost btn-sm btn-icon" data-copy="${c.username}">${icon('copy', 'sm')}</button></div>
-        <div class="cred"><span><span class="small muted">Mot de passe</span><br>${c.password}</span><button class="btn btn-ghost btn-sm btn-icon" data-copy="${c.password}">${icon('copy', 'sm')}</button></div></div></div></div>`)}</div>`,
+        <div class="cred"><span><span class="small muted">Mot de passe</span><br><span class="secret">${c.password || '—'}</span></span>${c.password ? h`<button class="btn btn-ghost btn-sm btn-icon" data-copy="${c.password}">${icon('copy', 'sm')}</button>` : ''}</div></div>
+        ${c.link ? h`<div class="cred mt" style="font-size:13px"><span><span class="small muted">Lien de connexion</span><br>${c.link}</span><button class="btn btn-ghost btn-sm btn-icon" data-copy="${c.link}">${icon('copy', 'sm')}</button></div>` : ''}
+        <div class="row mt"><button class="btn btn-outline btn-sm" data-msg="${i}">${icon('copy', 'sm')} Copier le message</button>
+          <a class="btn btn-outline btn-sm" href="${waLink(c.phone, accessMessage(c))}" target="_blank" rel="noopener">${icon('send', 'sm')} WhatsApp</a></div></div></div>`)}</div>`,
     footer: h`<button class="btn btn-outline" data-copyall>${icon('copy')} Tout copier</button><button class="btn btn-primary" data-print>${icon('printer')} Imprimer les fiches (PDF)</button>`,
     onOpen: ({ root }) => {
       $$('[data-copy]', root).forEach((b) => (b.onclick = () => copyText(b.dataset.copy)));
-      $('[data-copyall]', root).onclick = () => copyText(items.map((c) => `${c.full_name} — identifiant : ${c.username} — mot de passe : ${c.password}`).join('\n'));
-      $('[data-print]', root).onclick = (e) => withBusy(e.currentTarget, () => postPdf('/credentials', { items }, 'identifiants.pdf').catch((ex) => toast(ex.message, 'err')));
+      $$('[data-msg]', root).forEach((b) => (b.onclick = () => copyText(accessMessage(items[+b.dataset.msg]))));
+      $('[data-copyall]', root).onclick = () => copyText(items.map(accessMessage).join('\n\n———\n\n'));
+      $('[data-print]', root).onclick = (e) => withBusy(e.currentTarget, () => postPdf('/credentials', items.every((c) => c.id) ? { ids: items.map((c) => c.id) } : { items }, 'identifiants.pdf').catch((ex) => toast(ex.message, 'err')));
     }
   });
+}
+
+/* ========================= Coffre des accès ========================= */
+async function acces(view, params) {
+  const d = await get('/admin/acces');
+  const f = params.role || '';
+  const list = d.users.filter((u) => !f || u.role === f);
+  const sel = new Set();
+  mount(view, h`<div class="page-head"><div><h2>Coffre des accès</h2><p>Identifiants, mots de passe générés et liens de connexion de vos enseignants et responsables disciplinaires.</p></div>
+    <div class="actions"><button class="btn btn-outline" data-print-all>${icon('printer')} Imprimer toutes les fiches</button></div></div>
+  <div class="alert info mb">${icon('shield')}<div class="small">Les mots de passe <b>générés</b> sont conservés chiffrés pour vous permettre d'intervenir en cas d'oubli ; chaque consultation est tracée dans le journal d'audit.
+    Si un utilisateur choisit lui-même un nouveau mot de passe, celui-ci n'est pas conservé : en cas d'oubli, générez-en un nouveau.</div></div>
+  <div class="grid g-3 mb">${[['teacher', 'Interface Enseignants', 'teacher'], ['discipline', 'Interface Vie scolaire', 'shield'], ['admin', 'Interface Administration (vous)', 'building']]
+    .map(([k, l, ic]) => h`<div class="card"><div class="card-b"><div class="row" style="justify-content:space-between"><b class="small">${icon(ic, 'sm')} ${l}</b><button class="btn btn-ghost btn-sm btn-icon" data-copy="${d.links[k]}" title="Copier">${icon('copy', 'sm')}</button></div>
+      <div class="small mono" style="word-break:break-all;margin-top:6px">${d.links[k]}</div></div></div>`)}</div>
+  <div class="toolbar"><div class="seg">${[['', 'Tous'], ['teacher', 'Enseignants'], ['discipline', 'Resp. disciplinaires']].map(([k, l]) => h`<button class="${f === k ? 'on' : ''}" data-f="${k}">${l}</button>`)}</div>
+    <div class="grow"></div><button class="btn btn-outline btn-sm hidden" data-print-sel>${icon('printer', 'sm')} Fiches de la sélection</button></div>
+  <div class="card">${list.length ? h`<div class="table-wrap"><table class="t rt"><thead><tr><th style="width:36px"><input type="checkbox" data-all aria-label="Tout sélectionner"></th><th>Nom</th><th>Identifiant</th><th>Mot de passe</th><th>Dernière connexion</th><th></th></tr></thead>
+    <tbody>${list.map((u) => h`<tr data-id="${u.id}"><td class="check-cell"><input type="checkbox" data-sel="${u.id}"></td>
+      <td class="primary-cell">${u.full_name}<div class="cell-sub">${ROLE_LABEL[u.role]}${u.specialite ? ' • ' + u.specialite : ''}${!u.active ? ' • désactivé' : ''}</div></td>
+      <td data-label="Identifiant" class="mono">${u.username}</td>
+      <td data-label="Mot de passe" data-pw>${u.has_pw ? h`<span class="secret muted">••••••••••</span> <button class="btn btn-ghost btn-sm" data-reveal="${u.id}">${icon('eye', 'sm')} Afficher</button>`
+    : h`<span class="badge amber" title="Le mot de passe a été choisi par l'utilisateur le ${fmtTs(u.pw_user_changed_at)}">Personnel</span>`}</td>
+      <td data-label="Connexion" class="small">${u.last_login ? fmtTs(u.last_login) : 'Jamais'}</td>
+      <td class="actions-cell"><button class="btn btn-outline btn-sm" data-send="${u.id}">${icon('send', 'sm')} Envoyer</button><button class="btn btn-ghost btn-sm btn-icon" data-regen="${u.id}" title="Générer un nouveau mot de passe">${icon('refresh', 'sm')}</button></td></tr>`)}</tbody></table></div>`
+    : empty('Aucun compte', 'Créez les comptes dans les menus Enseignants et Resp. disciplinaires.', 'key')}</div>`);
+  $$('[data-copy]', view).forEach((b) => (b.onclick = () => copyText(b.dataset.copy)));
+  $$('[data-f]', view).forEach((b) => (b.onclick = () => go('acces', { role: b.dataset.f })));
+  const reveal = async (uid) => { const c = await post(`/admin/users/${uid}/reveal`); return { ...c, phone: d.users.find((u) => u.id === uid)?.phone }; };
+  view.addEventListener('click', async (e) => {
+    const rv = e.target.closest('[data-reveal]'), sd = e.target.closest('[data-send]'), rg = e.target.closest('[data-regen]');
+    try {
+      if (rv) { const c = await reveal(+rv.dataset.reveal); mount(rv.closest('[data-pw]'), h`<span class="secret">${c.password}</span> <button class="btn btn-ghost btn-sm btn-icon" data-copy2="${c.password}">${icon('copy', 'sm')}</button>`); }
+      if (e.target.closest('[data-copy2]')) copyText(e.target.closest('[data-copy2]').dataset.copy2);
+      if (sd) await showCredentials([await reveal(+sd.dataset.send)], { record: false });
+      if (rg) {
+        const u = d.users.find((x) => x.id === +rg.dataset.regen);
+        if (!(await confirmDialog({ title: 'Générer un nouveau mot de passe ?', message: `L'ancien mot de passe de ${u.full_name} ne fonctionnera plus et ses sessions seront fermées.`, okLabel: 'Générer' }))) return;
+        await showCredentials([{ ...(await post(`/admin/users/${u.id}/reset`)), phone: u.phone }]); rerender();
+      }
+    } catch (ex) { toast(ex.message, 'err'); }
+  });
+  const upd = () => { const b = $('[data-print-sel]', view); b.classList.toggle('hidden', !sel.size); b.innerHTML = `${icon('printer', 'sm').s} Fiches de la sélection (${sel.size})`; };
+  view.addEventListener('change', (e) => {
+    if (e.target.matches('[data-sel]')) { e.target.checked ? sel.add(+e.target.dataset.sel) : sel.delete(+e.target.dataset.sel); upd(); }
+    if (e.target.matches('[data-all]')) { $$('[data-sel]', view).forEach((c) => { c.checked = e.target.checked; e.target.checked ? sel.add(+c.dataset.sel) : sel.delete(+c.dataset.sel); }); upd(); }
+  });
+  $('[data-print-sel]', view).onclick = (e) => withBusy(e.currentTarget, () => postPdf('/credentials', { ids: [...sel] }, 'identifiants.pdf').catch((ex) => toast(ex.message, 'err')));
+  $('[data-print-all]', view).onclick = (e) => withBusy(e.currentTarget, () => postPdf('/credentials', { ids: list.map((u) => u.id) }, 'identifiants.pdf').catch((ex) => toast(ex.message, 'err')));
 }
 
 async function staff(view, params, role) {
@@ -726,7 +823,8 @@ async function staff(view, params, role) {
       <td data-label="Identifiant" class="mono">${u.username}</td>
       <td data-label="${T ? 'Attributions' : 'Classes'}"><div class="chips">${T ? (u.assignments.length ? u.assignments.map((a) => h`<span class="chip">${a.classe} · ${a.subject}</span>`) : h`<span class="badge amber">Aucune</span>`)
     : (u.classes.length ? u.classes.map((c) => h`<span class="chip">${c.name}</span>`) : h`<span class="badge amber">Aucune</span>`)}</div></td>
-      <td data-label="Statut">${!u.active ? h`<span class="badge red">Désactivé</span>` : u.locked ? h`<span class="badge red">${icon('lock', 'sm')} Verrouillé</span>` : u.must_change ? h`<span class="badge amber">1re connexion</span>` : h`<span class="badge green">Actif</span>`}</td>
+      <td data-label="Statut">${!u.active ? h`<span class="badge red">Désactivé</span>` : u.locked ? h`<span class="badge red">${icon('lock', 'sm')} Verrouillé</span>` : h`<span class="badge green">Actif</span>`}
+        <div class="cell-sub">${u.has_pw ? 'Mot de passe au coffre' : 'Mot de passe personnel'}</div></td>
       <td data-label="Connexion" class="small">${u.last_login ? fmtTs(u.last_login) : 'Jamais'}</td>
       <td class="actions-cell"><div class="rel" style="display:inline-block"><button class="btn btn-ghost btn-sm btn-icon" data-more="${u.id}" aria-label="Actions">${icon('menu', 'sm')}</button></div></td></tr>`)}</tbody></table></div>`
     : empty(list.length ? 'Aucun résultat' : 'Aucun compte', list.length ? '' : 'Créez les comptes un par un ou importez une liste.', T ? 'teacher' : 'shield')}</div>`);
@@ -753,7 +851,7 @@ async function staff(view, params, role) {
     $$('.menu.staff-menu').forEach((x) => x.remove());
     const u = list.find((x) => x.id === +m.dataset.more);
     const menu = document.createElement('div'); menu.className = 'menu staff-menu';
-    mount(menu, h`<button data-a="edit">${icon('edit')} Modifier</button><button data-a="reset">${icon('key')} Réinitialiser le mot de passe</button>
+    mount(menu, h`<button data-a="edit">${icon('edit')} Modifier</button><button data-a="access">${icon('eye')} Voir les accès & envoyer</button><button data-a="reset">${icon('key')} Réinitialiser le mot de passe</button>
       <button data-a="toggle">${icon(u.active ? 'lock' : 'unlock')} ${u.active ? 'Désactiver' : 'Réactiver'}${u.locked ? ' / déverrouiller' : ''}</button>
       ${T ? h`<button data-a="edt">${icon('calendar')} Emploi du temps</button><button data-a="prog">${icon('target')} Fiche de progression</button>` : ''}<hr>
       <button data-a="del" style="color:var(--red-600)">${icon('trash')} Supprimer</button>`);
@@ -764,6 +862,7 @@ async function staff(view, params, role) {
       const a = ev.target.closest('[data-a]')?.dataset.a; if (!a) return; menu.remove();
       try {
         if (a === 'edit') { if (await formModal({ title: `Modifier ${u.full_name}`, fields, size: 'lg', values: { ...u, class_ids: (u.classes || []).map((c) => c.id) }, onSubmit: (d) => put(`/admin/users/${u.id}`, d) })) { toast('Compte modifié'); rerender(); } }
+        if (a === 'access') await showCredentials([{ ...(await post(`/admin/users/${u.id}/reveal`)), phone: u.phone }], { record: false });
         if (a === 'reset' && await confirmDialog({ title: 'Réinitialiser le mot de passe ?', message: `Un nouveau mot de passe sera généré pour ${u.full_name}. Ses sessions ouvertes seront fermées.`, okLabel: 'Réinitialiser' })) { await showCredentials([await post(`/admin/users/${u.id}/reset`)]); rerender(); }
         if (a === 'toggle') { await post(`/admin/users/${u.id}/toggle`); toast(u.active ? 'Compte désactivé' : 'Compte réactivé'); rerender(); }
         if (a === 'edt') go('edt', { mode: 'teacher', teacher: u.id });
@@ -810,7 +909,7 @@ async function disciplineAdmin(view, params) {
   if (!classes.length) return mount(view, h`<div class="card">${empty('Aucune classe', '', 'shield')}</div>`);
   const cid = +params.class || classes[0].id, seq = +params.seq || state.current;
   mount(view, h`<div data-ed></div>`);
-  await disciplineEditor($('[data-ed]', view), { class_id: cid, seq, classes, onChange: (c, s) => go('discipline', { class: c, seq: s }) });
+  await disciplineEditor($('[data-ed]', view), { class_id: cid, period: periodParam(params, state.current), classes, onChange: (c, p) => go('discipline', { class: c, period: p }) });
 }
 
 /* ========================= Annonces ========================= */
@@ -849,10 +948,10 @@ async function sauvegarde(view) {
   mount(view, h`<div class="page-head"><div><h2>Sauvegarde & année scolaire</h2><p>Protégez vos données et préparez la rentrée.</p></div></div>
   <div class="grid g-3">
     <div class="card"><div class="card-h"><h3>${icon('download')} Sauvegarder</h3></div><div class="card-b stack"><p class="small muted" style="margin:0">Téléchargez une copie complète de toutes les données (paramètres, élèves, personnels, notes, discipline, emplois du temps). Conservez-la en lieu sûr (clé USB, Drive…). Recommandé : chaque semaine et avant chaque clôture.</p>
-      <a class="btn btn-primary" href="/api/admin/backup" download>${icon('download')} Télécharger la sauvegarde</a></div></div>
+      <a class="btn btn-primary" href="${apiUrl('/admin/backup')}" download>${icon('download')} Télécharger la sauvegarde</a></div></div>
     <div class="card"><div class="card-h"><h3>${icon('upload')} Restaurer</h3></div><div class="card-b stack"><p class="small muted" style="margin:0">Remplace <b>toutes</b> les données actuelles par celles d'une sauvegarde. Tous les utilisateurs seront déconnectés.</p>
       <input type="file" accept=".json,application/json" class="hidden" data-file><button class="btn btn-danger-soft" data-restore>${icon('upload')} Choisir un fichier…</button></div></div>
-    <div class="card"><div class="card-h"><h3>${icon('refresh')} Nouvelle année scolaire</h3></div><div class="card-b stack"><p class="small muted" style="margin:0">Efface les notes, progressions et données disciplinaires, rouvre les 6 séquences avec un nouveau calendrier. Les élèves, classes, matières, personnels et emplois du temps sont conservés. <b>Faites une sauvegarde avant !</b></p>
+    <div class="card"><div class="card-h"><h3>${icon('refresh')} Nouvelle année scolaire</h3></div><div class="card-b stack"><p class="small muted" style="margin:0">Efface les notes, progressions et données disciplinaires, rouvre les 6 séquences avec un nouveau calendrier. Les élèves, classes, matières, personnels et emplois du temps sont conservés. <b>Clôturez d'abord l'année</b> (menu Calendrier & clôtures) : statistiques annuelles et sauvegarde sont alors archivées.</p>
       <div class="field"><label>Nouvelle année</label><input class="input" data-year value="${y + 1}-${y + 2}" pattern="\\d{4}-\\d{4}"></div><button class="btn btn-outline" data-newyear>${icon('refresh')} Démarrer la nouvelle année</button></div></div>
   </div>
   <div class="card mt"><div class="card-h"><h3>${icon('shield')} Sécurité de la plateforme</h3></div><div class="card-b"><div class="grid g-2 small">

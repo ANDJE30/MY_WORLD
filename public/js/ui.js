@@ -84,7 +84,7 @@ export function appreciation(a) {
   return a >= 18 ? 'Excellent' : a >= 16 ? 'Très bien' : a >= 14 ? 'Bien' : a >= 12 ? 'Assez bien' : a >= 10 ? 'Passable' : a >= 8 ? 'Insuffisant' : a >= 5 ? 'Faible' : 'Très faible';
 }
 export const noteClass = (v) => (v == null || Number.isNaN(v) ? '' : v < 10 ? 'low' : v >= 14 ? 'good' : '');
-export const ROLE_LABEL = { admin: 'Administrateur', teacher: 'Enseignant', discipline: 'Responsable disciplinaire' };
+export const ROLE_LABEL = { superadmin: 'Super administrateur', admin: 'Administrateur', teacher: 'Enseignant', discipline: 'Responsable disciplinaire' };
 export const DAYS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 export const PERIODS = [['S1', 'Séquence 1'], ['S2', 'Séquence 2'], ['T1', 'Trimestre 1'], ['S3', 'Séquence 3'], ['S4', 'Séquence 4'], ['T2', 'Trimestre 2'],
   ['S5', 'Séquence 5'], ['S6', 'Séquence 6'], ['T3', 'Trimestre 3'], ['A', 'Bilan annuel']];
