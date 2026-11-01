@@ -1,0 +1,120 @@
+erDiagram
+  USERS ||--o{ CLASS_SUBJECTS : "enseigne"
+  USERS ||--o{ OFFICER_CLASSES : "surveille"
+  USERS ||--o{ SESSIONS : "ouvre"
+  CLASSES ||--o{ STUDENTS : "contient"
+  CLASSES ||--o{ CLASS_SUBJECTS : "programme"
+  CLASSES ||--o{ OFFICER_CLASSES : "rattache"
+  CLASSES ||--o{ TIMETABLE : "planifie"
+  CLASSES ||--o{ DISCIPLINE_VALIDATIONS : "rattache"
+  SUBJECTS ||--o{ CLASS_SUBJECTS : "rattache"
+  CLASS_SUBJECTS ||--o{ NOTES : "évalue"
+  CLASS_SUBJECTS ||--o{ PROGRESSIONS : "rattache"
+  CLASS_SUBJECTS ||--o{ NOTE_VALIDATIONS : "rattache"
+  CLASS_SUBJECTS ||--o{ TIMETABLE : "rattache"
+  STUDENTS ||--o{ NOTES : "obtient"
+  STUDENTS ||--o{ DISCIPLINE_RECORDS : "rattache"
+  STUDENTS ||--o{ INCIDENTS : "commet"
+  PERIODS ||--o{ NOTES : "séquence"
+  USERS {
+    int id PK
+    text role
+    text username UK
+    text pass_hash
+    text full_name
+    int active
+    int must_change
+    int locked_until
+  }
+  CLASSES {
+    int id PK
+    text name UK
+    text level
+    text serie
+    text cycle
+    int titulaire_id FK
+  }
+  SUBJECTS {
+    int id PK
+    text name UK
+    text code
+    int groupe
+  }
+  CLASS_SUBJECTS {
+    int id PK
+    int class_id FK
+    int subject_id FK
+    real coef
+    int teacher_id FK
+    real hours_week
+  }
+  STUDENTS {
+    int id PK
+    text matricule UK
+    text nom
+    text prenom
+    text sexe
+    text date_naissance
+    int class_id FK
+  }
+  PERIODS {
+    int seq PK
+    text start_date
+    text end_date
+    text status
+  }
+  NOTES {
+    int student_id PK
+    int class_subject_id PK
+    int seq PK
+    real value
+    int absent
+  }
+  PROGRESSIONS {
+    int class_subject_id PK
+    int seq PK
+    int planned
+    int done
+  }
+  DISCIPLINE_RECORDS {
+    int student_id PK
+    int seq PK
+    real abs_j
+    real abs_nj
+    int retards
+    int blame
+  }
+  INCIDENTS {
+    int id PK
+    int student_id FK
+    int seq
+    text date
+    text type
+    text gravite
+  }
+  TIMETABLE {
+    int class_id PK
+    int day PK
+    int slot PK
+    int class_subject_id FK
+    text room
+  }
+  OFFICER_CLASSES {
+    int user_id PK
+    int class_id PK
+  }
+  NOTE_VALIDATIONS {
+    int class_subject_id PK
+    int seq PK
+    int validated_at
+  }
+  DISCIPLINE_VALIDATIONS {
+    int class_id PK
+    int seq PK
+    int validated_at
+  }
+  SESSIONS {
+    text token_hash PK
+    int user_id FK
+    int expires_at
+  }

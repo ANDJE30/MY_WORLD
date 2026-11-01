@@ -1,0 +1,24 @@
+flowchart LR
+  ENS["👤 Enseignant"]
+  RD["👤 Responsable<br/>disciplinaire"]
+  subgraph SYS["Système EduGest CM — espaces Enseignant et Responsable disciplinaire"]
+    direction TB
+    C0(["S'authentifier / changer son mot de passe"])
+    C1(["Consulter emploi du temps et annonces"])
+    E1(["Saisir la progression annuelle<br/>(leçons prévues / faites par séquence)"])
+    E2(["Saisir les notes de ses classes"])
+    E3(["Valider la saisie d'une séquence"])
+    E4(["Exporter les relevés de notes PDF"])
+    D1(["Saisir absences, retards, consignes, sanctions"])
+    D2(["Signaler un incident disciplinaire"])
+    D3(["Valider la fiche disciplinaire d'une classe"])
+    D4(["Exporter les fiches disciplinaires PDF<br/>(classe / individuelle)"])
+  end
+  ENS --- C0 & C1 & E1 & E2 & E3 & E4
+  C0 & C1 & D1 & D2 & D3 & D4 --- RD
+  E3 -. "«include» contrôle de complétude" .-> E2
+  classDef actor fill:#fbf1db,stroke:#a97a1d,color:#3b2a06,font-weight:bold
+  classDef uc fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
+  class ENS,RD actor
+  class C0,C1,E1,E2,E3,E4,D1,D2,D3,D4 uc
+  style SYS fill:#ffffff,stroke:#0b5d4b,stroke-width:2px

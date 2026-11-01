@@ -1,0 +1,28 @@
+flowchart LR
+  ADM["👤 Administrateur<br/>(Proviseur, Censeur, Directeur)"]
+  subgraph SYS["Système EduGest CM — espace Administrateur"]
+    direction TB
+    UC0(["S'authentifier / gérer son mot de passe"])
+    UC1(["Paramétrer l'établissement : identité, logo,<br/>en-tête officiel, horaires, jours de cours"])
+    UC2(["Définir le calendrier des 6 séquences"])
+    UC3(["Clôturer / rouvrir une séquence ou un trimestre"])
+    UC4(["Gérer classes, matières et coefficients"])
+    UC5(["Gérer les élèves : saisie, import CSV, transfert"])
+    UC6(["Créer les comptes enseignants<br/>et générer les identifiants"])
+    UC7(["Créer les comptes responsables disciplinaires<br/>et leur affecter des classes"])
+    UC8(["Attribuer classes et matières aux enseignants"])
+    UC9(["Concevoir les emplois du temps<br/>(génération automatique, conflits)"])
+    UC10(["Suivre l'avancement des saisies"])
+    UC11(["Éditer bulletins, procès-verbaux, statistiques"])
+    UC12(["Publier des annonces"])
+    UC13(["Sauvegarder, restaurer, nouvelle année,<br/>consulter le journal d'audit"])
+    V(["Vérifier la complétude des saisies"])
+  end
+  ADM --- UC0 & UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13
+  UC3 -. "«include»" .-> V
+  UC10 -. "«include»" .-> V
+  classDef actor fill:#fbf1db,stroke:#a97a1d,color:#3b2a06,font-weight:bold
+  classDef uc fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
+  class ADM actor
+  class UC0,UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,V uc
+  style SYS fill:#ffffff,stroke:#0b5d4b,stroke-width:2px

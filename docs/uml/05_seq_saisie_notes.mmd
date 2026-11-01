@@ -1,0 +1,27 @@
+sequenceDiagram
+  autonumber
+  actor E as Enseignant
+  participant N as Navigateur (SPA)
+  participant L as Stockage local
+  participant API as API EduGest
+  participant DB as Base SQLite
+  E->>N: Ouvre « Saisie des notes » (classe, séquence)
+  N->>API: GET /api/notes/grid?cs&seq
+  API->>API: Vérifie l'attribution (enseignant = titulaire de la matière)
+  API->>DB: Élèves + notes existantes + statut de la séquence
+  API-->>N: Grille (ou « séquence verrouillée »)
+  loop Pour chaque élève
+    E->>N: Tape la note (ou « a » = absent), Entrée
+    N->>N: Contrôle 0–20, 2 décimales, statistiques en direct
+    N->>L: Brouillon de sécurité
+  end
+  N->>API: PUT /api/notes/grid (enregistrement auto après 2,5 s)
+  API->>API: Séquence ouverte ? élèves de la classe ? bornes ?
+  API->>DB: Transaction : upsert des notes, annulation de la validation
+  API->>DB: Journal d'audit NOTES_SAISIES
+  API-->>N: 200 OK
+  N->>L: Efface le brouillon
+  E->>N: « Valider la saisie »
+  N->>API: POST /api/notes/validate
+  API->>DB: Vérifie que chaque élève a une note ou « absent »
+  API-->>N: Saisie validée ✔

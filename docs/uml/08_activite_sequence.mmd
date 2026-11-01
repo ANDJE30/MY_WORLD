@@ -1,0 +1,29 @@
+flowchart TD
+  S((Début)) --> A1[Admin : définir le calendrier des 6 séquences]
+  A1 --> A2[Admin : classes, matières, coefficients, élèves]
+  A2 --> A3[Admin : comptes et attributions<br/>enseignants & responsables]
+  A3 --> A4[Admin : emplois du temps]
+  A4 --> P{{Séquence ouverte}}
+  P --> E1[Enseignant : progression<br/>leçons prévues / faites]
+  P --> E2[Enseignant : saisie des notes]
+  P --> D1[Responsable : absences, retards,<br/>sanctions, incidents]
+  E2 --> E3{Toutes les notes<br/>saisies ?}
+  E3 -- non --> E2
+  E3 -- oui --> E4[Enseignant : valider la saisie]
+  D1 --> D2[Responsable : valider la fiche]
+  E4 --> J((( )))
+  D2 --> J
+  J --> C1{Admin : date de fin atteinte<br/>et saisies complètes ?}
+  C1 -- non --> C2{Forcer ?}
+  C2 -- non --> R[Relancer les retardataires<br/>via annonces / suivi] --> P
+  C2 -- oui --> C3[Confirmation par mot de passe]
+  C1 -- oui --> C4[Clôturer la séquence]
+  C3 --> C4
+  C4 --> B[Bulletins, PV, statistiques]
+  B --> T{Fin de trimestre ?}
+  T -- oui --> BT[Bulletins trimestriels<br/>conseil de classe] --> F((Fin))
+  T -- non --> F
+  classDef act fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
+  classDef dec fill:#fbf1db,stroke:#a97a1d,color:#3b2a06
+  class A1,A2,A3,A4,E1,E2,E4,D1,D2,R,C3,C4,B,BT act
+  class E3,C1,C2,T dec

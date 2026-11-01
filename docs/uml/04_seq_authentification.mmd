@@ -1,0 +1,27 @@
+sequenceDiagram
+  autonumber
+  actor U as Utilisateur
+  participant N as Navigateur (SPA)
+  participant API as API EduGest
+  participant DB as Base SQLite
+  U->>N: Saisit identifiant + mot de passe
+  N->>API: POST /api/auth/login (en-tête anti-CSRF)
+  API->>API: Limitation de débit (IP + identifiant)
+  API->>DB: Lire l'utilisateur
+  alt Compte verrouillé
+    API-->>N: 423 « Compte verrouillé 15 min »
+  else Mot de passe incorrect
+    API->>DB: Incrémenter les échecs (verrou au 5e)
+    API->>DB: Journal d'audit LOGIN_ECHEC
+    API-->>N: 401 « Identifiant ou mot de passe incorrect »
+  else Succès
+    API->>DB: Créer la session (jeton haché SHA-256)
+    API-->>N: 200 + cookie HttpOnly / SameSite=Strict
+    opt Première connexion
+      N->>U: Exige un mot de passe personnel
+      U->>N: Nouveau mot de passe
+      N->>API: POST /api/auth/password
+      API->>DB: Hachage scrypt + fermeture des autres sessions
+    end
+    N->>U: Tableau de bord selon le rôle
+  end
