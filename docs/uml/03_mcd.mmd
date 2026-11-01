@@ -8,6 +8,8 @@ erDiagram
   CLASSES ||--o{ TIMETABLE : "planifie"
   CLASSES ||--o{ DISCIPLINE_VALIDATIONS : "rattache"
   SUBJECTS ||--o{ CLASS_SUBJECTS : "rattache"
+  SUBJECT_GROUPS ||--o{ SUBJECTS : "regroupe"
+  SUBJECT_TYPES ||--o{ SUBJECTS : "qualifie"
   CLASS_SUBJECTS ||--o{ NOTES : "évalue"
   CLASS_SUBJECTS ||--o{ PROGRESSIONS : "rattache"
   CLASS_SUBJECTS ||--o{ NOTE_VALIDATIONS : "rattache"
@@ -38,7 +40,17 @@ erDiagram
     int id PK
     text name UK
     text code
-    int groupe
+    int group_id FK
+    int type_id FK
+  }
+  SUBJECT_GROUPS {
+    int id PK
+    text name UK
+    int ordre
+  }
+  SUBJECT_TYPES {
+    int id PK
+    text name UK
   }
   CLASS_SUBJECTS {
     int id PK

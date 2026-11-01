@@ -31,11 +31,19 @@ const shot = async (page, name, full = false) => {
   await page.goto(BASE); await shot(page, '01_connexion');
   await login(page, 'admin', 'Admin@2026');
   const pages = [['dashboard', '02_admin_tableau_de_bord', true], ['etablissement', '03_admin_etablissement'], ['etablissement?tab=horaires', '04_admin_horaires'],
-    ['calendrier', '05_admin_calendrier'], ['classes', '06_admin_classes'], ['matieres', '07_admin_matieres'], ['attributions', '08_admin_attributions'],
+    ['calendrier', '05_admin_calendrier'], ['classes', '06_admin_classes'], ['matieres', '07_admin_matieres'], ['matieres?tab=groupes', '07c_admin_groupes'], ['matieres?tab=types', '07d_admin_types'], ['attributions', '08_admin_attributions'],
     ['eleves?class=1', '09_admin_eleves'], ['enseignants', '10_admin_enseignants'], ['responsables', '11_admin_responsables'], ['edt?class=1', '12_admin_edt'],
     ['suivi?seq=2', '13_admin_suivi'], ['resultats?class=1&period=S1', '14_admin_resultats'], ['statistiques?period=S1', '15_admin_statistiques'],
     ['annonces', '16_admin_annonces'], ['audit', '17_admin_audit'], ['sauvegarde', '18_admin_sauvegarde']];
   for (const [p, n, full] of pages) { await page.goto(`${BASE}/#/${p}`); await page.waitForSelector('#view > *:not(.empty)'); await shot(page, n, !!full); }
+  // formulaire de matière : groupe et type indépendants, création d'un type à la volée
+  await page.goto(`${BASE}/#/matieres`); await page.waitForSelector('[data-edit]');
+  await page.click('[data-add]'); await page.fill('[name=name]', 'Électrotechnique'); await page.fill('[name=code]', 'ELEC');
+  await page.selectOption('[name=group_id]', { index: 2 }); await page.selectOption('[name=type_id]', '__new__');
+  await page.waitForFunction(() => document.querySelectorAll('.modal-root').length === 2);
+  await page.fill('.modal-root:last-child [name=name]', 'Matière technique'); await shot(page, '07e_admin_type_a_la_volee');
+  await page.click('.modal-root:last-child [data-submit]'); await page.waitForFunction(() => document.querySelectorAll('.modal-root').length === 1);
+  await shot(page, '07b_admin_matiere_formulaire'); await page.click('.modal [data-close]');
   await page.goto(`${BASE}/#/enseignants`); await page.waitForTimeout(500);
   await page.click('[data-add]'); await page.fill('[name=full_name]', 'NANGA Béatrice Odile'); await page.selectOption('[name=sexe]', 'F'); await page.fill('[name=specialite]', 'Anglais');
   await page.click('[data-submit]'); await page.waitForSelector('.cred'); await shot(page, '19_admin_identifiants');

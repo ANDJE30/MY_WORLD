@@ -262,13 +262,14 @@ export function bulletin(doc, r, ctx) {
     ['Effectif', stats.effectif], ['Professeur principal', classe.titulaire], ['Parent / Tuteur', st.parent_tel || st.parent_nom]], 3);
   const seqCols = period.type === 'T' ? period.seqs.map((s) => ({ header: `S${s}`, width: 0.55, align: 'center', value: (l) => l.bySeq?.[s] })) : [];
   const lines = [];
-  const groups = [...new Set(r.lines.map((l) => l.groupe))].sort();
+  // les lignes arrivent triées selon l'ordre des groupes défini par l'administrateur
+  const groups = [...new Set(r.lines.map((l) => l.group_id ?? 0))];
   for (const g of groups) {
-    const gl = r.lines.filter((l) => l.groupe === g);
+    const gl = r.lines.filter((l) => (l.group_id ?? 0) === g);
     lines.push(...gl);
     const sc = gl.filter((l) => l.avg != null);
     const tc = sc.reduce((a, l) => a + l.coef, 0), tp = sc.reduce((a, l) => a + l.total, 0);
-    lines.push({ subject: `Groupe ${g}`, _bold: true, _highlight: true, coef: tc || null, total: tp || null, avg: tc ? tp / tc : null, appreciation: '' });
+    lines.push({ subject: gl[0].group_name || 'Sans groupe', _bold: true, _highlight: true, coef: tc || null, total: tp || null, avg: tc ? tp / tc : null, appreciation: '' });
   }
   y = table(doc, y, [
     { header: 'Discipline', width: 2.4, value: (l) => (l._bold ? l.subject : `${l.subject}${l.teacher ? '\n' + l.teacher : ''}`) },

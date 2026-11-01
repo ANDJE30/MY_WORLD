@@ -56,10 +56,12 @@ export function rank(items) {
 }
 
 export function classSubjects(classId) {
-  return db.prepare(`SELECT cs.id, cs.coef, cs.teacher_id, cs.hours_week, s.id subject_id, s.name subject, s.code, s.groupe,
-      u.full_name teacher
-    FROM class_subjects cs JOIN subjects s ON s.id = cs.subject_id LEFT JOIN users u ON u.id = cs.teacher_id
-    WHERE cs.class_id = ? ORDER BY s.groupe, s.name`).all(classId);
+  return db.prepare(`SELECT cs.id, cs.coef, cs.teacher_id, cs.hours_week, s.id subject_id, s.name subject, s.code,
+      s.group_id, g.name group_name, g.ordre group_ordre, s.type_id, t.name type_name, u.full_name teacher
+    FROM class_subjects cs JOIN subjects s ON s.id = cs.subject_id
+    LEFT JOIN subject_groups g ON g.id = s.group_id LEFT JOIN subject_types t ON t.id = s.type_id
+    LEFT JOIN users u ON u.id = cs.teacher_id
+    WHERE cs.class_id = ? ORDER BY COALESCE(g.ordre, 999), g.name, s.name`).all(classId);
 }
 export function classStudents(classId) {
   return db.prepare(`SELECT * FROM students WHERE class_id = ? AND active = 1 ORDER BY nom COLLATE NOCASE, prenom COLLATE NOCASE`).all(classId);
@@ -108,7 +110,8 @@ export function computeClassResults(classId, periodCode) {
         const n = notes[st.id]?.[cs.id]?.[s];
         return [s, n ? (n.absent ? 'ABS' : n.value) : null];
       }));
-      return { cs_id: cs.id, subject: cs.subject, groupe: cs.groupe, coef: cs.coef, teacher: cs.teacher, bySeq,
+      return { cs_id: cs.id, subject: cs.subject, group_id: cs.group_id, group_name: cs.group_name, type_name: cs.type_name,
+        coef: cs.coef, teacher: cs.teacher, bySeq,
         avg: round2(avg), total: avg == null ? null : round2(avg * cs.coef), appreciation: appreciation(avg) };
     });
     let sc = 0, sw = 0;
@@ -126,7 +129,7 @@ export function computeClassResults(classId, periodCode) {
     const vals = res.map((r) => r.lines.find((l) => l.cs_id === cs.id).avg).filter((v) => v != null);
     const rk = rank(res.map((r) => ({ key: r.student.id, value: r.lines.find((l) => l.cs_id === cs.id).avg })));
     res.forEach((r) => { const l = r.lines.find((x) => x.cs_id === cs.id); l.rang = rk.get(r.student.id)?.rang ?? null; });
-    return { cs_id: cs.id, subject: cs.subject, coef: cs.coef, teacher: cs.teacher, count: vals.length,
+    return { cs_id: cs.id, subject: cs.subject, group_name: cs.group_name, type_name: cs.type_name, coef: cs.coef, teacher: cs.teacher, count: vals.length,
       avg: round2(mean(vals)), min: vals.length ? Math.min(...vals) : null, max: vals.length ? Math.max(...vals) : null,
       reussite: vals.length ? round2((vals.filter((v) => v >= seuil).length / vals.length) * 100) : null };
   });

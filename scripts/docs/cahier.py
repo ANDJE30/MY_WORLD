@@ -11,7 +11,8 @@ D = Doc('Cahier des charges — EduGest CM', 'Cahier des charges')
 D.cover('Cahier des charges fonctionnel et technique', 'EduGest CM',
         "Application web responsive de gestion des notes, des faits disciplinaires et des emplois du temps des établissements d'enseignement secondaire général et technique du Cameroun",
         [('Projet', 'EduGest CM — plateforme de gestion scolaire'), ('Document', 'Cahier des charges (spécifications fonctionnelles, techniques et conception UML)'),
-         ('Version', '1.0'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
+         ('Version', '1.1'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
+         ('Historique', '1.0 : version initiale.  1.1 : groupe et type de matière dissociés, référentiels administrables, statistiques par type.'),
          ('Destinataires', "Chefs d'établissement, censeurs, surveillants généraux, enseignants, promoteurs d'établissements privés, équipe technique"),
          ('Rédaction', 'Équipe de développement full stack EduGest CM')], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
 D.toc()
@@ -92,7 +93,8 @@ EF = [
    ('EF-26', 'Verrouillage', "Une séquence clôturée est en lecture seule pour les notes, la progression et la discipline.", 'M')]),
  ('3.4 Administrateur — scolarité', [
    ('EF-30', 'Classes', "Création, modification, suppression (si vide) ; niveau (6e … Terminale, Form 1 … Upper Sixth, années du technique), série/spécialité, cycle, salle, professeur principal ; copie des matières d'une classe parallèle.", 'M'),
-   ('EF-31', 'Matières', "Catalogue avec code et groupe du bulletin (1 : littéraires, 2 : scientifiques, 3 : autres) ; ajout du programme officiel en un clic.", 'M'),
+   ('EF-31', 'Matières', "Catalogue avec intitulé, abréviation, **groupe** et **type** choisis indépendamment ; filtre par type ; ajout du programme officiel en un clic.", 'M'),
+   ('EF-36', 'Groupes et types de matière', "Deux référentiels administrables. **Groupes** (libellé + position) : regroupement et sous-totaux du bulletin. **Types** (Matière littéraire, Matière scientifique, Autre matière… extensibles, ex. Matière technique) : nature de la matière, utilisée par les statistiques. Ajout, renommage, suppression (si non utilisé) ; création possible directement depuis le formulaire d'une matière.", 'M'),
    ('EF-32', 'Attributions', "Pour chaque classe : matières, coefficients, volume horaire hebdomadaire, enseignant ; application simultanée à plusieurs classes ; enregistrement automatique.", 'M'),
    ('EF-33', 'Élèves', "Fiche complète (matricule, nom, prénoms, sexe, date et lieu de naissance, classe, redoublant, parent, téléphone) ; matricule généré automatiquement si absent.", 'M'),
    ('EF-34', 'Import des élèves', "Import CSV/Excel par classe avec modèle téléchargeable, aperçu, mise à jour par matricule et rapport d'erreurs ligne par ligne.", 'M'),
@@ -114,7 +116,7 @@ EF = [
    ('EF-61', 'Suivi des saisies', "Avancement par classe/matière/enseignant ; filtre « à compléter » ; ouverture et correction d'une grille ; export CSV.", 'M'),
    ('EF-62', 'Résultats', "Classement par période (séquence, trimestre, année) : moyenne, rang, appréciation, décision, absences ; statistiques par matière.", 'M'),
    ('EF-63', 'Bulletins', "Bulletins PDF par élève ou pour toute la classe ; procès-verbal de conseil de classe.", 'M'),
-   ('EF-64', 'Statistiques', "Réussite par classe, par matière, par sexe ; tableau d'honneur ; discipline par classe.", 'S'),
+   ('EF-64', 'Statistiques', "Réussite par classe, par matière, par type de matière, par sexe ; tableau d'honneur ; discipline par classe.", 'S'),
    ('EF-65', 'Discipline (supervision)', "Accès à toutes les fiches disciplinaires et au registre des incidents.", 'S'),
    ('EF-66', 'Annonces', "Publication de messages ciblés (tous, enseignants, responsables), affichés sur les tableaux de bord.", 'S'),
    ('EF-67', "Journal d'audit", "Traçabilité des actions sensibles (connexions, échecs, saisies, clôtures, suppressions, exports) ; recherche et export.", 'M'),
@@ -163,7 +165,8 @@ D.table(['Réf.', 'Règle'], [
   ['RG-15', "Mot de passe personnel : 8 caractères minimum, au moins une lettre et un chiffre, différent de l'actuel et ne contenant pas l'identifiant."],
   ['RG-16', "Une classe ne peut être supprimée que si elle ne contient aucun élève ; une matière ne peut être supprimée si des notes existent."],
   ['RG-17', "Emploi du temps : un enseignant ou une salle ne peut être affecté à deux classes sur le même créneau ; les créneaux de pause ne sont pas affectables."],
-  ['RG-18', "Il doit toujours exister au moins un compte administrateur ; un administrateur ne peut ni supprimer ni désactiver son propre compte."]],
+  ['RG-18', "Il doit toujours exister au moins un compte administrateur ; un administrateur ne peut ni supprimer ni désactiver son propre compte."],
+  ['RG-19', "Chaque matière a exactement un groupe et un type, choisis indépendamment. Sur le bulletin, les matières sont regroupées et sous-totalisées par groupe, dans l'ordre des positions. Un groupe ou un type utilisé par une matière ne peut être supprimé ; il en reste toujours au moins un de chaque. Les libellés sont uniques (sans distinction de casse)."]],
   widths=[1.6, 15], caption='Règles de gestion', font=9.5)
 
 # ------------------------------------------------------------------ 5
@@ -212,7 +215,7 @@ D.figure(u('01a_cas_utilisation_admin.png'), "Cas d'utilisation de l'administrat
 D.figure(u('01b_cas_utilisation_ens_resp.png'), "Cas d'utilisation de l'enseignant et du responsable disciplinaire", max_h=17)
 def wide():
     D.h2('6.2 Diagramme de classes (modèle du domaine)')
-    D.p("Le modèle s'articule autour de l'**Attribution** (une matière enseignée dans une classe, avec son coefficient et son enseignant) : les notes, la progression et les créneaux d'emploi du temps lui sont rattachés. La **Séquence** porte l'état d'ouverture qui conditionne toutes les saisies.", align='justify')
+    D.p("Le modèle s'articule autour de l'**Attribution** (une matière enseignée dans une classe, avec son coefficient et son enseignant) : les notes, la progression et les créneaux d'emploi du temps lui sont rattachés. Chaque **Matière** est rattachée à un **GroupeMatiere** (regroupement sur le bulletin) et, indépendamment, à un **TypeMatiere** (littéraire, scientifique…). La **Séquence** porte l'état d'ouverture qui conditionne toutes les saisies.", align='justify')
     D.figure(u('02_classes.png'), 'Diagramme de classes du domaine', max_w=25.3, max_h=13.2)
     D.page_break()
     D.h2('6.3 Modèle physique de données')
@@ -263,7 +266,9 @@ D.table(['Table', 'Rôle', 'Champs principaux'], [
   ['users', 'Comptes (3 rôles)', "role, username, pass_hash, full_name, active, must_change, failed_attempts, locked_until"],
   ['sessions', 'Sessions actives', "token_hash, user_id, expires_at, last_seen, ip"],
   ['classes', 'Classes', "name, level, serie, cycle, room, titulaire_id"],
-  ['subjects', 'Matières', "name, code, groupe"],
+  ['subjects', 'Matières', "name, code, group_id, type_id"],
+  ['subject_groups', 'Groupes de matières', "name, ordre (position sur le bulletin)"],
+  ['subject_types', 'Types de matière', "name (Matière littéraire, Matière scientifique…)"],
   ['class_subjects', 'Attributions', "class_id, subject_id, coef, teacher_id, hours_week"],
   ['students', 'Élèves', "matricule, nom, prenom, sexe, date/lieu de naissance, class_id, redoublant, parent"],
   ['officer_classes', 'Classes des responsables', "user_id, class_id"],
@@ -285,7 +290,7 @@ D.table(['Domaine', 'Principales routes'], [
   ['Authentification', "POST auth/login, auth/logout, auth/password ; GET auth/me, auth/public ; PUT auth/profile"],
   ['Commun', "GET periods, announcements, classes/mine, timetable/class/:id, timetable/teacher/:id, search"],
   ['Administration', "GET admin/dashboard ; GET|PUT admin/settings ; PUT admin/periods/:seq ; GET admin/periods/:seq/check ; POST admin/periods/:seq/close|reopen ; POST admin/trimestres/:n/close"],
-  ['Scolarité', "CRUD admin/classes, admin/subjects, admin/class-subjects, admin/students ; POST admin/students/import|bulk ; POST admin/classes/:id/copy-subjects"],
+  ['Scolarité', "CRUD admin/classes, admin/subjects, admin/subject-groups, admin/subject-types, admin/class-subjects, admin/students ; POST admin/students/import|bulk ; POST admin/classes/:id/copy-subjects"],
   ['Personnels', "GET|POST admin/users ; POST admin/users/import ; PUT|DELETE admin/users/:id ; POST admin/users/:id/reset|toggle"],
   ['Emplois du temps', "GET admin/timetable/:classId ; PUT|DELETE admin/timetable ; POST admin/timetable/:classId/generate"],
   ['Résultats', "GET admin/results, admin/stats, admin/progressions, admin/audit"],
@@ -315,7 +320,7 @@ D.bullets([("Démonstration (Render) : ", "connecter le dépôt GitHub à Render
 
 # ------------------------------------------------------------------ 11
 D.h1('11. Recette et assurance qualité')
-D.p("La qualité est assurée par une suite de tests d'intégration automatisés (14 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
+D.p("La qualité est assurée par une suite de tests d'intégration automatisés (17 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
     "dans un navigateur réel (Playwright) qui visite toutes les pages des trois profils sur ordinateur, tablette et smartphone sans aucune erreur.", align='justify')
 D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Connexion correcte / incorrecte', "200 / 401, cookie HttpOnly", 'Réussi'], ['Requête sans en-tête anti-CSRF ou d\'origine étrangère', '403', 'Réussi'],
@@ -329,7 +334,10 @@ D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Calculs : moyenne pondérée et ordre des rangs', 'Écart < 0,01 sur tous les élèves', 'Réussi'],
   ['Emploi du temps : conflit enseignant, créneau de pause', '409 / 400', 'Réussi'],
   ['Import CSV des élèves', 'Lignes valides créées, erreurs signalées, dates JJ/MM/AAAA converties', 'Réussi'],
-  ['Génération de tous les documents (9 types de PDF)', 'Fichiers PDF valides (signature %PDF)', 'Réussi'], ['Sauvegarde puis restauration', 'Données identiques après restauration', 'Réussi']],
+  ['Génération de tous les documents (9 types de PDF)', 'Fichiers PDF valides (signature %PDF)', 'Réussi'], ['Sauvegarde puis restauration', 'Données identiques après restauration', 'Réussi'],
+  ['Groupes et types : création, doublon, combinaison libre, suppression protégée', '201 / 409 / 400, statistiques ventilées par type', 'Réussi'],
+  ["Restauration d'une sauvegarde de la version 1.0", 'Groupe et type correctement reconstitués', 'Réussi'],
+  ["Migration automatique d'une base de la version 1.0", 'Colonnes migrées, ancienne colonne retirée, données conservées', 'Réussi']],
   widths=[7.2, 7.4, 2], caption='Plan de tests automatisés', font=9)
 D.p("**Recette utilisateur.** Avant la mise en production, l'établissement réalise une recette sur le mode démonstration puis sur ses propres données "
     "(import d'une classe, saisie d'une séquence complète, clôture, édition des bulletins) en s'appuyant sur le manuel d'utilisation.", align='justify')

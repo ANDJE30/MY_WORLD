@@ -42,10 +42,23 @@ CREATE TABLE IF NOT EXISTS classes (
   titulaire_id INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Référentiels des matières : groupe (regroupement sur le bulletin) et type (littéraire, scientifique…)
+CREATE TABLE IF NOT EXISTS subject_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  ordre INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS subject_types (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE
+);
+
 CREATE TABLE IF NOT EXISTS subjects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  code TEXT, groupe INTEGER NOT NULL DEFAULT 1
+  code TEXT,
+  group_id INTEGER REFERENCES subject_groups(id),
+  type_id INTEGER REFERENCES subject_types(id)
 );
 
 -- Attribution : une matière d'une classe, son coefficient et son enseignant
@@ -234,6 +247,48 @@ export function ensurePeriods() {
   plan.forEach((p, i) => ins.run(i + 1, p[0], p[1]));
 }
 ensurePeriods();
+
+/* ---------- Groupes et types de matières ---------- */
+export const DEFAULT_GROUPS = [['Groupe 1', 1], ['Groupe 2', 2], ['Groupe 3', 3]];
+export const DEFAULT_TYPES = ['Matière littéraire', 'Matière scientifique', 'Autre matière'];
+
+/** Correspondance de l'ancien champ « groupe » (1 à 3, qui mêlait groupe et type) vers le nouveau modèle. */
+export function legacyTaxonomy(groupe) {
+  const g = Number(groupe) || 1;
+  const grp = db.prepare('SELECT id FROM subject_groups WHERE ordre = ? ORDER BY id LIMIT 1').get(g)
+    || db.prepare('SELECT id FROM subject_groups ORDER BY ordre, id LIMIT 1').get();
+  const typeName = DEFAULT_TYPES[Math.min(Math.max(g, 1), 3) - 1];
+  const typ = db.prepare('SELECT id FROM subject_types WHERE name = ?').get(typeName)
+    || db.prepare('SELECT id FROM subject_types ORDER BY id LIMIT 1').get();
+  return { group_id: grp?.id ?? null, type_id: typ?.id ?? null };
+}
+
+/**
+ * Garantit l'existence des référentiels et migre les anciennes bases (colonne « groupe »).
+ * Idempotent : appelé au démarrage et après chaque restauration de sauvegarde.
+ */
+export function ensureTaxonomy() {
+  tx(() => {
+    if (!db.prepare('SELECT 1 FROM subject_groups').get()) {
+      const ins = db.prepare('INSERT INTO subject_groups(name, ordre) VALUES(?, ?)');
+      DEFAULT_GROUPS.forEach(([n, o]) => ins.run(n, o));
+    }
+    if (!db.prepare('SELECT 1 FROM subject_types').get()) {
+      const ins = db.prepare('INSERT INTO subject_types(name) VALUES(?)');
+      DEFAULT_TYPES.forEach((n) => ins.run(n));
+    }
+    const cols = db.prepare('PRAGMA table_info(subjects)').all().map((c) => c.name);
+    if (!cols.includes('group_id')) db.exec('ALTER TABLE subjects ADD COLUMN group_id INTEGER REFERENCES subject_groups(id)');
+    if (!cols.includes('type_id')) db.exec('ALTER TABLE subjects ADD COLUMN type_id INTEGER REFERENCES subject_types(id)');
+    const orphans = db.prepare(`SELECT id${cols.includes('groupe') ? ', groupe' : ''} FROM subjects WHERE group_id IS NULL OR type_id IS NULL`).all();
+    const upd = db.prepare('UPDATE subjects SET group_id = COALESCE(group_id, ?), type_id = COALESCE(type_id, ?) WHERE id = ?');
+    for (const o of orphans) { const t = legacyTaxonomy(o.groupe); upd.run(t.group_id, t.type_id, o.id); }
+  });
+  // l'ancienne colonne n'est plus utilisée : on la retire (SQLite ≥ 3.35)
+  const cols = db.prepare('PRAGMA table_info(subjects)').all().map((c) => c.name);
+  if (cols.includes('groupe')) { try { db.exec('ALTER TABLE subjects DROP COLUMN groupe'); } catch { /* colonne conservée, sans effet */ } }
+}
+ensureTaxonomy();
 
 export function audit(req, action, detail = '') {
   try {
