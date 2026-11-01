@@ -1,18 +1,25 @@
-// Tests d'intégration de l'API (base en mémoire, jeu de démonstration).
+// Tests d'intégration de l'API (plateforme de démonstration dans un dossier temporaire).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-process.env.DB_MEMORY = '1';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'edugest-test-'));
+process.env.DATA_DIR = DATA;
 process.env.DEMO = '1';
+process.env.AUTO_BACKUP = '0';
 const { app } = await import('../server/index.js');
 
 let server, base;
 before(async () => { server = app.listen(0); await new Promise((r) => server.once('listening', r)); base = `http://127.0.0.1:${server.address().port}`; });
-after(() => server.close());
+after(() => { server.close(); fs.rmSync(DATA, { recursive: true, force: true }); });
 
-function client() {
+// interface de connexion déduite de l'identifiant de démonstration (ou imposée)
+const portalOf = (u) => (u === 'admin' || /^admin\./.test(u) ? 'admin' : /^sg\./.test(u) ? 'discipline' : 'teacher');
+function client(apiBase = '/e/lpey/api') {
   let cookie = '';
   const call = async (method, path, body, headers = {}) => {
-    const res = await fetch(base + '/api' + path, {
+    const res = await fetch(base + apiBase + path, {
       method, headers: { 'X-Requested-With': 'EduGest', ...(body ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...headers },
       body: body ? JSON.stringify(body) : undefined
     });
@@ -20,8 +27,8 @@ function client() {
     const ct = res.headers.get('content-type') || '';
     return { status: res.status, ct, data: ct.includes('json') ? await res.json() : await res.arrayBuffer() };
   };
-  return { get: (p) => call('GET', p), post: (p, b = {}, h) => call('POST', p, b, h), put: (p, b = {}) => call('PUT', p, b), del: (p) => call('DELETE', p),
-    login: async (u, pw) => call('POST', '/auth/login', { username: u, password: pw }) };
+  return { get: (p) => call('GET', p), post: (p, b = {}, h) => call('POST', p, b, h), put: (p, b = {}) => call('PUT', p, b), del: (p, b) => call('DELETE', p, b),
+    login: async (u, pw, portal) => call('POST', '/auth/login', { username: u, password: pw, portal: portal || portalOf(u) }) };
 }
 
 let adminClient;
@@ -37,9 +44,9 @@ test('connexion : échec puis succès, cookie HttpOnly', async () => {
 });
 
 test('CSRF : requête d\'écriture sans en-tête refusée', async () => {
-  const res = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'Admin@2026' }) });
+  const res = await fetch(base + '/e/lpey/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'Admin@2026' }) });
   assert.equal(res.status, 403);
-  const res2 = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'EduGest', Origin: 'https://evil.example' }, body: '{}' });
+  const res2 = await fetch(base + '/e/lpey/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'EduGest', Origin: 'https://evil.example' }, body: '{}' });
   assert.equal(res2.status, 403);
 });
 
@@ -78,18 +85,28 @@ test('verrouillage après 5 échecs', async () => {
   assert.equal((await c.login(u.username, u.password)).status, 200);
 });
 
-test('compte généré : identifiant lisible, changement de mot de passe obligatoire', async () => {
+test('compte généré : identifiant lisible, coffre des accès, lien de connexion', async () => {
   const a = await admin();
   const r = await a.post('/admin/users', { role: 'discipline', full_name: 'NDJOCK Emmanuel Marc', class_ids: [1, 2] });
   assert.equal(r.status, 201);
   assert.match(r.data.username, /^sg\.ndjockem/);
   assert.match(r.data.password, /^[a-z]+-[a-z]+-\d{3}$/);
+  assert.match(r.data.link, /\/e\/lpey\/discipline$/);
+  // l'administrateur retrouve le mot de passe généré dans le coffre
+  const v = (await a.post(`/admin/users/${r.data.id}/reveal`)).data;
+  assert.equal(v.password, r.data.password);
+  // le mot de passe généré reste utilisable (pas de changement imposé)
   const u = client(); await u.login(r.data.username, r.data.password);
-  assert.equal((await u.get('/discipline/classes')).status, 428);
-  assert.equal((await u.post('/auth/password', { current: r.data.password, next: 'court' })).status, 400);
-  assert.equal((await u.post('/auth/password', { current: r.data.password, next: 'Ma phrase secrète 2026' })).status, 200);
   const cls = (await u.get('/discipline/classes')).data.classes;
   assert.deepEqual(cls.map((c) => c.id).sort(), [1, 2]);
+  assert.equal((await u.post('/auth/password', { current: r.data.password, next: 'court' })).status, 400);
+  assert.equal((await u.post('/auth/password', { current: r.data.password, next: 'Ma phrase secrète 2026' })).status, 200);
+  // mot de passe personnel : jamais conservé en clair, le coffre l'indique
+  const v2 = (await a.post(`/admin/users/${r.data.id}/reveal`)).data;
+  assert.equal(v2.password, null); assert.equal(v2.changed_by_user, true);
+  const list = (await a.get('/admin/acces')).data;
+  assert.ok(list.users.find((x) => x.id === r.data.id).pw_user_changed_at);
+  assert.match(list.links.teacher, /\/e\/lpey\/enseignant$/);
 });
 
 test('saisie des notes : validation, bornes, verrou de séquence clôturée', async () => {
@@ -253,22 +270,173 @@ test('restauration d\'une sauvegarde de l\'ancienne version (champ « groupe » 
   }
 });
 
-test('migration automatique d\'une base de l\'ancienne version', async () => {
+test('migration automatique d\'une installation 1.x (base unique) vers la plateforme', async () => {
   const { execFileSync } = await import('node:child_process');
-  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path');
   const { DatabaseSync } = await import('node:sqlite');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'edugest-migr-'));
   const old = new DatabaseSync(path.join(dir, 'edugest.db'));
-  old.exec(`CREATE TABLE subjects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE, code TEXT, groupe INTEGER NOT NULL DEFAULT 1);
+  old.exec(`CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    INSERT INTO settings VALUES ('nom', '"Lycée Ancien de Test"'), ('nom_court', '"LAT"');
+    CREATE TABLE subjects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE, code TEXT, groupe INTEGER NOT NULL DEFAULT 1);
     INSERT INTO subjects(name, code, groupe) VALUES ('Français','FRA',1), ('Mathématiques','MATH',2), ('EPS','EPS',3);`);
   old.close();
+  const href = (f) => JSON.stringify(new URL(`../server/${f}`, import.meta.url).href);
   const out = execFileSync(process.execPath, ['--no-warnings', '--input-type=module', '-e', `
-    const { db } = await import(${JSON.stringify(new URL('../server/db.js', import.meta.url).href)});
-    console.log(JSON.stringify({ cols: db.prepare('PRAGMA table_info(subjects)').all().map((c) => c.name),
-      rows: db.prepare('SELECT s.name, g.name g, t.name t FROM subjects s JOIN subject_groups g ON g.id = s.group_id JOIN subject_types t ON t.id = s.type_id ORDER BY s.id').all() }));`],
-  { env: { ...process.env, DB_MEMORY: '', DATA_DIR: dir } }).toString();
+    const P = await import(${href('platform.js')}); const { db } = await import(${href('db.js')});
+    P.initPlatform();
+    const t = P.pdb.prepare('SELECT * FROM tenants').get();
+    const st = P.subscriptionStatus(t);
+    const r = P.inTenant(t, () => ({ cols: db.prepare('PRAGMA table_info(subjects)').all().map((c) => c.name),
+      rows: db.prepare('SELECT s.name, g.name g, t.name t FROM subjects s JOIN subject_groups g ON g.id = s.group_id JOIN subject_types t ON t.id = s.type_id ORDER BY s.id').all() }));
+    console.log(JSON.stringify({ code: t.code, valid: st.valid, ...r }));`],
+  { env: { ...process.env, DEMO: '', DATA_DIR: dir } }).toString();
   const res = JSON.parse(out.trim().split('\n').pop());
+  assert.equal(res.code, 'lat');
+  assert.equal(res.valid, true); // abonnement de l'année en cours créé automatiquement
+  assert.ok(!fs.existsSync(path.join(dir, 'edugest.db')) && fs.existsSync(path.join(dir, 'tenants', 'lat', 'edugest.db')));
   assert.ok(!res.cols.includes('groupe') && res.cols.includes('group_id') && res.cols.includes('type_id'));
   assert.deepEqual(res.rows.map((r) => `${r.name}|${r.g}|${r.t}`), ['Français|Groupe 1|Matière littéraire', 'Mathématiques|Groupe 2|Matière scientifique', 'EPS|Groupe 3|Autre matière']);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+/* ===================== Plateforme AI721 TECH STUFF (multi-établissements) ===================== */
+let consoleClient;
+const ai721 = async () => { if (!consoleClient) { consoleClient = client('/console/api'); await consoleClient.login('AI721', 'Ai721@2026'); } return consoleClient; };
+
+test('console : connexion du super admin et tableau de bord', async () => {
+  const c = await ai721();
+  assert.equal((await c.get('/auth/me')).data.user.role, 'superadmin');
+  const d = (await c.get('/dashboard')).data;
+  assert.equal(d.kpis.total, 4);
+  const byCode = Object.fromEntries(d.tenants.map((t) => [t.code, t.status_code]));
+  assert.deepEqual(byCode, { lpey: 'actif', lbdouala: 'actif', cetbafoussam: 'expire', cesgaroua: 'impaye' });
+  assert.ok(d.kpis.eleves > 500 && d.kpis.recettes_annee === 350000);
+  // un compte d'établissement n'ouvre pas la console, et inversement
+  assert.equal((await client('/console/api').login('admin', 'Admin@2026')).status, 401);
+  assert.equal((await client().login('AI721', 'Ai721@2026', 'admin')).status, 401);
+});
+
+test('quatre interfaces de connexion distinctes : chaque compte n\'ouvre que la sienne', async () => {
+  const t = client();
+  const r = await t.login('mbargajp', 'Prof@2026', 'admin');
+  assert.equal(r.status, 403);
+  assert.equal(r.data.redirect, '/e/lpey/enseignant');
+  assert.equal((await t.get('/auth/me')).data.user, null); // aucune session ouverte
+  assert.equal((await t.login('admin', 'Admin@2026', 'discipline')).status, 403);
+  assert.equal((await t.login('mbargajp', 'Prof@2026', 'inconnu')).status, 400);
+  assert.equal((await t.login('mbargajp', 'Prof@2026', 'teacher')).status, 200);
+});
+
+test('abonnements : accès bloqué si expiré, impayé ou suspendu ; rétabli après paiement', async () => {
+  const c = await ai721();
+  const pub = (await client('/e/cetbafoussam/api').get('/auth/public')).data;
+  assert.equal(pub.subscription.valid, false);
+  assert.match(pub.subscription.message, /expiré le 31\/08\//);
+  assert.equal((await client('/e/cetbafoussam/api').login('fokoua', 'x', 'teacher')).status, 402);
+  // établissement impayé : le paiement rétablit l'accès
+  const garoua = (await c.get('/tenants')).data.find((t) => t.code === 'cesgaroua');
+  const acc = (await c.post(`/tenants/${garoua.id}/reveal`)).data;
+  assert.match(acc.username, /^admin\.cesgaroua$/);
+  assert.match(acc.links.admin, /\/e\/cesgaroua\/admin$/);
+  const g = client('/e/cesgaroua/api');
+  assert.equal((await g.login(acc.username, acc.password, 'admin')).status, 402);
+  const sub = (await c.get(`/tenants/${garoua.id}`)).data.subscriptions[0];
+  assert.equal((await c.put(`/subscriptions/${sub.id}`, { paid: true, mode: 'Mobile Money', reference: 'MOMO-1' })).status, 200);
+  assert.equal((await g.login(acc.username, acc.password, 'admin')).status, 200);
+  assert.equal((await g.get('/admin/dashboard')).status, 200);
+  // suspension : sessions fermées et connexion refusée ; réactivation
+  await c.post(`/tenants/${garoua.id}/toggle`);
+  assert.equal((await g.get('/admin/dashboard')).status, 402);
+  await c.post(`/tenants/${garoua.id}/toggle`);
+  assert.equal((await g.login(acc.username, acc.password, 'admin')).status, 200);
+});
+
+test('console : création d\'un établissement, coffre, réinitialisation, renouvellement, suppression', async () => {
+  const c = await ai721();
+  const r = await c.post('/tenants', { name: 'Lycée de Test de Kribi', sigle: 'LTK', ville: 'Kribi', region: 'Sud', annee: (await c.get('/dashboard')).data.year, montant: 120000, paid: true, mode: 'Espèces' });
+  assert.equal(r.status, 201);
+  assert.equal(r.data.tenant.code, 'ltk');
+  assert.match(r.data.links.teacher, /\/e\/ltk\/enseignant$/);
+  const k = client('/e/ltk/api');
+  assert.equal((await k.login(r.data.username, r.data.password, 'admin')).status, 200);
+  assert.equal((await k.get('/admin/classes')).data.length, 0); // base vierge et isolée
+  assert.equal((await c.post(`/tenants/${r.data.tenant.id}/reveal`)).data.password, r.data.password);
+  assert.equal((await c.post('/tenants', { name: 'Doublon', code: 'ltk', annee: '2026-2027' })).status, 409);
+  // nouveau mot de passe : l'ancien ne fonctionne plus, la session est fermée
+  const n = (await c.post(`/tenants/${r.data.tenant.id}/reset-admin`)).data;
+  assert.notEqual(n.password, r.data.password);
+  assert.equal((await k.get('/admin/classes')).status, 401);
+  assert.equal((await client('/e/ltk/api').login(r.data.username, r.data.password, 'admin')).status, 401);
+  assert.equal((await client('/e/ltk/api').login(n.username, n.password, 'admin')).status, 200);
+  // renouvellement pour l'année suivante, doublon refusé, reçu PDF
+  const y = +r.data.tenant.annee.slice(0, 4) + 1;
+  assert.equal((await c.post(`/tenants/${r.data.tenant.id}/subscriptions`, { annee: `${y}-${y + 1}`, montant: 120000, paid: false })).status, 201);
+  assert.equal((await c.post(`/tenants/${r.data.tenant.id}/subscriptions`, { annee: `${y}-${y + 1}`, montant: 1 })).status, 409);
+  for (const p of [`/pdf/acces/${r.data.tenant.id}`, '/pdf/etablissements', `/pdf/recu/${(await c.get(`/tenants/${r.data.tenant.id}`)).data.subscriptions[0].id}`]) {
+    const x = await c.get(p); assert.equal(x.ct, 'application/pdf', p);
+  }
+  // suppression (mot de passe exigé) : établissement inaccessible
+  assert.equal((await c.del(`/tenants/${r.data.tenant.id}`, { password: 'faux' })).status, 403);
+  assert.equal((await c.del(`/tenants/${r.data.tenant.id}`, { password: 'Ai721@2026' })).status, 200);
+  assert.equal((await client('/e/ltk/api').get('/auth/public')).status, 404);
+});
+
+test('isolation : une session d\'un établissement n\'ouvre rien dans un autre', async () => {
+  const a = await admin();
+  const cookieRes = await fetch(base + '/e/lpey/api/auth/login', { method: 'POST', headers: { 'X-Requested-With': 'EduGest', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'Admin@2026', portal: 'admin' }) });
+  const cookie = cookieRes.headers.get('set-cookie');
+  assert.match(cookie, /Path=\/e\/lpey\//); assert.match(cookie, /HttpOnly/); assert.match(cookie, /SameSite=Strict/);
+  const r = await fetch(base + '/e/lbdouala/api/admin/dashboard', { headers: { cookie: cookie.split(';')[0] } });
+  assert.equal(r.status, 401);
+  assert.equal((await a.get('/admin/dashboard')).status, 200);
+});
+
+test('saisie et suivi par trimestre (notes et discipline)', async () => {
+  const t = client(); await t.login('mbargajp', 'Prof@2026');
+  const cs = (await t.get('/teacher/assignments')).data.assignments[0].id;
+  const g = (await t.get(`/notes/grid?cs=${cs}&period=T1`)).data;
+  assert.deepEqual(g.seqs, [1, 2]);
+  assert.ok(g.locked[1] && !g.locked[2]); // S1 clôturée, S2 ouverte
+  const sid = g.students[0].id;
+  assert.equal((await t.put('/notes/grid', { cs, entries: [{ student_id: sid, seq: 1, value: 10 }, { student_id: sid, seq: 2, value: 12 }] })).status, 423);
+  assert.equal((await t.put('/notes/grid', { cs, entries: g.students.map((st) => ({ student_id: st.id, seq: 2, value: 12.5 })) })).status, 200);
+  assert.equal((await t.post('/notes/validate', { cs, seq: 2 })).status, 200);
+  assert.equal((await t.get(`/notes/grid?cs=${cs}&period=T1`)).data.students[0].values[2].value, 12.5);
+  assert.equal((await t.get(`/notes/grid?cs=${cs}&period=A`)).status, 400);
+  const d = client(); await d.login('sg.nguemap', 'Disc@2026');
+  const cid = (await d.get('/discipline/classes')).data.classes[0].id;
+  const recap = (await d.get(`/discipline/sheet?class_id=${cid}&period=T1`)).data;
+  assert.equal(recap.recap, true); assert.deepEqual(recap.period.seqs, [1, 2]); assert.match(recap.locked, /lecture seule/);
+  const a = await admin();
+  const st = (await a.get('/admin/stats?period=T1')).data;
+  assert.equal(st.period, 'T1'); assert.ok(st.global.n > 0);
+  const pdf = await a.get('/pdf/stats?period=T1');
+  assert.equal(pdf.ct, 'application/pdf');
+});
+
+test('fin d\'année : clôture avec statistiques annuelles et sauvegarde archivées, puis nouvelle année', async () => {
+  const a = await admin();
+  const annee = (await a.get('/admin/settings')).data.annee_scolaire;
+  const y = +annee.slice(0, 4);
+  assert.equal((await a.post('/admin/new-year', { annee_scolaire: `${y + 1}-${y + 2}`, password: 'Admin@2026' })).status, 409); // année non clôturée
+  assert.equal((await a.post('/admin/annee/cloturer', { password: 'Admin@2026' })).status, 409); // séquences ouvertes
+  const r = await a.post('/admin/annee/cloturer', { password: 'Admin@2026', force: true });
+  assert.equal(r.status, 200);
+  assert.ok(r.data.global.moyenne > 0);
+  assert.equal((await a.post('/admin/annee/cloturer', { password: 'Admin@2026', force: true })).status, 400); // déjà clôturée
+  const arch = (await a.get('/admin/archives')).data;
+  assert.equal(arch[0].annee, annee);
+  assert.equal((await a.get(`/admin/archives/${arch[0].id}/rapport`)).ct, 'application/pdf');
+  const bk = await a.get(`/admin/archives/${arch[0].id}/sauvegarde`);
+  assert.equal(bk.status, 200);
+  assert.ok(fs.existsSync(path.join(DATA, 'tenants', 'lpey', 'archives', `rapport-annuel-${annee}.pdf`)));
+  assert.equal((await a.post('/admin/new-year', { annee_scolaire: `${y + 1}-${y + 2}`, password: 'Admin@2026' })).status, 200);
+  assert.equal((await a.get('/admin/settings')).data.annee_scolaire, `${y + 1}-${y + 2}`);
+});
+
+test('limitation de débit : seules les tentatives échouées sont comptées', async () => {
+  for (let i = 0; i < 12; i++) assert.equal((await client().login('sg.essomba', 'faux')).status === 429 ? 'bloqué' : 'ok', i < 10 ? 'ok' : 'bloqué');
+  // 12 connexions réussies d'un même compte (plusieurs appareils) ne bloquent jamais
+  for (let i = 0; i < 12; i++) assert.equal((await client().login('mbargajp', 'Prof@2026')).status, 200, `connexion ${i + 1}`);
 });

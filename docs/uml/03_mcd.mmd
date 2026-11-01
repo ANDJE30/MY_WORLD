@@ -1,4 +1,26 @@
 erDiagram
+  PLATFORM_TENANTS ||--o{ PLATFORM_SUBSCRIPTIONS : "souscrit"
+  PLATFORM_TENANTS ||--|| TENANT_DATABASE : "base dédiée (tenants/code/edugest.db)"
+  PLATFORM_TENANTS {
+    int id PK
+    text code UK
+    text name
+    text status
+    text admin_username
+    text admin_pw_enc
+  }
+  PLATFORM_SUBSCRIPTIONS {
+    int id PK
+    int tenant_id FK
+    text annee
+    text valid_from
+    text valid_to
+    int montant
+    int paid
+  }
+  TENANT_DATABASE {
+    text contenu "toutes les tables ci-dessous"
+  }
   USERS ||--o{ CLASS_SUBJECTS : "enseigne"
   USERS ||--o{ OFFICER_CLASSES : "surveille"
   USERS ||--o{ SESSIONS : "ouvre"
@@ -27,6 +49,7 @@ erDiagram
     int active
     int must_change
     int locked_until
+    text pw_enc
   }
   CLASSES {
     int id PK

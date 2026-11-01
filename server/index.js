@@ -1,38 +1,36 @@
-// EduGest CM — serveur HTTP (Express 5).
+// EduGest CM — plateforme SaaS AI721 TECH STUFF (Express 5).
+//   /                       site de présentation
+//   /console                console du super administrateur (AI721)            API : /console/api
+//   /e/<code>/admin         interface de connexion de l'administrateur          API : /e/<code>/api
+//   /e/<code>/enseignant    interface de connexion des enseignants
+//   /e/<code>/discipline    interface de connexion des responsables disciplinaires
 import express from 'express';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
-import { db, DB_FILE } from './db.js';
 import fs from 'node:fs';
-import { getSession, purgeSessions, rateLimit, hashPassword, genPassword } from './security.js';
+import { fileURLToPath } from 'node:url';
+import { db } from './db.js';
+import { withDb } from './context.js';
+import { getSession, purgeSessions, rateLimit } from './security.js';
+import { pdb, initPlatform, getTenantByCode, tenantHandle, subscriptionStatus, inPlatform, inTenant, TENANTS_DIR, COMPANY } from './platform.js';
 import authRoutes, { COOKIE } from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import workRoutes from './routes/work.js';
 import commonRoutes from './routes/common.js';
 import pdfRoutes from './routes/pdfRoutes.js';
+import platformRoutes from './routes/platform.js';
 import { HttpError } from './util.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC = path.join(__dirname, '..', 'public');
 const PORT = Number(process.env.PORT) || 3000;
 
-// Mode démonstration : base pré-remplie (établissement fictif) si elle est vide
-if (process.env.DEMO === '1' && !db.prepare('SELECT 1 FROM classes').get()) {
-  const { seedDemo } = await import('./seed.js');
-  seedDemo();
-  console.log('Mode démonstration : base initialisée (admin / Admin@2026).');
-}
-
-// Premier démarrage : création du compte administrateur
-if (!db.prepare("SELECT 1 FROM users WHERE role = 'admin'").get()) {
-  const pw = process.env.ADMIN_PASSWORD || genPassword();
-  db.prepare("INSERT INTO users(role, username, pass_hash, full_name, must_change) VALUES('admin', ?, ?, 'Administrateur', ?)")
-    .run(process.env.ADMIN_USERNAME || 'admin', hashPassword(pw), process.env.ADMIN_PASSWORD ? 0 : 1);
-  console.log('\n=============================================================');
-  console.log(' Compte administrateur créé');
-  console.log(`   Identifiant : ${process.env.ADMIN_USERNAME || 'admin'}`);
-  console.log(`   Mot de passe : ${process.env.ADMIN_PASSWORD ? '(défini par ADMIN_PASSWORD)' : pw}`);
-  console.log('=============================================================\n');
+// Démarrage : super admin, migration éventuelle d'une installation 1.x, démonstration
+initPlatform();
+if (process.env.DEMO === '1' && !pdb.prepare('SELECT 1 FROM tenants').get()) {
+  const { seedPlatformDemo } = await import('./seed.js');
+  seedPlatformDemo();
+  console.log('Mode démonstration : console AI721 / Ai721@2026 ; établissement de démonstration /e/lpey');
 }
 
 export const app = express();
@@ -56,19 +54,30 @@ app.use((req, res, next) => {
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
-// Fichiers statiques (SPA)
-app.use(express.static(path.join(__dirname, '..', 'public'), {
-  maxAge: '1h', setHeaders: (res, p) => { if (p.endsWith('index.html') || p.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache'); }
-}));
+// Manifeste PWA propre à chaque interface (l'application installée s'ouvre sur la bonne page de connexion)
+app.get('/manifest.webmanifest', (req, res) => {
+  const p = String(req.query.p || '/');
+  const m = /^\/(?:console|e\/([a-z0-9][a-z0-9-]{1,29})(?:\/(admin|enseignant|discipline))?)?\/?$/.exec(p);
+  const start = m ? p : '/';
+  const t = m?.[1] ? getTenantByCode(m[1]) : null;
+  const role = { admin: 'Administration', enseignant: 'Enseignant', discipline: 'Discipline' }[m?.[2]];
+  const name = p.startsWith('/console') ? `Console ${COMPANY}` : t ? `${t.sigle || t.name}${role ? ' — ' + role : ''}` : 'EduGest CM';
+  res.type('application/manifest+json').json({
+    name: `${name} · EduGest CM`, short_name: (t?.sigle || 'EduGest').slice(0, 12), lang: 'fr', start_url: start, scope: '/', display: 'standalone',
+    background_color: '#f3f6f5', theme_color: '#0b5d4b',
+    icons: [{ src: '/img/icon.svg', sizes: 'any', type: 'image/svg+xml' }, { src: '/img/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/img/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]
+  });
+});
 
-// API
-const api = express.Router();
-// limite large : un établissement entier peut partager une même IP publique (NAT)
-api.use(rateLimit({ windowMs: 60_000, max: 3000 }));
-api.use((req, _res, next) => { if (req.path === '/admin/restore') return next(); express.json({ limit: '2mb' })(req, _res, next); });
-api.use((req, res, next) => {
+// Fichiers statiques (SPA)
+app.use(express.static(PUBLIC, { maxAge: '1h', setHeaders: (res, p) => { if (p.endsWith('index.html') || p.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache'); } }));
+
+/* ---------------- Middlewares communs des API ---------------- */
+// Le corps JSON est lu AVANT d'entrer dans le contexte de l'établissement (lecture asynchrone du flux)
+const bodyParser = (req, res, next) => express.json({ limit: req.path === '/admin/restore' ? '50mb' : '2mb' })(req, res, next);
+function sessionAndCsrf(req, res, next) {
   res.set('Cache-Control', 'no-store');
-  // Session depuis le cookie HttpOnly
   const raw = req.headers.cookie || '';
   const m = raw.split(/;\s*/).find((c) => c.startsWith(COOKIE + '='));
   req.sessionToken = m ? decodeURIComponent(m.slice(COOKIE.length + 1)) : null;
@@ -79,20 +88,48 @@ api.use((req, res, next) => {
     const origin = req.get('origin');
     if (origin && new URL(origin).host !== req.get('host')) throw new HttpError(403, 'Origine refusée.');
   }
-  // Changement de mot de passe obligatoire avant tout accès
   if (req.user?.must_change && !req.path.startsWith('/auth/')) throw new HttpError(428, 'Vous devez changer votre mot de passe.');
   next();
-});
-api.use('/auth', authRoutes);
-api.use('/admin', adminRoutes);
-api.use('/pdf', pdfRoutes);
-api.use('/', commonRoutes);
-api.use('/', workRoutes);
-api.use((_req, _res) => { throw new HttpError(404, 'Ressource introuvable'); });
-app.use('/api', api);
+}
+// limite large : un établissement entier peut partager une même IP publique (NAT)
+const apiRate = rateLimit({ windowMs: 60_000, max: 3000 });
+const notFound = () => { throw new HttpError(404, 'Ressource introuvable'); };
 
-// SPA fallback
-app.use((req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
+/* ---------------- Console du super administrateur ---------------- */
+const consoleApi = express.Router();
+consoleApi.use(apiRate, sessionAndCsrf);
+consoleApi.use('/auth', authRoutes);
+consoleApi.use('/', platformRoutes);
+consoleApi.use(notFound);
+app.use('/console/api', bodyParser, (req, _res, next) => { req.cookiePath = '/console'; inPlatform(next); }, consoleApi);
+
+/* ---------------- API d'un établissement ---------------- */
+const tenantApi = express.Router();
+tenantApi.use(apiRate, sessionAndCsrf, (req, _res, next) => {
+  // Contrôle de l'abonnement (1er septembre → 31 août) et de la suspension
+  if (req.path !== '/auth/public' && req.path !== '/auth/logout') {
+    const st = inPlatform(() => subscriptionStatus(req.tenant));
+    if (!st.valid) throw new HttpError(402, st.message);
+  }
+  next();
+});
+tenantApi.use('/auth', authRoutes);
+tenantApi.use('/admin', adminRoutes);
+tenantApi.use('/pdf', pdfRoutes);
+tenantApi.use('/', commonRoutes);
+tenantApi.use('/', workRoutes);
+tenantApi.use(notFound);
+app.use('/e/:code/api', (req, _res, next) => {
+  const t = getTenantByCode(req.params.code);
+  if (!t) throw new HttpError(404, 'Établissement introuvable. Vérifiez le lien fourni par votre établissement.');
+  req.tenant = t; req.cookiePath = `/e/${t.code}/`; req.portalBase = `/e/${t.code}`;
+  next();
+}, bodyParser, (req, _res, next) => withDb(tenantHandle(req.tenant), next, { tenant: req.tenant }), tenantApi);
+
+app.use('/api', notFound); // ancienne API mono-établissement retirée
+
+// SPA : toutes les autres pages (/, /console, /e/<code>/…)
+app.use((req, res) => { if (req.method !== 'GET') throw new HttpError(404, 'Ressource introuvable'); res.sendFile(path.join(PUBLIC, 'index.html')); });
 
 // Gestion centralisée des erreurs (aucune fuite d'information interne)
 app.use((err, req, res, _next) => {
@@ -102,7 +139,8 @@ app.use((err, req, res, _next) => {
   else if (/UNIQUE constraint failed/.test(err.message || '')) {
     status = 409;
     const f = /UNIQUE constraint failed: \w+\.(\w+)/.exec(err.message)?.[1];
-    message = { username: 'Cet identifiant existe déjà.', matricule: 'Ce matricule existe déjà.', name: 'Ce nom existe déjà.' }[f] || 'Cet élément existe déjà.';
+    message = { username: 'Cet identifiant existe déjà.', matricule: 'Ce matricule existe déjà.', name: 'Ce nom existe déjà.', code: 'Ce code est déjà utilisé.',
+      annee: 'Un abonnement existe déjà pour cette année scolaire.' }[f] || 'Cet élément existe déjà.';
   } else if (/FOREIGN KEY constraint failed/.test(err.message || '')) { status = 400; message = 'Référence invalide (élément lié inexistant).'; }
   else if (/CHECK constraint failed/.test(err.message || '')) { status = 400; message = 'Valeur hors limites.'; }
   if (status >= 500) {
@@ -111,27 +149,33 @@ app.use((err, req, res, _next) => {
     message = `Erreur interne (réf. ${ref}). Réessayez ou contactez l'administrateur.`;
   }
   if (res.headersSent) return res.end();
-  res.status(status).json({ error: message, ...(err.problems ? { problems: err.problems } : {}) });
+  res.status(status).json({ error: message, ...(err.problems ? { problems: err.problems } : {}), ...(err.redirect ? { redirect: err.redirect } : {}) });
 });
 
-setInterval(purgeSessions, 3600_000).unref();
+/* ---------------- Tâches de fond ---------------- */
+const allTenants = () => pdb.prepare('SELECT * FROM tenants').all();
+setInterval(() => { inPlatform(purgeSessions); for (const t of allTenants()) inTenant(t, purgeSessions); }, 3600_000).unref();
 
-// Sauvegarde automatique quotidienne (instantané cohérent via VACUUM INTO), 14 jours conservés
-export function autoBackup() {
-  if (process.env.DB_MEMORY || process.env.AUTO_BACKUP === '0') return null;
-  const dir = path.join(path.dirname(DB_FILE), 'backups');
+// Sauvegardes automatiques (instantané cohérent via VACUUM INTO) de chaque base, 14 jours conservés
+function snapshot(dir, prefix) {
   fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `edugest-${new Date().toISOString().slice(0, 10)}.db`);
-  try {
-    if (!fs.existsSync(file)) db.prepare('VACUUM INTO ?').run(file);
-    const all = fs.readdirSync(dir).filter((f) => /^edugest-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort();
-    for (const old of all.slice(0, Math.max(0, all.length - 14))) fs.unlinkSync(path.join(dir, old));
-    return file;
-  } catch (e) { console.error('Sauvegarde automatique impossible :', e.message); return null; }
+  const file = path.join(dir, `${prefix}-${new Date().toISOString().slice(0, 10)}.db`);
+  if (!fs.existsSync(file)) db.prepare('VACUUM INTO ?').run(file);
+  const re = new RegExp(`^${prefix}-\\d{4}-\\d{2}-\\d{2}\\.db$`);
+  const all = fs.readdirSync(dir).filter((f) => re.test(f)).sort();
+  for (const old of all.slice(0, Math.max(0, all.length - 14))) fs.unlinkSync(path.join(dir, old));
+  return file;
+}
+export function autoBackup() {
+  if (process.env.AUTO_BACKUP === '0') return;
+  try { inPlatform(() => snapshot(path.join(path.dirname(TENANTS_DIR), 'backups'), 'platform')); } catch (e) { console.error('Sauvegarde plateforme impossible :', e.message); }
+  for (const t of allTenants()) {
+    try { inTenant(t, () => snapshot(path.join(TENANTS_DIR, t.code, 'backups'), 'edugest')); } catch (e) { console.error(`Sauvegarde ${t.code} impossible :`, e.message); }
+  }
 }
 autoBackup();
 setInterval(autoBackup, 6 * 3600_000).unref();
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  app.listen(PORT, () => console.log(`EduGest CM démarré sur http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`EduGest CM (${COMPANY}) démarré sur http://localhost:${PORT}`));
 }

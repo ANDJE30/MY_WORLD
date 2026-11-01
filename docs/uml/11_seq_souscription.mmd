@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor SA as Super admin AI721
+  participant C as Console (/console)
+  participant API as API plateforme
+  participant P as platform.db
+  participant T as Base de l'établissement
+  actor A as Administrateur
+  actor E as Enseignant
+  SA->>C: Nouvel établissement (nom, code, contact, année, montant, paiement)
+  C->>API: POST /console/api/tenants
+  API->>T: Créer tenants/code/edugest.db (schéma, calendrier de l'année)
+  API->>T: Compte administrateur (mot de passe généré, haché + chiffré)
+  API->>P: Établissement + abonnement (01/09 → 31/08) + coffre
+  API-->>C: Identifiant, mot de passe, liens des 3 interfaces
+  SA->>A: Fiche d'accès PDF / WhatsApp (lien /e/code/admin)
+  A->>T: Connexion via l'interface Administration
+  Note over A,T: Contrôle à chaque requête : abonnement valide, payé, non suspendu
+  A->>T: Crée les comptes enseignants (coffre des accès)
+  A->>E: Lien /e/code/enseignant + identifiants (fiche PDF / WhatsApp)
+  E->>T: Connexion via l'interface Enseignants
+  Note over SA,P: Au 31 août : accès bloqués jusqu'au renouvellement

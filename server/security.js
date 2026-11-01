@@ -91,15 +91,18 @@ export function purgeSessions() {
 
 /* ---------- Limitation de débit (mémoire) ---------- */
 const buckets = new Map();
-export function rateLimit({ windowMs, max, key = (req) => req.ip, message = 'Trop de requêtes, réessayez plus tard.' }) {
+/** failuresOnly : ne compte que les réponses en échec (≥ 400) — une connexion réussie ne doit jamais bloquer. */
+export function rateLimit({ windowMs, max, key = (req) => req.ip, message = 'Trop de requêtes, réessayez plus tard.', failuresOnly = false }) {
   return (req, res, next) => {
-    const k = key(req), now = Date.now();
-    let b = buckets.get(k + '|' + windowMs);
-    if (!b || b.reset < now) { b = { n: 0, reset: now + windowMs }; buckets.set(k + '|' + windowMs, b); }
-    if (++b.n > max) {
+    const k = key(req) + '|' + windowMs, now = Date.now();
+    let b = buckets.get(k);
+    if (!b || b.reset < now) { b = { n: 0, reset: now + windowMs }; buckets.set(k, b); }
+    if (b.n >= max) {
       res.set('Retry-After', Math.ceil((b.reset - now) / 1000));
       return res.status(429).json({ error: message });
     }
+    if (failuresOnly) res.on('finish', () => { if (res.statusCode >= 400) b.n++; });
+    else b.n++;
     next();
   };
 }

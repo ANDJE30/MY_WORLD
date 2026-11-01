@@ -1,0 +1,26 @@
+flowchart LR
+  SA["👤 Super administrateur<br/>AI721 TECH STUFF"]
+  ADM["👤 Administrateur<br/>d'établissement"]
+  subgraph SYS["Plateforme EduGest CM — console AI721 (/console)"]
+    direction TB
+    U1(["S'authentifier sur la console"])
+    U2(["Créer un établissement abonné<br/>(base dédiée + compte administrateur)"])
+    U3(["Enregistrer un abonnement annuel<br/>(1er septembre → 31 août) et son paiement"])
+    U4(["Renouveler, suspendre, réactiver,<br/>supprimer un établissement"])
+    U5(["Consulter le coffre des accès :<br/>identifiants et liens de l'administrateur"])
+    U6(["Générer un nouveau mot de passe administrateur"])
+    U7(["Transmettre le lien et les accès<br/>(fiche PDF, WhatsApp)"])
+    U8(["Suivre le tableau de bord :<br/>abonnés, élèves, recettes, échéances"])
+    U9(["Éditer reçus et liste des établissements (PDF)"])
+    U10(["Paramétrer l'entreprise, consulter le journal"])
+    U11(["Se connecter à l'interface Administration<br/>de son établissement"])
+  end
+  SA --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8 & U9 & U10
+  U7 -. "lien /e/code/admin + identifiants" .-> U11
+  U11 --- ADM
+  U2 -. "«include»" .-> U3
+  classDef actor fill:#e0e7ff,stroke:#4338ca,color:#1e1b4b,font-weight:bold
+  classDef uc fill:#eef2ff,stroke:#4338ca,color:#1e1b4b
+  class SA,ADM actor
+  class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11 uc
+  style SYS fill:#ffffff,stroke:#4338ca,stroke-width:2px

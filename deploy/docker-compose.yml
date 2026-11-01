@@ -1,12 +1,14 @@
 # Production sur un serveur (VPS Oracle Cloud Always Free, OVH, Contabo, serveur de l'établissement…)
-# Usage : DOMAIN=notes.mon-lycee.cm ADMIN_PASSWORD='MotDePasseFort!2026' docker compose up -d --build
+# Usage : DOMAIN=edugest.ai721.cm SUPERADMIN_PASSWORD='MotDePasseFort!2026' VAULT_KEY=$(openssl rand -hex 32) docker compose up -d --build
+# Conservez VAULT_KEY en lieu sûr : elle chiffre le coffre des accès (mots de passe générés).
 services:
   app:
     build: ..
     restart: unless-stopped
     environment:
       - TRUST_PROXY=1
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-}
+      - VAULT_KEY=${VAULT_KEY:-}
     volumes:
       - edugest-data:/data
   caddy:

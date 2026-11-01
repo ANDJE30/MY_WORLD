@@ -1,24 +1,31 @@
 flowchart LR
-  subgraph CLIENTS["Terminaux (navigateur ou application installée PWA)"]
-    PC["💻 Ordinateur<br/>administration"]
-    TAB["📱 Tablette"]
-    TEL["📱 Smartphone<br/>enseignants / surveillants"]
+  subgraph CLIENTS["Terminaux (navigateur ou application installée)"]
+    SA["🖥️ AI721<br/>/console"]
+    PC["💻 Administration<br/>/e/code/admin"]
+    TEL["📱 Enseignants<br/>/e/code/enseignant"]
+    TAB["📱 Vie scolaire<br/>/e/code/discipline"]
   end
   subgraph CLOUD["Serveur d'hébergement"]
     direction TB
     RP["Proxy HTTPS<br/>Caddy / Render<br/>(TLS Let's Encrypt)"]
     subgraph CT["Conteneur Node.js 22"]
-      APP["EduGest CM<br/>Express 5 — API REST<br/>+ fichiers statiques SPA"]
-      PDF["Moteur PDF<br/>(PDFKit)"]
-      CALC["Moteur de calcul<br/>moyennes / rangs"]
+      APP["EduGest CM — Express 5<br/>/console/api • /e/code/api"]
+      CTX["Contexte par requête<br/>(base de l'établissement)"]
+      PDF["Moteur PDF"]
     end
-    DB[("SQLite (WAL)<br/>/data/edugest.db")]
-    BK[("Sauvegardes auto<br/>/data/backups (14 j)")]
+    PDB[("platform.db<br/>établissements, abonnements,<br/>super admin, coffre")]
+    TDB[("tenants/code/edugest.db<br/>une base par établissement")]
+    KEY[["vault.key / VAULT_KEY<br/>AES-256-GCM"]]
+    BK[("Sauvegardes auto (6 h, 14 j)<br/>+ archives de fin d'année")]
   end
-  PC & TAB & TEL -- "HTTPS 443" --> RP
-  RP -- "HTTP interne :3000" --> APP
-  APP --- PDF & CALC
-  APP --> DB
-  DB -. "VACUUM INTO<br/>toutes les 6 h" .-> BK
+  SA & PC & TEL & TAB -- "HTTPS 443" --> RP
+  RP -- ":3000" --> APP
+  APP --- CTX & PDF
+  APP --> PDB
+  CTX --> TDB
+  APP -. chiffre/déchiffre .- KEY
+  PDB & TDB -. "VACUUM INTO" .-> BK
   classDef n fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
-  class PC,TAB,TEL,RP,APP,PDF,CALC n
+  classDef p fill:#eef2ff,stroke:#4338ca,color:#1e1b4b
+  class PC,TEL,TAB,RP,APP,CTX,PDF n
+  class SA p

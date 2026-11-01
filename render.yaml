@@ -1,5 +1,6 @@
 # Déploiement en un clic sur Render (offre gratuite) — instance de DÉMONSTRATION.
-# Le disque de l'offre gratuite est éphémère : la base de démonstration est recréée à chaque redémarrage.
+# Le disque de l'offre gratuite est éphémère : la plateforme de démonstration (console AI721 + 4 établissements fictifs)
+# est recréée à chaque redémarrage.
 # Pour la production, voir docs/DEPLOIEMENT.md (Oracle Cloud Always Free ou Render avec disque persistant).
 services:
   - type: web

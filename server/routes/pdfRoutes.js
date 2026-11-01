@@ -3,7 +3,9 @@ import { Router } from 'express';
 import { db, audit } from '../db.js';
 import { parsePeriod, computeClassResults, rank, round2, classStudents } from '../calc.js';
 import { id, str, bad, HttpError } from '../util.js';
-import { requireAuth, requireRole, assertCs, assertClass } from './access.js';
+import { requireAuth, requireRole, assertCs, assertClass, portalLink } from './access.js';
+import { unseal } from '../vault.js';
+import { computeStats } from './admin.js';
 import * as P from '../pdf.js';
 import { timetableGrid } from './admin.js';
 
@@ -132,15 +134,31 @@ r.get('/timetable', (req, res) => {
   P.finalize(doc);
 });
 
-// Fiches d'identifiants (les mots de passe ne sont jamais stockés en clair : ils sont transmis par le client juste après génération)
+// Fiches d'identifiants : depuis le coffre (ids) ou juste après génération (items)
 r.post('/credentials', requireRole('admin'), (req, res) => {
-  const items = (req.body.items || []).slice(0, 500).map((x) => ({
-    full_name: str(x.full_name, { max: 120, required: true }), username: str(x.username, { max: 60, required: true }),
-    password: str(x.password, { max: 60, required: true }), role: x.role }));
+  let items;
+  if (Array.isArray(req.body.ids)) {
+    items = req.body.ids.slice(0, 500).map((x) => db.prepare("SELECT id, role, username, full_name, pw_enc FROM users WHERE id = ? AND role IN ('teacher','discipline')").get(id(x)))
+      .filter(Boolean).map((u) => ({ full_name: u.full_name, username: u.username, role: u.role, password: unseal(u.pw_enc) || '(modifié par l\'utilisateur)' }));
+  } else {
+    items = (req.body.items || []).slice(0, 500).map((x) => ({
+      full_name: str(x.full_name, { max: 120, required: true }), username: str(x.username, { max: 60, required: true }),
+      password: str(x.password, { max: 60, required: true }), role: x.role }));
+  }
   if (!items.length) throw bad('Aucun identifiant');
+  items.forEach((it) => { it.link = portalLink(req, ['teacher', 'discipline', 'admin'].includes(it.role) ? it.role : 'teacher'); });
   const doc = P.createDoc(res, { title: 'Identifiants', filename: 'identifiants_confidentiels' });
-  P.credentialsSheet(doc, items, `${req.protocol}://${req.get('host')}`);
+  P.credentialsSheet(doc, items, portalLink(req, 'teacher'));
   audit(req, 'PDF_IDENTIFIANTS', `${items.length} compte(s)`);
+  P.finalize(doc);
+});
+
+// Statistiques de l'établissement (séquence, trimestre ou année)
+r.get('/stats', requireRole('admin'), (req, res) => {
+  const st = computeStats(req.query.period || 'S1');
+  const doc = P.createDoc(res, { title: 'Statistiques', filename: `statistiques_${st.period}` });
+  P.statsReport(doc, st, { annual: st.period === 'A' });
+  audit(req, 'PDF_STATISTIQUES', st.period);
   P.finalize(doc);
 });
 

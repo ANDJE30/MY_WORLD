@@ -1,16 +1,25 @@
-// Couche d'accès aux données — SQLite natif (node:sqlite), clés étrangères actives, WAL.
+// Couche d'accès aux données — SQLite natif (node:sqlite), une base par établissement.
+// `db` désigne toujours la base de l'établissement de la requête en cours (voir context.js).
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { currentDb, withDb } from './context.js';
 
-const DATA_DIR = process.env.DATA_DIR || path.resolve('data');
+export const DATA_DIR = process.env.DATA_DIR || path.resolve('data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
-export const DB_FILE = path.join(DATA_DIR, 'edugest.db');
 
-export const db = new DatabaseSync(process.env.DB_MEMORY ? ':memory:' : DB_FILE);
-db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+/** Base courante : proxy vers la base de l'établissement (ou de la plateforme) de la requête. */
+export const db = new Proxy({}, {
+  get(_t, prop) { const d = currentDb(); const v = d[prop]; return typeof v === 'function' ? v.bind(d) : v; }
+});
 
-db.exec(`
+export function openSqlite(file) {
+  const h = new DatabaseSync(file);
+  h.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
+  return h;
+}
+
+export const TENANT_SCHEMA = `
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 CREATE TABLE IF NOT EXISTS users (
@@ -174,23 +183,30 @@ CREATE TABLE IF NOT EXISTS audit_log (
   at INTEGER NOT NULL DEFAULT (unixepoch()),
   user_id INTEGER, username TEXT, action TEXT NOT NULL, detail TEXT, ip TEXT
 );
-`);
 
-/** Exécute fn dans une transaction (rollback si exception). */
-let txDepth = 0;
+CREATE TABLE IF NOT EXISTS year_archives (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  annee TEXT NOT NULL UNIQUE, closed_at INTEGER NOT NULL, closed_by TEXT,
+  stats_json TEXT, report_file TEXT, backup_file TEXT
+);
+`;
+
+/** Exécute fn dans une transaction (rollback si exception). Réentrant, compteur propre à chaque base. */
+const txDepths = new WeakMap();
 export function tx(fn) {
-  // réentrant : les transactions imbriquées utilisent des points de sauvegarde
-  const sp = `sp${txDepth}`;
-  db.exec(txDepth === 0 ? 'BEGIN IMMEDIATE' : `SAVEPOINT ${sp}`);
-  txDepth++;
+  const h = currentDb();
+  const depth = txDepths.get(h) || 0;
+  const sp = `sp${depth}`;
+  h.exec(depth === 0 ? 'BEGIN IMMEDIATE' : `SAVEPOINT ${sp}`);
+  txDepths.set(h, depth + 1);
   try {
     const r = fn();
-    txDepth--;
-    db.exec(txDepth === 0 ? 'COMMIT' : `RELEASE ${sp}`);
+    txDepths.set(h, depth);
+    h.exec(depth === 0 ? 'COMMIT' : `RELEASE ${sp}`);
     return r;
   } catch (e) {
-    txDepth--;
-    db.exec(txDepth === 0 ? 'ROLLBACK' : `ROLLBACK TO ${sp}; RELEASE ${sp}`);
+    txDepths.set(h, depth);
+    h.exec(depth === 0 ? 'ROLLBACK' : `ROLLBACK TO ${sp}; RELEASE ${sp}`);
     throw e;
   }
 }
@@ -204,7 +220,7 @@ export const DEFAULT_SETTINGS = {
   region: '', departement: '', ville: '', bp: '', tel: '', email: '', site: '',
   immatriculation: '', arrete_creation: '', devise: 'Discipline – Travail – Réussite',
   chef_titre: 'Le Proviseur', chef_nom: '', censeur_nom: '', surveillant_general: '',
-  annee_scolaire: '', note_max: 20, seuil_reussite: 10, strict_calendar: true,
+  annee_scolaire: '', annee_cloturee: '', note_max: 20, seuil_reussite: 10, strict_calendar: true,
   logo: '',
   jours_actifs: [1, 2, 3, 4, 5],
   time_slots: [
@@ -217,11 +233,9 @@ export const DEFAULT_SETTINGS = {
   ]
 };
 
-const getS = db.prepare('SELECT value FROM settings WHERE key = ?');
-const setS = db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
-
 export function getSettings() {
   const out = { ...DEFAULT_SETTINGS };
+  const getS = db.prepare('SELECT value FROM settings WHERE key = ?');
   for (const k of Object.keys(DEFAULT_SETTINGS)) {
     const r = getS.get(k);
     if (r) { try { out[k] = JSON.parse(r.value); } catch { /* valeur par défaut */ } }
@@ -233,20 +247,24 @@ export function getSettings() {
   return out;
 }
 export function saveSettings(obj) {
+  const setS = db.prepare('INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   tx(() => { for (const [k, v] of Object.entries(obj)) if (k in DEFAULT_SETTINGS) setS.run(k, JSON.stringify(v)); });
 }
 
 // Périodes : initialise les 6 séquences si absentes
-export function ensurePeriods() {
+/** Calendrier type d'une année scolaire camerounaise (6 séquences). */
+export function periodPlan(startYear) {
+  const y = Number(startYear);
+  return [[`${y}-09-02`, `${y}-10-18`], [`${y}-10-21`, `${y}-12-06`], [`${y + 1}-01-06`, `${y + 1}-02-14`],
+    [`${y + 1}-02-17`, `${y + 1}-03-28`], [`${y + 1}-03-31`, `${y + 1}-05-09`], [`${y + 1}-05-12`, `${y + 1}-06-13`]];
+}
+export function ensurePeriods(startYear) {
   const n = db.prepare('SELECT COUNT(*) c FROM periods').get().c;
   if (n >= 6) return;
-  const d = new Date(); const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
-  const plan = [[`${y}-09-02`, `${y}-10-18`], [`${y}-10-21`, `${y}-12-06`], [`${y + 1}-01-06`, `${y + 1}-02-14`],
-    [`${y + 1}-02-17`, `${y + 1}-03-28`], [`${y + 1}-03-31`, `${y + 1}-05-09`], [`${y + 1}-05-12`, `${y + 1}-06-13`]];
+  const d = new Date(); const y = startYear || (d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1);
   const ins = db.prepare('INSERT OR IGNORE INTO periods(seq,start_date,end_date) VALUES(?,?,?)');
-  plan.forEach((p, i) => ins.run(i + 1, p[0], p[1]));
+  periodPlan(y).forEach((p, i) => ins.run(i + 1, p[0], p[1]));
 }
-ensurePeriods();
 
 /* ---------- Groupes et types de matières ---------- */
 export const DEFAULT_GROUPS = [['Groupe 1', 1], ['Groupe 2', 2], ['Groupe 3', 3]];
@@ -288,7 +306,22 @@ export function ensureTaxonomy() {
   const cols = db.prepare('PRAGMA table_info(subjects)').all().map((c) => c.name);
   if (cols.includes('groupe')) { try { db.exec('ALTER TABLE subjects DROP COLUMN groupe'); } catch { /* colonne conservée, sans effet */ } }
 }
-ensureTaxonomy();
+
+/** Colonnes du coffre des accès (mots de passe générés chiffrés) — ajoutées aux bases existantes. */
+function ensureVaultColumns() {
+  const cols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!cols.includes('pw_enc')) db.exec('ALTER TABLE users ADD COLUMN pw_enc TEXT');
+  if (!cols.includes('pw_set_at')) db.exec('ALTER TABLE users ADD COLUMN pw_set_at INTEGER');
+  if (!cols.includes('pw_user_changed_at')) db.exec('ALTER TABLE users ADD COLUMN pw_user_changed_at INTEGER');
+}
+
+/** Ouvre (ou crée) la base d'un établissement et applique schéma et migrations. */
+export function openTenantDb(file) {
+  const h = openSqlite(file);
+  h.exec(TENANT_SCHEMA);
+  withDb(h, () => { ensurePeriods(); ensureTaxonomy(); ensureVaultColumns(); });
+  return h;
+}
 
 export function audit(req, action, detail = '') {
   try {

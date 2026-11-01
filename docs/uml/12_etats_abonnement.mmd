@@ -1,0 +1,18 @@
+stateDiagram-v2
+  [*] --> EnAttente : abonnement créé, non payé
+  [*] --> Actif : abonnement créé et payé
+  EnAttente --> Actif : paiement encaissé
+  Actif --> ExpireBientot : moins de 30 jours avant le 31 août
+  ExpireBientot --> Actif : renouvellement payé pour l'année suivante
+  ExpireBientot --> Expire : 31 août dépassé
+  Expire --> Actif : renouvellement payé
+  Actif --> Suspendu : suspension par AI721
+  ExpireBientot --> Suspendu : suspension
+  Suspendu --> Actif : réactivation (abonnement valide)
+  Expire --> [*] : suppression (données archivées)
+  note right of Actif
+    connexions autorisées (administration, enseignants, vie scolaire)
+  end note
+  note right of Expire
+    connexions refusées : contacter AI721 TECH STUFF
+  end note

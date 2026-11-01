@@ -24,3 +24,7 @@ export function assertClass(user, classId) {
   if (user.role === 'teacher' && db.prepare('SELECT 1 FROM class_subjects WHERE teacher_id = ? AND class_id = ?').get(user.id, classId)) return c;
   throw new HttpError(403, 'Cette classe ne vous est pas attribuée.');
 }
+
+// Liens des interfaces de connexion d'un établissement (à transmettre aux personnels)
+export const PORTAL_PATHS = { admin: 'admin', teacher: 'enseignant', discipline: 'discipline' };
+export const portalLink = (req, role) => `${req.protocol}://${req.get('host')}${req.portalBase || ''}/${PORTAL_PATHS[role]}`;

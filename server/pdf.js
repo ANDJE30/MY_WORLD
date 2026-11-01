@@ -14,13 +14,24 @@ function logoBuffer(s) {
   return m ? Buffer.from(m[2], 'base64') : null;
 }
 
-export function createDoc(res, { title, filename, landscape = false }) {
+/** Génère un PDF en mémoire (rapports archivés). */
+export function renderPdfBuffer({ title, landscape = false }, fn) {
+  const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 36, bufferPages: true, info: { Title: title, Author: 'EduGest CM', Creator: 'EduGest CM' } });
+  doc._settings = getSettings();
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolve, reject) => { doc.on('end', () => resolve(Buffer.concat(chunks))); doc.on('error', reject); });
+  fn(doc); finalize(doc);
+  return done;
+}
+
+export function createDoc(res, { title, filename, landscape = false, settings }) {
   const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 36, bufferPages: true,
     info: { Title: title, Author: 'EduGest CM', Creator: 'EduGest CM' } });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${String(filename || 'document').replace(/[^\w.-]+/g, '_')}.pdf"`);
   doc.pipe(res);
-  doc._settings = getSettings();
+  doc._settings = settings || getSettings();
   return doc;
 }
 
@@ -348,7 +359,7 @@ export function credentialsSheet(doc, items, url) {
     doc.fillColor(C.dark).font('Helvetica-Bold').fontSize(10).text(it.full_name, x + 8, y + 26, { width: cw - 16 });
     doc.font('Helvetica').fontSize(9).fillColor(C.muted).text('Identifiant :', x + 8, y + 46).text('Mot de passe :', x + 8, y + 62);
     doc.font('Courier-Bold').fontSize(11).fillColor(C.dark).text(it.username, x + 85, y + 45).text(it.password, x + 85, y + 61);
-    doc.font('Helvetica').fontSize(7).fillColor(C.muted).text(`Connexion : ${url}\nChangez votre mot de passe dès la première connexion. Ne partagez jamais ces identifiants.`, x + 8, y + 80, { width: cw - 16 });
+    doc.font('Helvetica').fontSize(7).fillColor(C.muted).text(`Connexion : ${it.link || url}\nConservez ces identifiants en lieu sûr et ne les partagez jamais.`, x + 8, y + 80, { width: cw - 16 });
   });
 }
 
@@ -361,4 +372,133 @@ export function listeClasse(doc, { classe, students }) {
     { header: 'Date de naissance', width: 1.3, key: 'date_naissance' }, { header: 'Lieu', width: 1.4, key: 'lieu_naissance' },
     { header: 'Red.', width: 0.6, align: 'center', value: (r) => (r.redoublant ? 'R' : '') }, { header: 'Contact parent', width: 1.5, key: 'parent_tel' }
   ], students);
+}
+
+/* ======================= Statistiques de l'établissement ======================= */
+export function statsReport(doc, st, { annual = false } = {}) {
+  const g = st.global;
+  let y = header(doc, annual ? "Rapport statistique annuel" : "Statistiques de l'établissement", st.label);
+  y = infoGrid(doc, y, [['Effectif total', g.effectif], ['Élèves classés', g.n], ['Admis (≥ seuil)', g.admis],
+    ['Moyenne générale', g.moyenne], ["Taux de réussite", g.reussite == null ? null : `${fmt(g.reussite)} %`], ['Période', st.label],
+    ['Réussite des garçons', g.garcons.reussite == null ? null : `${fmt(g.garcons.reussite)} % (${g.garcons.n})`],
+    ['Réussite des filles', g.filles.reussite == null ? null : `${fmt(g.filles.reussite)} % (${g.filles.n})`], ['Classes', st.classes.length]], 3);
+  const title = (t) => { y = ensureSpace(doc, y, 90); doc.font('Helvetica-Bold').fontSize(11).fillColor(C.primary).text(t, doc.page.margins.left, y); y = doc.y + 4; };
+  title('1. Résultats par classe');
+  y = table(doc, y, [
+    { header: 'Classe', width: 1.6, key: 'classe' }, { header: 'Effectif', width: 0.8, align: 'center', key: 'effectif', decimals: 0 },
+    { header: 'Classés', width: 0.8, align: 'center', key: 'classes', decimals: 0 }, { header: 'Moyenne', width: 0.9, align: 'center', key: 'moyenne', redBelow: 10, bold: true },
+    { header: 'Max', width: 0.7, align: 'center', key: 'max' }, { header: 'Min', width: 0.7, align: 'center', key: 'min' },
+    { header: 'Écart-type', width: 0.8, align: 'center', key: 'ecart_type' }, { header: 'Admis', width: 0.7, align: 'center', key: 'admis', decimals: 0 },
+    { header: 'Réussite', width: 0.9, align: 'center', value: (r) => (r.reussite == null ? null : `${fmt(r.reussite)} %`) }
+  ], st.classes);
+  title('2. Résultats par matière');
+  y = table(doc, y, [
+    { header: 'Matière', width: 3, key: 'subject' }, { header: 'Moyenne', width: 1, align: 'center', key: 'moyenne', redBelow: 10, bold: true },
+    { header: 'Taux de réussite', width: 1.2, align: 'center', value: (r) => (r.reussite == null ? null : `${fmt(r.reussite)} %`) },
+    { header: 'Notes', width: 0.8, align: 'center', key: 'n', decimals: 0 }
+  ], st.subjects);
+  title('3. Résultats par type de matière');
+  y = table(doc, y, [
+    { header: 'Type de matière', width: 3, key: 'type' }, { header: 'Moyenne', width: 1, align: 'center', key: 'moyenne', redBelow: 10, bold: true },
+    { header: 'Taux de réussite', width: 1.2, align: 'center', value: (r) => (r.reussite == null ? null : `${fmt(r.reussite)} %`) },
+    { header: 'Notes', width: 0.8, align: 'center', key: 'n', decimals: 0 }
+  ], st.types, { headerColor: C.accent });
+  title("4. Tableau d'honneur (10 meilleures moyennes)");
+  y = table(doc, y, [
+    { header: 'Rang', width: 0.6, align: 'center', decimals: 0, value: (_r, i) => i + 1 }, { header: 'Élève', width: 3, key: 'nom' },
+    { header: 'Classe', width: 1.2, key: 'classe' }, { header: 'Moyenne', width: 1, align: 'center', key: 'general', bold: true }
+  ], st.top);
+  title('5. Discipline par classe');
+  y = table(doc, y, [
+    { header: 'Classe', width: 1.6, key: 'classe' }, { header: 'Abs. justifiées (h)', width: 1.1, align: 'center', key: 'abs_j', decimals: 0 },
+    { header: 'Abs. non justifiées (h)', width: 1.2, align: 'center', key: 'abs_nj', decimals: 0 }, { header: 'Retards', width: 0.8, align: 'center', key: 'retards', decimals: 0 },
+    { header: 'Avertissements', width: 1, align: 'center', key: 'avertissements', decimals: 0 }, { header: 'Blâmes', width: 0.8, align: 'center', key: 'blames', decimals: 0 },
+    { header: 'Incidents', width: 0.8, align: 'center', key: 'incidents', decimals: 0 }
+  ], st.discipline, { headerColor: C.accent });
+  signatures(doc, y, ['Le Censeur', doc._settings.chef_titre || "Le Chef d'établissement"]);
+}
+
+/* ======================= Documents de la plateforme AI721 TECH STUFF ======================= */
+const P = { band: '#1E1B4B', accent: '#C8962E', primary: '#4338CA' };
+/** En-tête commercial de la société (remplace l'en-tête officiel de l'établissement). */
+export function platformHeader(doc, title, subtitle) {
+  const s = doc._settings;
+  const L = doc.page.margins.left, W = doc.page.width - L - doc.page.margins.right;
+  let y = doc.page.margins.top;
+  doc.roundedRect(L, y, W, 70, 6).fill(P.band);
+  doc.circle(L + 36, y + 35, 22).fill(P.accent);
+  doc.font('Helvetica-Bold').fontSize(13).fillColor('#fff').text('AI', L + 14, y + 22, { width: 44, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(17).fillColor('#fff').text(s.societe || 'AI721 TECH STUFF', L + 70, y + 14, { width: W * 0.55 });
+  doc.font('Helvetica').fontSize(8.5).fillColor('#C7D2FE').text(s.slogan || '', L + 70, y + 36, { width: W * 0.55 });
+  doc.text('Éditeur de la plateforme EduGest CM', L + 70, y + 49, { width: W * 0.55 });
+  const contact = [s.adresse, s.tel && `Tél. ${s.tel}`, s.email, s.site, s.rccm && `RCCM ${s.rccm}`, s.niu && `NIU ${s.niu}`].filter(Boolean).join('\n');
+  doc.fontSize(7.5).fillColor('#E0E7FF').text(contact, L + W * 0.62, y + 12, { width: W * 0.36, align: 'right' });
+  y += 86;
+  doc.font('Helvetica-Bold').fontSize(14).fillColor(P.primary).text(title.toUpperCase(), L, y, { width: W, align: 'center' });
+  if (subtitle) doc.font('Helvetica').fontSize(9).fillColor(C.muted).text(subtitle, L, doc.y + 2, { width: W, align: 'center' });
+  doc.fillColor(C.dark);
+  return doc.y + 12;
+}
+const money = (n, dev = 'FCFA') => `${Number(n || 0).toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ')} ${dev}`;
+const frDate = (d) => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
+
+/** Fiche d'accès remise à l'administrateur d'un établissement. */
+export function accessSheet(doc, { tenant, sub, username, password, links }) {
+  let y = platformHeader(doc, "Fiche d'accès à la plateforme EduGest CM", 'Document confidentiel — à remettre à l\'administrateur de l\'établissement');
+  y = infoGrid(doc, y, [['Établissement', tenant.name], ['Code', tenant.code], ['Ville', tenant.ville],
+    ['Abonnement', sub?.annee], ['Valable du', frDate(sub?.valid_from)], ['Au', frDate(sub?.valid_to)]], 2);
+  const L = doc.page.margins.left, W = doc.page.width - L - doc.page.margins.right;
+  doc.roundedRect(L, y, W, 92, 8).lineWidth(1).strokeColor(P.primary).stroke();
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(P.primary).text("Compte de l'administrateur de l'établissement", L + 14, y + 12);
+  doc.font('Helvetica').fontSize(9.5).fillColor(C.muted).text('Adresse de connexion :', L + 14, y + 34).text('Identifiant :', L + 14, y + 52).text('Mot de passe :', L + 14, y + 70);
+  doc.font('Courier-Bold').fontSize(11).fillColor(C.dark).text(links.admin, L + 130, y + 33, { width: W - 145 }).text(username || '—', L + 130, y + 51)
+    .text(password || '(modifié par l\'administrateur — régénérable par AI721)', L + 130, y + 69, { width: W - 145 });
+  y += 108;
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(P.primary).text('Liens à transmettre aux personnels de l\'établissement', L, y); y = doc.y + 6;
+  y = table(doc, y, [{ header: 'Interface', width: 1.6, key: 'k' }, { header: 'Adresse', width: 4, key: 'v' }, { header: 'Public', width: 2, key: 'p' }], [
+    { k: 'Administration', v: links.admin, p: 'Proviseur / Directeur, Censeur' },
+    { k: 'Enseignants', v: links.teacher, p: 'Tous les enseignants' },
+    { k: 'Vie scolaire (discipline)', v: links.discipline, p: 'Surveillants généraux' }], { headerColor: P.primary });
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(P.primary).text('Mise en route', L, y); y = doc.y + 4;
+  const steps = ["Connectez-vous avec l'adresse « Administration » ci-dessus, puis renseignez les paramètres de l'établissement (menu Établissement).",
+    "Créez les classes, les matières et importez les listes d'élèves.", "Créez les comptes des enseignants et des responsables disciplinaires : leurs identifiants et mots de passe sont conservés dans le menu « Coffre des accès ».",
+    "Transmettez à chacun le lien de son interface et ses identifiants (fiche PDF ou message WhatsApp/SMS depuis le coffre).",
+    `Les accès sont valables jusqu'au ${frDate(sub?.valid_to)} (fin de l'année scolaire). Pensez au renouvellement avant le 31 août.`];
+  doc.font('Helvetica').fontSize(9).fillColor(C.dark);
+  steps.forEach((t, i) => { doc.text(`${i + 1}. ${t}`, L + 6, doc.y + 3, { width: W - 12 }); });
+  y = doc.y + 18;
+  doc.font('Helvetica-Oblique').fontSize(8).fillColor(C.muted).text(`Assistance ${doc._settings.societe} : ${[doc._settings.tel, doc._settings.email].filter(Boolean).join(' — ') || 'voir coordonnées ci-dessus'}`, L, y, { width: W, align: 'center' });
+}
+
+/** Reçu de paiement d'un abonnement annuel. */
+export function receipt(doc, { tenant, sub }) {
+  const no = `R-${sub.annee.slice(0, 4)}-${String(sub.id).padStart(4, '0')}`;
+  let y = platformHeader(doc, 'Reçu de paiement', `N° ${no}`);
+  const L = doc.page.margins.left, W = doc.page.width - L - doc.page.margins.right;
+  y = infoGrid(doc, y, [['Reçu n°', no], ['Date de paiement', frDate(sub.paid_at)], ['Établissement', tenant.name], ['Code', tenant.code],
+    ['Mode de paiement', sub.mode || '—'], ['Référence', sub.reference || '—']], 2);
+  y = table(doc, y, [{ header: 'Désignation', width: 4.5, key: 'd' }, { header: 'Période', width: 2.2, key: 'p' }, { header: 'Montant', width: 1.5, align: 'right', key: 'm', bold: true }], [
+    { d: `Abonnement annuel à la plateforme EduGest CM — année scolaire ${sub.annee}\n(notes, discipline, emplois du temps, bulletins, statistiques, assistance)`,
+      p: `du ${frDate(sub.valid_from)}\nau ${frDate(sub.valid_to)}`, m: money(sub.montant, doc._settings.devise) }], { fontSize: 9, headerColor: P.primary });
+  doc.roundedRect(L + W * 0.55, y, W * 0.45, 30, 5).fill('#EEF2FF');
+  doc.font('Helvetica-Bold').fontSize(12).fillColor(P.band).text(`TOTAL PAYÉ : ${money(sub.paid ? sub.montant : 0, doc._settings.devise)}`, L + W * 0.55, y + 10, { width: W * 0.45 - 12, align: 'right' });
+  y += 46;
+  if (!sub.paid) { doc.font('Helvetica-Bold').fontSize(11).fillColor(C.red).text('PAIEMENT EN ATTENTE — ce document ne vaut pas quittance.', L, y, { width: W, align: 'center' }); y = doc.y + 10; }
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.muted).text("Les identifiants de connexion de l'établissement sont valables pendant la période indiquée ci-dessus.", L, y, { width: W });
+  signatures(doc, doc.y + 20, ['Le client', `Pour ${doc._settings.societe}`]);
+}
+
+/** Liste des établissements abonnés (console du super admin). */
+export function tenantsList(doc, rows, kpis) {
+  let y = platformHeader(doc, 'Établissements abonnés à EduGest CM', `Situation au ${new Date().toLocaleDateString('fr-FR')}`);
+  y = infoGrid(doc, y, [['Établissements', kpis.total], ['Actifs', kpis.actifs], ['Expirés / en attente', kpis.inactifs],
+    ['Élèves gérés', kpis.eleves], ['Recettes année en cours', money(kpis.recettes_annee, doc._settings.devise)], ['Recettes cumulées', money(kpis.recettes_total, doc._settings.devise)]], 3);
+  table(doc, y, [
+    { header: 'Établissement', width: 3, value: (r) => `${r.name}\n${r.code}` }, { header: 'Ville', width: 1.1, key: 'ville' },
+    { header: 'Contact', width: 1.8, value: (r) => [r.contact_nom, r.contact_tel].filter(Boolean).join('\n') },
+    { header: 'Abonnement', width: 1, key: 'annee' }, { header: 'Valable jusqu\'au', width: 1.1, value: (r) => frDate(r.valid_to) },
+    { header: 'Montant', width: 1.1, align: 'right', value: (r) => (r.montant == null ? '—' : money(r.montant, '')) },
+    { header: 'Statut', width: 1.3, key: 'status_label' }, { header: 'Élèves', width: 0.7, align: 'center', key: 'eleves', decimals: 0 },
+    { header: 'Ens.', width: 0.6, align: 'center', key: 'enseignants', decimals: 0 }
+  ], rows, { fontSize: 7.5, headerColor: P.primary });
 }
