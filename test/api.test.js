@@ -196,6 +196,79 @@ test('sauvegarde puis restauration', async () => {
   const dump = (await a.get('/admin/backup')).data;
   assert.ok(dump.tables.students.length > 100);
   assert.equal((await a.post('/admin/restore', { dump, password: 'Admin@2026' })).status, 200);
-  const b = client(); await b.login('admin', 'Admin@2026');
+  adminClient = null; // la restauration ferme toutes les sessions
+  const b = await admin();
   assert.equal((await b.get('/admin/students')).data.length, dump.tables.students.length);
+});
+
+test('groupes et types de matières : référentiels administrables et dissociés', async () => {
+  const a = await admin();
+  const groups = (await a.get('/admin/subject-groups')).data, types = (await a.get('/admin/subject-types')).data;
+  assert.deepEqual(groups.map((g) => g.name), ['Groupe 1', 'Groupe 2', 'Groupe 3']);
+  assert.ok(types.some((t) => t.name === 'Matière littéraire') && types.some((t) => t.name === 'Matière scientifique'));
+  // ajout d'un groupe et d'un type
+  const g4 = (await a.post('/admin/subject-groups', { name: 'Groupe 4 — Professionnel', ordre: 4 })).data;
+  const tech = (await a.post('/admin/subject-types', { name: 'Matière technique' })).data;
+  assert.ok(g4.id && tech.id);
+  assert.equal((await a.post('/admin/subject-types', { name: 'matière TECHNIQUE' })).status, 409); // doublon (insensible à la casse)
+  // une matière combine librement groupe et type
+  const sub = await a.post('/admin/subjects', { name: 'Électronique', code: 'ELN', group_id: g4.id, type_id: tech.id });
+  assert.equal(sub.status, 201);
+  assert.equal((await a.post('/admin/subjects', { name: 'Sans type', group_id: g4.id })).status, 400);
+  assert.equal((await a.post('/admin/subjects', { name: 'Type fantôme', group_id: g4.id, type_id: 99999 })).status, 400);
+  const lit = types.find((t) => t.name === 'Matière littéraire');
+  assert.equal((await a.put(`/admin/subjects/${sub.data.id}`, { name: 'Électronique', code: 'ELN', group_id: groups[1].id, type_id: lit.id })).status, 200);
+  const s = (await a.get('/admin/subjects')).data.find((x) => x.id === sub.data.id);
+  assert.equal(s.group_name, 'Groupe 2'); assert.equal(s.type_name, 'Matière littéraire');
+  // suppression refusée tant qu'utilisé, autorisée ensuite ; renommage
+  assert.equal((await a.del(`/admin/subject-types/${lit.id}`)).status, 400);
+  assert.equal((await a.put(`/admin/subject-groups/${g4.id}`, { name: 'Groupe 4', ordre: 5 })).status, 200);
+  assert.equal((await a.del(`/admin/subject-groups/${g4.id}`)).status, 200);
+  await a.del(`/admin/subjects/${sub.data.id}`);
+  assert.equal((await a.del(`/admin/subject-types/${tech.id}`)).status, 200);
+  // les statistiques sont ventilées par type
+  const st = (await a.get('/admin/stats?period=S1')).data;
+  assert.ok(st.types.find((t) => t.type === 'Matière scientifique').n > 0);
+  // le bulletin regroupe toujours les matières par groupe
+  const r = (await a.get('/admin/results?class_id=1&period=S1')).data;
+  assert.ok(r.results[0].lines.every((l) => l.group_name && l.type_name));
+});
+
+test('restauration d\'une sauvegarde de l\'ancienne version (champ « groupe » unique)', async () => {
+  const a = await admin();
+  const dump = (await a.get('/admin/backup')).data;
+  const before = (await a.get('/admin/subjects')).data;
+  // simulation du format historique : pas de référentiels, un seul champ « groupe »
+  const ordreOf = Object.fromEntries((await a.get('/admin/subject-groups')).data.map((g) => [g.id, g.ordre]));
+  dump.tables.subjects = dump.tables.subjects.map(({ group_id, type_id, ...x }) => ({ ...x, groupe: ordreOf[group_id] }));
+  delete dump.tables.subject_groups; delete dump.tables.subject_types;
+  assert.equal((await a.post('/admin/restore', { dump, password: 'Admin@2026' })).status, 200);
+  adminClient = null;
+  const b = await admin();
+  const after = (await b.get('/admin/subjects')).data;
+  for (const s of before) {
+    const x = after.find((y) => y.id === s.id);
+    assert.equal(x.group_name, s.group_name, s.name);
+    assert.equal(x.type_name, s.type_name, s.name);
+  }
+});
+
+test('migration automatique d\'une base de l\'ancienne version', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path');
+  const { DatabaseSync } = await import('node:sqlite');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'edugest-migr-'));
+  const old = new DatabaseSync(path.join(dir, 'edugest.db'));
+  old.exec(`CREATE TABLE subjects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE COLLATE NOCASE, code TEXT, groupe INTEGER NOT NULL DEFAULT 1);
+    INSERT INTO subjects(name, code, groupe) VALUES ('Français','FRA',1), ('Mathématiques','MATH',2), ('EPS','EPS',3);`);
+  old.close();
+  const out = execFileSync(process.execPath, ['--no-warnings', '--input-type=module', '-e', `
+    const { db } = await import(${JSON.stringify(new URL('../server/db.js', import.meta.url).href)});
+    console.log(JSON.stringify({ cols: db.prepare('PRAGMA table_info(subjects)').all().map((c) => c.name),
+      rows: db.prepare('SELECT s.name, g.name g, t.name t FROM subjects s JOIN subject_groups g ON g.id = s.group_id JOIN subject_types t ON t.id = s.type_id ORDER BY s.id').all() }));`],
+  { env: { ...process.env, DB_MEMORY: '', DATA_DIR: dir } }).toString();
+  const res = JSON.parse(out.trim().split('\n').pop());
+  assert.ok(!res.cols.includes('groupe') && res.cols.includes('group_id') && res.cols.includes('type_id'));
+  assert.deepEqual(res.rows.map((r) => `${r.name}|${r.g}|${r.t}`), ['Français|Groupe 1|Matière littéraire', 'Mathématiques|Groupe 2|Matière scientifique', 'EPS|Groupe 3|Autre matière']);
+  fs.rmSync(dir, { recursive: true, force: true });
 });

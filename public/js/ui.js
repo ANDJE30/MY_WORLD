@@ -111,7 +111,8 @@ export function modal({ title, body, footer, size = '', onOpen, dismissible = tr
       <div class="modal-b">${body}</div>${footer ? h`<div class="modal-f">${footer}</div>` : ''}</div>`);
     const prevFocus = document.activeElement;
     const close = (v) => { root.remove(); document.removeEventListener('keydown', onKey); prevFocus?.focus?.(); resolve(v); };
-    const onKey = (e) => { if (e.key === 'Escape' && dismissible) close(null); };
+    // Échap ne ferme que la fenêtre du dessus (fenêtres imbriquées)
+    const onKey = (e) => { if (e.key === 'Escape' && dismissible && root === $$('.modal-root').pop()) close(null); };
     root.addEventListener('click', (e) => { if ((e.target === root && dismissible) || e.target.closest('[data-close]')) close(null); });
     document.addEventListener('keydown', onKey);
     document.body.append(root);
@@ -165,7 +166,7 @@ export function readForm(root, fields) {
   return out;
 }
 /** Ouvre un formulaire modal ; onSubmit(data) peut lever une erreur affichée dans le formulaire. */
-export function formModal({ title, fields, values = {}, submitLabel = 'Enregistrer', onSubmit, size = '', intro }) {
+export function formModal({ title, fields, values = {}, submitLabel = 'Enregistrer', onSubmit, size = '', intro, onReady }) {
   return modal({
     title, size,
     body: h`${intro || ''}<form class="form-grid" novalidate>${fields.map((f) => fieldHtml(f, values[f.name]))}</form><div class="alert danger mt hidden" data-err></div>`,
@@ -182,6 +183,7 @@ export function formModal({ title, fields, values = {}, submitLabel = 'Enregistr
         catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); btn.disabled = false; btn.innerHTML = old; }
       };
       form.addEventListener('submit', submit); btn.onclick = submit;
+      onReady?.({ root });
     }
   });
 }

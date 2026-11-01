@@ -10,7 +10,7 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre é
 D = Doc("Manuel d'utilisation — EduGest CM", "Manuel d'utilisation")
 D.cover("Manuel d'utilisation", 'EduGest CM',
         "Guide pas à pas pour l'administrateur, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'EduGest CM — gestion des notes, de la discipline et des emplois du temps'), ('Version', '1.0'), ('Date', today),
+        [('Application', 'EduGest CM — gestion des notes, de la discipline et des emplois du temps'), ('Version', '1.1 (groupes et types de matière)'), ('Date', today),
          ('Public', 'Administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
 D.toc()
@@ -76,7 +76,7 @@ D.table(['Étape', 'Action', 'Menu'], [
     ['1', "Se connecter avec le compte « admin » et choisir son mot de passe personnel", 'Connexion'],
     ['2', "Renseigner l'identité, l'en-tête officiel, le logo, l'année et les horaires", 'Établissement'],
     ['3', "Vérifier les dates des 6 séquences", 'Calendrier & clôtures'],
-    ['4', "Ajouter les matières (bouton « programme officiel »)", 'Matières'],
+    ['4', "Vérifier les groupes et types de matière, puis ajouter les matières (bouton « programme officiel »)", 'Matières'],
     ['5', "Créer les classes (copie des matières pour les classes parallèles)", 'Classes'],
     ['6', "Créer les comptes enseignants et imprimer les fiches d'identifiants", 'Enseignants'],
     ['7', "Définir pour chaque classe : matières, coefficients, heures, enseignants", 'Attributions'],
@@ -118,10 +118,27 @@ D.figure(c('06_admin_classes.png'), 'Gestion des classes', max_h=9)
 D.p("Bouton **Nouvelle classe** : nom (ex. 2nde C1, Tle F3, Form 4 Sc), niveau, série/spécialité, cycle, salle, professeur principal. L'option "
     "**Copier les matières et coefficients de** une classe existante fait gagner beaucoup de temps pour les classes parallèles. Chaque carte donne "
     "accès aux élèves, aux matières et à l'emploi du temps de la classe. Une classe ne peut être supprimée que lorsqu'elle est vide.", align='justify')
-D.h2('3.6 Matières')
-D.figure(c('07_admin_matieres.png'), 'Catalogue des matières', max_h=8.5)
-D.p("Le bouton **Ajouter le programme officiel** propose les disciplines courantes (enseignement général et technique) : cochez celles enseignées "
-    "dans votre établissement. Le **groupe** détermine le regroupement sur le bulletin : 1 = matières littéraires, 2 = scientifiques, 3 = autres.", align='justify')
+D.h2('3.6 Matières, groupes et types de matière')
+D.p("Le menu **Matières** comporte trois onglets. Chaque matière possède **deux caractéristiques indépendantes** :", align='justify')
+D.bullets([("Le groupe : ", "il détermine le regroupement des matières sur le bulletin et les sous-totaux (Groupe 1, Groupe 2…), dans l'ordre de leur **position**."),
+           ("Le type : ", "il indique la nature de la matière — Matière littéraire, Matière scientifique, Autre matière, ou tout type que vous ajoutez (ex. Matière technique). Il sert notamment aux statistiques par type.")])
+D.p("Ainsi, une matière scientifique peut figurer dans n'importe quel groupe du bulletin, selon l'organisation de votre établissement.", align='justify')
+D.h3('Onglet Matières')
+D.figure(c('07_admin_matieres.png'), 'Catalogue des matières avec leur groupe et leur type', max_h=9.5)
+D.numbered(["Cliquez sur **Nouvelle matière**.", "Saisissez l'intitulé et l'abréviation (utilisée dans l'emploi du temps et le procès-verbal).",
+            "Choisissez le **groupe** puis le **type** dans leurs listes respectives.",
+            "S'il manque un groupe ou un type, choisissez **➕ Nouveau groupe…** ou **➕ Nouveau type…** en bas de la liste : une petite fenêtre permet de le créer, et il est aussitôt sélectionné.",
+            "Cliquez sur **Enregistrer**."])
+D.figures_row([c('07e_admin_type_a_la_volee.png'), c('07b_admin_matiere_formulaire.png')], 'Création d\'un type à la volée, puis formulaire complété', width=8)
+D.p("Le bouton **Ajouter le programme officiel** propose les disciplines courantes (enseignement général et technique) avec un groupe et un type par défaut, modifiables ensuite. "
+    "La liste **Tous les types** filtre le catalogue. Une matière ne peut être supprimée si des notes ont déjà été saisies.", align='justify')
+D.h3('Onglets Groupes et Types de matière')
+D.figure(c('07c_admin_groupes.png'), 'Gestion des groupes', max_h=8.5)
+D.bullets([("Ajouter : ", "bouton **Nouveau groupe** (libellé et position sur le bulletin) ou **Nouveau type** (libellé)."),
+           ("Modifier : ", "icône crayon — renommez, ou changez la position d'un groupe pour réordonner le bulletin."),
+           ("Supprimer : ", "icône corbeille, possible uniquement si aucune matière n'utilise le groupe ou le type. Réaffectez d'abord les matières concernées.")])
+D.note("Par défaut, l'application propose les groupes **Groupe 1**, **Groupe 2**, **Groupe 3** et les types **Matière littéraire**, **Matière scientifique**, **Autre matière**. "
+       "Lors de la mise à jour vers la version 1.1, les matières existantes ont été classées automatiquement (ancien groupe 1 → Groupe 1 / Matière littéraire, 2 → Groupe 2 / Matière scientifique, 3 → Groupe 3 / Autre matière).", 'info')
 D.h2('3.7 Attributions (matières, coefficients, enseignants)')
 D.figure(c('08_admin_attributions.png'), 'Attributions de la classe de 6e A', max_h=9)
 D.numbered(["Choisissez la classe dans la liste.", "**Ajouter une matière** : matière, enseignant, coefficient, heures par semaine. Vous pouvez appliquer la même matière à plusieurs classes à la fois.",
@@ -182,8 +199,8 @@ D.numbered(["Choisissez la **classe** et la **période** : séquence, trimestre 
 D.figure(c('pdf_bulletin.png'), 'Exemple de bulletin trimestriel généré', max_h=15)
 D.h2('3.14 Statistiques')
 D.figure(c('15_admin_statistiques.png'), "Statistiques de l'établissement", max_h=10)
-D.p("Taux de réussite global, par classe, par matière, par sexe ; tableau d'honneur (10 meilleures moyennes) ; synthèse disciplinaire par classe. "
-    "Changez la période en haut à droite.")
+D.p("Taux de réussite global, par classe, par matière, par **type de matière** (littéraires, scientifiques…), par sexe ; tableau d'honneur (10 meilleures moyennes) ; "
+    "synthèse disciplinaire par classe. Changez la période en haut à droite.")
 D.h2('3.15 Discipline et incidents')
 D.p("Les menus **Discipline** et **Registre des incidents** donnent à l'administrateur les mêmes écrans que les responsables disciplinaires (chapitre 5), pour toutes les classes.")
 D.h2('3.16 Annonces')
@@ -267,7 +284,7 @@ D.figure(c('pdf_discipline.png'), 'Exemple de fiche des faits disciplinaires', m
 # =============================================================== 6
 D.h1('6. Documents officiels générés')
 D.table(['Document', 'Contenu', 'Qui', 'Où'], [
-    ['Bulletin de notes', "Notes par matière (groupes 1 à 3), coefficients, rangs, moyenne de classe, résultats, profil de la classe, discipline, décision du conseil", 'Admin', 'Résultats & bulletins'],
+    ['Bulletin de notes', "Notes par matière regroupées par groupe (avec sous-totaux), coefficients, rangs, moyenne de classe, résultats, profil de la classe, discipline, décision du conseil", 'Admin', 'Résultats & bulletins'],
     ['Procès-verbal', "Tableau récapitulatif de la classe : toutes les moyennes, rang, décision, statistiques", 'Admin', 'Résultats & bulletins'],
     ['Relevé de notes', "Notes d'une matière, rang, appréciation, statistiques", 'Enseignant, admin', 'Relevés & exports'],
     ['Fiche de progression', "Leçons prévues / faites par séquence et taux de couverture", 'Enseignant, admin', 'Progression, Enseignants'],

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import express from 'express';
-import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS } from '../db.js';
+import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy } from '../db.js';
 import { hashPassword, genPassword, genUsername, verifyPassword, slug, destroyUserSessions } from '../security.js';
 import { completeness, currentSeq, computeClassResults, TRIMESTRES, round2 } from '../calc.js';
 import { str, num, id, bool, date, oneOf, bad, seqParam, HttpError } from '../util.js';
@@ -186,20 +186,67 @@ r.post('/classes/:id/copy-subjects', (req, res) => {
   res.json({ ok: true, copied: n });
 });
 
+/* ============ Groupes et types de matières (référentiels administrables) ============ */
+// Les deux référentiels partagent la même logique ; seul le groupe possède un ordre (position sur le bulletin).
+const TAXO = {
+  'subject-groups': { table: 'subject_groups', col: 'group_id', label: 'groupe', ordered: true },
+  'subject-types': { table: 'subject_types', col: 'type_id', label: 'type de matière', ordered: false }
+};
+for (const [route, t] of Object.entries(TAXO)) {
+  const body = (b) => ({ name: str(b.name, { max: 60, required: true, label: 'Libellé' }),
+    ordre: t.ordered ? num(b.ordre ?? 1, { min: 1, max: 99, int: true, label: 'Ordre' }) : null });
+  r.get(`/${route}`, (_req, res) => res.json(db.prepare(`SELECT x.*, (SELECT COUNT(*) FROM subjects s WHERE s.${t.col} = x.id) subjects
+    FROM ${t.table} x ORDER BY ${t.ordered ? 'x.ordre, ' : ''}x.name`).all()));
+  r.post(`/${route}`, (req, res) => {
+    const b = body(req.body);
+    const info = t.ordered ? db.prepare(`INSERT INTO ${t.table}(name, ordre) VALUES(?,?)`).run(b.name, b.ordre)
+      : db.prepare(`INSERT INTO ${t.table}(name) VALUES(?)`).run(b.name);
+    audit(req, t.ordered ? 'GROUPE_CREE' : 'TYPE_MATIERE_CREE', b.name);
+    res.status(201).json({ id: Number(info.lastInsertRowid), name: b.name, ordre: b.ordre });
+  });
+  r.put(`/${route}/:id`, (req, res) => {
+    const b = body(req.body); const xid = id(req.params.id);
+    const ch = t.ordered ? db.prepare(`UPDATE ${t.table} SET name = ?, ordre = ? WHERE id = ?`).run(b.name, b.ordre, xid)
+      : db.prepare(`UPDATE ${t.table} SET name = ? WHERE id = ?`).run(b.name, xid);
+    if (!ch.changes) throw new HttpError(404, 'Élément introuvable');
+    audit(req, t.ordered ? 'GROUPE_MODIFIE' : 'TYPE_MATIERE_MODIFIE', b.name);
+    res.json({ ok: true });
+  });
+  r.delete(`/${route}/:id`, (req, res) => {
+    const xid = id(req.params.id);
+    const row = db.prepare(`SELECT name FROM ${t.table} WHERE id = ?`).get(xid);
+    if (!row) throw new HttpError(404, 'Élément introuvable');
+    const used = db.prepare(`SELECT COUNT(*) c FROM subjects WHERE ${t.col} = ?`).get(xid).c;
+    if (used) throw bad(`Impossible : ce ${t.label} est utilisé par ${used} matière(s). Réaffectez-les d'abord.`);
+    if (db.prepare(`SELECT COUNT(*) c FROM ${t.table}`).get().c <= 1) throw bad(`Il doit rester au moins un ${t.label}.`);
+    db.prepare(`DELETE FROM ${t.table} WHERE id = ?`).run(xid);
+    audit(req, t.ordered ? 'GROUPE_SUPPRIME' : 'TYPE_MATIERE_SUPPRIME', row.name);
+    res.json({ ok: true });
+  });
+}
+
 /* ============ Matières ============ */
-r.get('/subjects', (_req, res) => res.json(db.prepare(`SELECT s.*, (SELECT COUNT(*) FROM class_subjects cs WHERE cs.subject_id = s.id) classes
-  FROM subjects s ORDER BY s.groupe, s.name`).all()));
-const subjBody = (b) => ({ name: str(b.name, { max: 80, required: true, label: 'Nom de la matière' }), code: str(b.code, { max: 10 }),
-  groupe: num(b.groupe ?? 1, { min: 1, max: 3, int: true, label: 'Groupe' }) });
+r.get('/subjects', (_req, res) => res.json(db.prepare(`SELECT s.*, g.name group_name, g.ordre group_ordre, t.name type_name,
+    (SELECT COUNT(*) FROM class_subjects cs WHERE cs.subject_id = s.id) classes
+  FROM subjects s LEFT JOIN subject_groups g ON g.id = s.group_id LEFT JOIN subject_types t ON t.id = s.type_id
+  ORDER BY COALESCE(g.ordre, 999), g.name, s.name`).all()));
+const subjBody = (b) => {
+  const s = { name: str(b.name, { max: 80, required: true, label: 'Nom de la matière' }), code: str(b.code, { max: 10 }),
+    group_id: id(b.group_id, 'Groupe'), type_id: id(b.type_id, 'Type de matière') };
+  if (!db.prepare('SELECT 1 FROM subject_groups WHERE id = ?').get(s.group_id)) throw bad('Groupe inexistant');
+  if (!db.prepare('SELECT 1 FROM subject_types WHERE id = ?').get(s.type_id)) throw bad('Type de matière inexistant');
+  return s;
+};
 r.post('/subjects', (req, res) => {
   const s = subjBody(req.body);
-  const info = db.prepare('INSERT INTO subjects(name, code, groupe) VALUES(?,?,?)').run(s.name, s.code, s.groupe);
+  const info = db.prepare('INSERT INTO subjects(name, code, group_id, type_id) VALUES(?,?,?,?)').run(s.name, s.code, s.group_id, s.type_id);
   audit(req, 'MATIERE_CREEE', s.name);
   res.status(201).json({ id: Number(info.lastInsertRowid) });
 });
 r.put('/subjects/:id', (req, res) => {
   const s = subjBody(req.body);
-  db.prepare('UPDATE subjects SET name=?, code=?, groupe=? WHERE id=?').run(s.name, s.code, s.groupe, id(req.params.id));
+  db.prepare('UPDATE subjects SET name=?, code=?, group_id=?, type_id=? WHERE id=?').run(s.name, s.code, s.group_id, s.type_id, id(req.params.id));
+  audit(req, 'MATIERE_MODIFIEE', s.name);
   res.json({ ok: true });
 });
 r.delete('/subjects/:id', (req, res) => {
@@ -215,9 +262,10 @@ r.delete('/subjects/:id', (req, res) => {
 r.get('/class-subjects', (req, res) => {
   const where = req.query.class_id ? 'WHERE cs.class_id = ?' : req.query.teacher_id ? 'WHERE cs.teacher_id = ?' : '';
   const p = req.query.class_id ? [id(req.query.class_id)] : req.query.teacher_id ? [id(req.query.teacher_id)] : [];
-  res.json(db.prepare(`SELECT cs.*, c.name classe, s.name subject, s.code, s.groupe, u.full_name teacher
-    FROM class_subjects cs JOIN classes c ON c.id = cs.class_id JOIN subjects s ON s.id = cs.subject_id LEFT JOIN users u ON u.id = cs.teacher_id
-    ${where} ORDER BY c.name, s.groupe, s.name`).all(...p));
+  res.json(db.prepare(`SELECT cs.*, c.name classe, s.name subject, s.code, g.name group_name, t.name type_name, u.full_name teacher
+    FROM class_subjects cs JOIN classes c ON c.id = cs.class_id JOIN subjects s ON s.id = cs.subject_id
+    LEFT JOIN subject_groups g ON g.id = s.group_id LEFT JOIN subject_types t ON t.id = s.type_id LEFT JOIN users u ON u.id = cs.teacher_id
+    ${where} ORDER BY c.name, COALESCE(g.ordre, 999), s.name`).all(...p));
 });
 const csBody = (b) => ({ coef: num(b.coef ?? 1, { min: 0.5, max: 10, label: 'Coefficient' }),
   teacher_id: b.teacher_id ? id(b.teacher_id) : null, hours_week: num(b.hours_week ?? 2, { min: 0, max: 20, label: 'Volume horaire' }) });
@@ -522,10 +570,14 @@ r.get('/stats', (req, res) => {
   const period = req.query.period || 'S1';
   const classes = db.prepare('SELECT id FROM classes ORDER BY name').all();
   const all = classes.map((c) => computeClassResults(c.id, period));
-  const bySubject = {};
+  const bySubject = {}, byType = {};
   for (const cr of all) for (const ss of cr.subjectStats) {
     const b = (bySubject[ss.subject] ??= { subject: ss.subject, sum: 0, n: 0, pass: 0 });
-    for (const rr of cr.results) { const l = rr.lines.find((x) => x.cs_id === ss.cs_id); if (l?.avg != null) { b.sum += l.avg; b.n++; if (l.avg >= cr.seuil) b.pass++; } }
+    const t = (byType[ss.type_name || 'Non défini'] ??= { type: ss.type_name || 'Non défini', sum: 0, n: 0, pass: 0 });
+    for (const rr of cr.results) {
+      const l = rr.lines.find((x) => x.cs_id === ss.cs_id);
+      if (l?.avg != null) for (const x of [b, t]) { x.sum += l.avg; x.n++; if (l.avg >= cr.seuil) x.pass++; }
+    }
   }
   const students = all.flatMap((cr) => cr.results.filter((x) => x.general != null).map((x) => ({ nom: `${x.student.nom} ${x.student.prenom}`, sexe: x.student.sexe, classe: cr.classe.name, general: x.general, seuil: cr.seuil })));
   const g = (sx) => { const l = students.filter((x) => x.sexe === sx); return { n: l.length, reussite: l.length ? round2((l.filter((x) => x.general >= x.seuil).length / l.length) * 100) : null }; };
@@ -533,6 +585,7 @@ r.get('/stats', (req, res) => {
     period, classes: all.map((cr) => ({ id: cr.classe.id, classe: cr.classe.name, ...cr.stats })),
     subjects: Object.values(bySubject).map((b) => ({ subject: b.subject, moyenne: b.n ? round2(b.sum / b.n) : null, reussite: b.n ? round2((b.pass / b.n) * 100) : null, n: b.n }))
       .sort((a, b) => (b.moyenne ?? -1) - (a.moyenne ?? -1)),
+    types: Object.values(byType).map((b) => ({ type: b.type, moyenne: b.n ? round2(b.sum / b.n) : null, reussite: b.n ? round2((b.pass / b.n) * 100) : null, n: b.n })),
     top: students.sort((a, b) => b.general - a.general).slice(0, 10),
     global: { n: students.length, reussite: students.length ? round2((students.filter((x) => x.general >= x.seuil).length / students.length) * 100) : null,
       moyenne: students.length ? round2(students.reduce((a, x) => a + x.general, 0) / students.length) : null, garcons: g('M'), filles: g('F') },
@@ -568,7 +621,7 @@ r.get('/audit', (req, res) => {
 });
 
 /* ============ Sauvegarde / restauration / nouvelle année ============ */
-const TABLES = ['settings', 'users', 'classes', 'subjects', 'class_subjects', 'students', 'officer_classes', 'periods', 'notes', 'note_validations',
+const TABLES = ['settings', 'users', 'classes', 'subject_groups', 'subject_types', 'subjects', 'class_subjects', 'students', 'officer_classes', 'periods', 'notes', 'note_validations',
   'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'timetable', 'announcements'];
 r.get('/backup', (req, res) => {
   const dump = { app: 'EduGest CM', version: 1, created_at: new Date().toISOString(), tables: {} };
@@ -594,6 +647,10 @@ r.post('/restore', express.json({ limit: '50mb' }), (req, res) => {
       const ins = db.prepare(`INSERT INTO ${t}(${use.join(',')}) VALUES(${use.map(() => '?').join(',')})`);
       for (const row of rows) ins.run(...use.map((c) => row[c]));
     }
+    // sauvegarde d'une version antérieure (champ « groupe » unique) : conversion vers groupe + type
+    ensureTaxonomy();
+    const legacy = (dump.tables.subjects || []).filter((x) => x.groupe != null && x.group_id === undefined);
+    for (const x of legacy) { const t = legacyTaxonomy(x.groupe); db.prepare('UPDATE subjects SET group_id = ?, type_id = ? WHERE id = ?').run(t.group_id, t.type_id, x.id); }
   });
   audit(req, 'RESTAURATION', dump.created_at);
   res.json({ ok: true });

@@ -1,5 +1,5 @@
 // Jeu de données de démonstration (établissement FICTIF). Usage : npm run seed  (réinitialise la base)
-import { db, tx, saveSettings, DEFAULT_SETTINGS } from './db.js';
+import { db, tx, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy } from './db.js';
 import { hashPassword } from './security.js';
 import { generateTimetable } from './routes/admin.js';
 
@@ -18,7 +18,7 @@ export function seedDemo() {
   const y = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
   tx(() => {
     for (const t of ['timetable', 'incidents', 'discipline_records', 'discipline_validations', 'progressions', 'note_validations', 'notes',
-      'officer_classes', 'students', 'class_subjects', 'subjects', 'classes', 'announcements', 'audit_log', 'sessions', 'users', 'settings', 'periods']) db.exec(`DELETE FROM ${t}`);
+      'officer_classes', 'students', 'class_subjects', 'subjects', 'subject_groups', 'subject_types', 'classes', 'announcements', 'audit_log', 'sessions', 'users', 'settings', 'periods']) db.exec(`DELETE FROM ${t}`);
     db.exec("DELETE FROM sqlite_sequence");
 
     saveSettings({ ...DEFAULT_SETTINGS,
@@ -54,8 +54,13 @@ export function seedDemo() {
       ['Langues et cultures nationales', 'LCN', 1], ['Espagnol', 'ESP', 1], ['Philosophie', 'PHI', 1], ['Mathématiques', 'MATH', 2],
       ['Physique-Chimie', 'PCT', 2], ['Sciences de la vie et de la Terre', 'SVT', 2], ['Informatique', 'INFO', 2], ['Éducation physique et sportive', 'EPS', 3]];
     const S = {};
-    const insS = db.prepare('INSERT INTO subjects(name, code, groupe) VALUES(?,?,?)');
-    subjects.forEach(([n, c, g]) => { S[c] = Number(insS.run(n, c, g).lastInsertRowid); });
+    // référentiels par défaut : Groupe 1/2/3 et Matière littéraire / scientifique / autre
+    ensureTaxonomy();
+    const G = Object.fromEntries(db.prepare('SELECT ordre, id FROM subject_groups').all().map((x) => [x.ordre, x.id]));
+    const TY = Object.fromEntries(db.prepare('SELECT name, id FROM subject_types').all().map((x) => [x.name, x.id]));
+    const typeOf = { 1: 'Matière littéraire', 2: 'Matière scientifique', 3: 'Autre matière' };
+    const insS = db.prepare('INSERT INTO subjects(name, code, group_id, type_id) VALUES(?,?,?,?)');
+    subjects.forEach(([n, c, g]) => { S[c] = Number(insS.run(n, c, G[g], TY[typeOf[g]]).lastInsertRowid); });
 
     const classes = [
       ['6e A', '6e', '', 'Premier cycle', 'B01', 'ekotos', ['FRA:4:5', 'ANG:3:4', 'HG:2:3', 'ECM:1:1', 'LCN:1:1', 'MATH:4:5', 'SVT:2:2', 'INFO:1:1', 'EPS:2:2']],

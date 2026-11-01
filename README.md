@@ -6,7 +6,7 @@ Six séquences regroupées en trois trimestres, notes sur 20, coefficients, rang
 
 | Profil | Fonctions principales |
 |---|---|
-| **Administrateur** | Paramétrage de l'établissement (identité, logo, en-tête officiel, horaires), calendrier et clôture des séquences et trimestres, classes, matières, coefficients, import des élèves, comptes enseignants et responsables avec identifiants faciles à retenir et fiches imprimables, attributions, emplois du temps (génération automatique sans conflit), suivi des saisies, résultats, bulletins, PV, statistiques, annonces, journal d'audit, sauvegardes, nouvelle année |
+| **Administrateur** | Paramétrage de l'établissement (identité, logo, en-tête officiel, horaires), calendrier et clôture des séquences et trimestres, classes, matières avec **groupe** et **type** (littéraire, scientifique…) indépendants et extensibles, coefficients, import des élèves, comptes enseignants et responsables avec identifiants faciles à retenir et fiches imprimables, attributions, emplois du temps (génération automatique sans conflit), suivi des saisies, résultats, bulletins, PV, statistiques, annonces, journal d'audit, sauvegardes, nouvelle année |
 | **Enseignant** | Progression annuelle (leçons prévues et faites), saisie des notes (enregistrement automatique, brouillon hors ligne, raccourcis clavier, collage depuis Excel), validation, relevés PDF, emploi du temps |
 | **Responsable disciplinaire** | Absences justifiées et non justifiées, retards, consignes, avertissements, blâmes, exclusions, registre des incidents, validation, fiches PDF de classe et individuelles |
 
@@ -33,7 +33,7 @@ Comptes de démonstration : `admin / Admin@2026`, `mbargajp / Prof@2026` (enseig
 Pour une installation réelle (base vide), lancez simplement `npm start`. Le compte `admin` est créé au premier démarrage : son mot de passe est affiché une seule fois dans la console, à moins qu'il ne soit fixé par la variable `ADMIN_PASSWORD`.
 
 ```bash
-npm test                  # 14 tests d'intégration (sécurité, calculs, clôtures, PDF, sauvegarde)
+npm test                  # 17 tests d'intégration (sécurité, calculs, clôtures, PDF, sauvegarde, migrations)
 ```
 
 ## Déploiement
@@ -43,6 +43,10 @@ npm test                  # 14 tests d'intégration (sécurité, calculs, clôtu
 | **Démonstration** (gratuit, en un clic) | Render (offre Free) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/andje30/my_world) — le fichier `render.yaml` configure tout. Le disque gratuit est éphémère : la base de démonstration se recrée à chaque redémarrage. |
 | **Production gratuite** | Oracle Cloud *Always Free* (VM ARM, 200 Go persistants) | Créez une VM Ubuntu, pointez un domaine vers son IP, puis exécutez `sudo DOMAIN=notes.mon-lycee.cm ADMIN_PASSWORD='…' bash deploy/oracle-cloud-init.sh` (Docker + Caddy, HTTPS automatique). |
 | Production sur un serveur existant | Tout VPS ou serveur de l'établissement | `cd deploy && DOMAIN=… ADMIN_PASSWORD=… docker compose up -d --build` |
+
+**Mettre à jour le site** :
+- **Render** : chaque fusion dans `master` redéploie automatiquement le service.
+- **Serveur de production** : lancez `sudo bash /opt/edugest/deploy/mise-a-jour.sh`. Le script sauvegarde la base, récupère le code et redémarre l'application. Les migrations de la base s'appliquent automatiquement et les données sont conservées.
 
 Variables d'environnement : `PORT`, `DATA_DIR` (dossier de la base, par défaut `./data`), `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEMO=1`, `TRUST_PROXY` (1 derrière un proxy, 0 en exposition directe), `AUTO_BACKUP=0` (désactive les sauvegardes automatiques, effectuées toutes les 6 h et conservées 14 jours dans `DATA_DIR/backups`).
 
@@ -70,3 +74,12 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 ```
 
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
+
+## Historique des versions
+
+- **1.1** :
+  - groupe et type de matière dissociés : référentiels administrables (onglets « Groupes » et « Types de matière »), création à la volée depuis le formulaire d'une matière ;
+  - statistiques par type de matière ;
+  - migration automatique des bases et des sauvegardes de la version 1.0 ;
+  - script de mise à jour du serveur.
+- **1.0** : version initiale.

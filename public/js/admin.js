@@ -297,6 +297,10 @@ async function statistiques(view, params) {
     <div class="card"><div class="card-h"><h3>Taux de réussite par classe</h3></div><div class="card-b">${barsH(s.classes.map((c) => ({ label: c.classe, value: c.reussite })), { max: 100, seuil: 50, fmt: (v) => (v == null ? '—' : fmtNum(v, 0) + ' %') })}</div></div>
     <div class="card"><div class="card-h"><h3>Moyenne par matière (établissement)</h3></div><div class="card-b">${barsH(s.subjects.map((x) => ({ label: x.subject, value: x.moyenne })))}</div></div>
   </div>
+  <div class="card mt"><div class="card-h"><h3>Par type de matière</h3><span class="sub">Littéraires, scientifiques…</span></div>
+    <div class="table-wrap"><table class="t"><thead><tr><th>Type</th><th class="num">Moyenne</th><th class="num">Taux de réussite</th><th class="num">Notes</th><th style="width:40%"></th></tr></thead>
+    <tbody>${s.types.map((t) => h`<tr><td><b>${t.type}</b></td><td class="num ${noteClass(t.moyenne)}">${fmtNum(t.moyenne)}</td><td class="num">${t.reussite == null ? '—' : fmtNum(t.reussite, 1) + ' %'}</td><td class="num">${t.n}</td>
+      <td>${progressBar(t.reussite || 0, (t.reussite ?? 0) < 50 ? 'red' : '')}</td></tr>`)}</tbody></table></div></div>
   <div class="grid g-2 mt">
     <div class="card"><div class="card-h"><h3>${icon('trophy')} Tableau d'honneur — top 10</h3></div><div class="table-wrap"><table class="t"><thead><tr><th>#</th><th>Élève</th><th>Classe</th><th class="num">Moyenne</th></tr></thead>
       <tbody>${s.top.map((t, i) => h`<tr><td><b>${i + 1}</b></td><td>${t.nom}</td><td>${t.classe}</td><td class="num good">${fmtNum(t.general)}</td></tr>`)}</tbody></table></div>${!s.top.length ? empty('Aucune donnée', '', 'trophy') : ''}</div>
@@ -452,33 +456,108 @@ async function classesPage(view) {
 }
 
 /* ========================= Matières ========================= */
-async function matieres(view) {
-  const list = await get('/admin/subjects');
+const TYPE_TONES = ['blue', 'green', 'gold', 'amber', 'red'];
+const typeBadge = (types, id, name) => { const i = types.findIndex((t) => t.id === id); return h`<span class="badge ${i < 0 ? '' : TYPE_TONES[i % TYPE_TONES.length]}">${name || '—'}</span>`; };
+
+/** Création rapide d'un groupe ou d'un type depuis le formulaire d'une matière. */
+async function quickCreate(kind) {
+  const isGroup = kind === 'groups';
+  return formModal({
+    title: isGroup ? 'Nouveau groupe' : 'Nouveau type de matière', size: 'sm', submitLabel: 'Créer',
+    fields: [{ name: 'name', label: 'Libellé', required: true, full: true, maxlength: 60, placeholder: isGroup ? 'ex. Groupe 4 — Enseignements professionnels' : 'ex. Matière technique' },
+      ...(isGroup ? [{ name: 'ordre', label: 'Position sur le bulletin', type: 'number', min: 1, max: 99, value: 4, required: true, full: true }] : [])],
+    onSubmit: (d) => post(`/admin/subject-${kind}`, d)
+  });
+}
+
+async function matieres(view, params) {
+  const tab = ['groupes', 'types'].includes(params.tab) ? params.tab : 'matieres';
+  const [list, groups, types] = await Promise.all([get('/admin/subjects'), get('/admin/subject-groups'), get('/admin/subject-types')]);
+  const head = h`<div class="page-head"><div><h2>Matières</h2><p>Catalogue des disciplines, de leurs groupes (regroupement sur le bulletin) et de leurs types (littéraire, scientifique…). Les coefficients se définissent par classe dans « Attributions ».</p></div>
+    <div class="actions">${tab === 'matieres' ? h`<button class="btn btn-outline" data-presets>${icon('wand')} Ajouter le programme officiel</button><button class="btn btn-primary" data-add>${icon('plus')} Nouvelle matière</button>`
+    : h`<button class="btn btn-primary" data-add>${icon('plus')} ${tab === 'groupes' ? 'Nouveau groupe' : 'Nouveau type'}</button>`}</div></div>
+    <div class="tabs">${[['matieres', `Matières (${list.length})`], ['groupes', `Groupes (${groups.length})`], ['types', `Types de matière (${types.length})`]]
+    .map(([k, l]) => h`<button class="${tab === k ? 'on' : ''}" data-tab="${k}">${l}</button>`)}</div>`;
+
+  /* ----- onglets Groupes / Types ----- */
+  if (tab !== 'matieres') {
+    const isG = tab === 'groupes', rows = isG ? groups : types, kind = isG ? 'groups' : 'types';
+    mount(view, h`${head}
+      <div class="alert info mb">${icon('info')}<div>${isG ? "Le groupe détermine le regroupement des matières et l'ordre des sous-totaux sur le bulletin (Groupe 1, puis Groupe 2…). Modifiez la position pour changer l'ordre."
+      : 'Le type qualifie la nature de la matière (littéraire, scientifique, technique…). Il est indépendant du groupe et alimente les statistiques par type.'}</div></div>
+      <div class="card"><div class="table-wrap"><table class="t rt"><thead><tr>${isG ? h`<th class="center" style="width:90px">Position</th>` : ''}<th>Libellé</th><th class="center">Matières</th><th></th></tr></thead>
+      <tbody>${rows.map((x) => h`<tr>${isG ? h`<td class="center" data-label="Position"><b>${x.ordre}</b></td>` : ''}<td class="primary-cell">${isG ? x.name : typeBadge(types, x.id, x.name)}</td>
+        <td class="center" data-label="Matières">${x.subjects}</td>
+        <td class="actions-cell"><button class="btn btn-ghost btn-sm btn-icon" data-edit-x="${x.id}" title="Modifier">${icon('edit', 'sm')}</button><button class="btn btn-ghost btn-sm btn-icon" data-del-x="${x.id}" title="Supprimer" ${x.subjects ? raw('disabled') : ''}>${icon('trash', 'sm')}</button></td></tr>`)}</tbody></table></div></div>`);
+    $$('[data-tab]', view).forEach((b) => (b.onclick = () => go('matieres', { tab: b.dataset.tab })));
+    const fieldsX = [{ name: 'name', label: 'Libellé', required: true, full: true, maxlength: 60 }, ...(isG ? [{ name: 'ordre', label: 'Position sur le bulletin', type: 'number', min: 1, max: 99, required: true, full: true }] : [])];
+    $('[data-add]', view).onclick = async () => { if (await quickCreate(kind)) { toast(isG ? 'Groupe créé' : 'Type créé'); rerender(); } };
+    view.addEventListener('click', async (e) => {
+      const ed = e.target.closest('[data-edit-x]'), dl = e.target.closest('[data-del-x]');
+      if (ed) {
+        const x = rows.find((r) => r.id === +ed.dataset.editX);
+        if (await formModal({ title: isG ? 'Modifier le groupe' : 'Modifier le type', size: 'sm', fields: fieldsX, values: x, onSubmit: (d) => put(`/admin/subject-${kind}/${x.id}`, d) })) { toast('Modification enregistrée'); rerender(); }
+      }
+      if (dl && !dl.disabled && await confirmDialog({ title: isG ? 'Supprimer ce groupe ?' : 'Supprimer ce type ?', message: 'Cette action est définitive.', danger: true, okLabel: 'Supprimer' })) {
+        try { await del(`/admin/subject-${kind}/${dl.dataset.delX}`); toast('Supprimé'); rerender(); } catch (ex) { toast(ex.message, 'err'); }
+      }
+    });
+    return;
+  }
+
+  /* ----- onglet Matières ----- */
+  const NEW = '__new__';
   const fields = [{ name: 'name', label: 'Intitulé', required: true, full: true }, { name: 'code', label: 'Abréviation', placeholder: 'ex. MATH' },
-    { name: 'groupe', label: 'Groupe (bulletin)', type: 'select', placeholder: false, options: [[1, 'Groupe 1 — Matières littéraires'], [2, 'Groupe 2 — Matières scientifiques'], [3, 'Groupe 3 — Autres matières']] }];
-  const PRESETS = [['Français', 'FRA', 1], ['Anglais', 'ANG', 1], ['Histoire-Géographie', 'HG', 1], ['Éducation à la citoyenneté', 'ECM', 1], ['Langues et cultures nationales', 'LCN', 1],
-    ['Espagnol', 'ESP', 1], ['Allemand', 'ALL', 1], ['Philosophie', 'PHI', 1], ['Littérature', 'LIT', 1], ['Mathématiques', 'MATH', 2], ['Physique-Chimie', 'PCT', 2],
-    ['Sciences de la vie et de la Terre', 'SVT', 2], ['Informatique', 'INFO', 2], ['Technologie', 'TECH', 2], ['Éducation physique et sportive', 'EPS', 3],
-    ['Travail manuel', 'TM', 3], ['Économie', 'ECO', 1], ['Comptabilité', 'CPTA', 2], ['Dessin technique', 'DT', 2], ['Électrotechnique', 'ELEC', 2], ['Construction mécanique', 'CM', 2]];
-  const G = { 1: 'Littéraires', 2: 'Scientifiques', 3: 'Autres' };
-  mount(view, h`<div class="page-head"><div><h2>Matières</h2><p>Catalogue des disciplines enseignées. Les coefficients se définissent par classe dans « Attributions ».</p></div>
-    <div class="actions"><button class="btn btn-outline" data-presets>${icon('wand')} Ajouter le programme officiel</button><button class="btn btn-primary" data-add>${icon('plus')} Nouvelle matière</button></div></div>
-  <div class="card">${list.length ? h`<div class="table-wrap"><table class="t rt"><thead><tr><th>Matière</th><th>Code</th><th>Groupe</th><th class="center">Classes</th><th></th></tr></thead>
-    <tbody>${list.map((s) => h`<tr><td class="primary-cell">${s.name}</td><td data-label="Code" class="mono">${s.code || '—'}</td><td data-label="Groupe"><span class="badge ${s.groupe === 1 ? 'blue' : s.groupe === 2 ? 'green' : 'gold'}">G${s.groupe} — ${G[s.groupe]}</span></td>
-    <td class="center" data-label="Classes">${s.classes}</td><td class="actions-cell"><button class="btn btn-ghost btn-sm btn-icon" data-edit="${s.id}">${icon('edit', 'sm')}</button><button class="btn btn-ghost btn-sm btn-icon" data-del="${s.id}">${icon('trash', 'sm')}</button></td></tr>`)}</tbody></table></div>`
+    { name: 'group_id', label: 'Groupe (bulletin)', type: 'select', required: true, options: [...groups.map((g) => [g.id, `${g.name} (position ${g.ordre})`]), [NEW, '➕ Nouveau groupe…']] },
+    { name: 'type_id', label: 'Type de matière', type: 'select', required: true, full: true, options: [...types.map((t) => [t.id, t.name]), [NEW, '➕ Nouveau type…']] }];
+  // « ➕ Nouveau… » dans une liste : création immédiate puis sélection
+  const onReady = ({ root }) => ['group_id', 'type_id'].forEach((name) => {
+    const sel = $(`[name="${name}"]`, root); let prev = sel.value;
+    sel.addEventListener('change', async () => {
+      if (sel.value !== NEW) { prev = sel.value; return; }
+      const created = await quickCreate(name === 'group_id' ? 'groups' : 'types');
+      if (created?.id) {
+        const opt = document.createElement('option'); opt.value = created.id;
+        opt.textContent = name === 'group_id' ? `${created.name} (position ${created.ordre})` : created.name;
+        sel.insertBefore(opt, sel.querySelector(`option[value="${NEW}"]`)); sel.value = prev = String(created.id);
+        toast(name === 'group_id' ? 'Groupe créé' : 'Type créé');
+      } else sel.value = prev;
+    });
+  });
+  const typeFilter = params.type || '';
+  const shown = list.filter((s) => !typeFilter || String(s.type_id) === typeFilter);
+  const findType = (label) => types.find((t) => t.name.toLowerCase() === label.toLowerCase())
+    || types.find((t) => t.name.toLowerCase().includes(label.toLowerCase().includes('littér') ? 'littér' : label.toLowerCase().includes('scien') ? 'scien' : '§')) || types[0];
+  const findGroup = (ordre) => groups.find((g) => g.ordre === ordre) || groups[0];
+  const L = 'Matière littéraire', S = 'Matière scientifique', A = 'Autre matière';
+  const PRESETS = [['Français', 'FRA', 1, L], ['Anglais', 'ANG', 1, L], ['Histoire-Géographie', 'HG', 1, L], ['Éducation à la citoyenneté', 'ECM', 1, L], ['Langues et cultures nationales', 'LCN', 1, L],
+    ['Espagnol', 'ESP', 1, L], ['Allemand', 'ALL', 1, L], ['Philosophie', 'PHI', 1, L], ['Littérature', 'LIT', 1, L], ['Mathématiques', 'MATH', 2, S], ['Physique-Chimie', 'PCT', 2, S],
+    ['Sciences de la vie et de la Terre', 'SVT', 2, S], ['Informatique', 'INFO', 2, S], ['Technologie', 'TECH', 2, S], ['Éducation physique et sportive', 'EPS', 3, A],
+    ['Travail manuel', 'TM', 3, A], ['Économie', 'ECO', 1, L], ['Comptabilité', 'CPTA', 2, S], ['Dessin technique', 'DT', 2, S], ['Électrotechnique', 'ELEC', 2, S], ['Construction mécanique', 'CM', 2, S]];
+  mount(view, h`${head}
+  <div class="toolbar"><select class="select" style="width:auto" data-type-filter><option value="">Tous les types</option>${types.map((t) => h`<option value="${t.id}" ${String(t.id) === typeFilter ? raw('selected') : ''}>${t.name}</option>`)}</select>
+    <span class="muted small">${shown.length} matière(s)</span></div>
+  <div class="card">${shown.length ? h`<div class="table-wrap"><table class="t rt"><thead><tr><th>Matière</th><th>Code</th><th>Groupe</th><th>Type</th><th class="center">Classes</th><th></th></tr></thead>
+    <tbody>${shown.map((s) => h`<tr><td class="primary-cell">${s.name}</td><td data-label="Code" class="mono">${s.code || '—'}</td>
+    <td data-label="Groupe"><span class="chip">${s.group_name || '—'}</span></td><td data-label="Type">${typeBadge(types, s.type_id, s.type_name)}</td>
+    <td class="center" data-label="Classes">${s.classes}</td><td class="actions-cell"><button class="btn btn-ghost btn-sm btn-icon" data-edit="${s.id}" title="Modifier">${icon('edit', 'sm')}</button><button class="btn btn-ghost btn-sm btn-icon" data-del="${s.id}" title="Supprimer">${icon('trash', 'sm')}</button></td></tr>`)}</tbody></table></div>`
     : empty('Aucune matière', 'Ajoutez les matières une à une ou importez le programme officiel en un clic.', 'book')}</div>`);
-  $('[data-add]', view).onclick = async () => { if (await formModal({ title: 'Nouvelle matière', fields, values: { groupe: 1 }, onSubmit: (d) => post('/admin/subjects', d) })) { toast('Matière ajoutée'); rerender(); } };
+  $$('[data-tab]', view).forEach((b) => (b.onclick = () => go('matieres', { tab: b.dataset.tab })));
+  $('[data-type-filter]', view).onchange = (e) => go('matieres', { type: e.target.value });
+  $('[data-add]', view).onclick = async () => {
+    if (await formModal({ title: 'Nouvelle matière', fields, values: { group_id: groups[0]?.id, type_id: types[0]?.id }, onReady, onSubmit: (d) => post('/admin/subjects', d) })) { toast('Matière ajoutée'); rerender(); }
+  };
   $('[data-presets]', view).onclick = async () => {
     const existing = new Set(list.map((s) => s.name.toLowerCase()));
     const todo = PRESETS.filter(([n]) => !existing.has(n.toLowerCase()));
-    const r = await formModal({ title: 'Programme officiel', size: 'lg', intro: h`<p class="small muted" style="margin-top:0">Cochez les matières à ajouter au catalogue.</p>`,
-      fields: [{ name: 'pick', label: 'Matières', type: 'multiselect', full: true, options: todo.map(([n]) => [n, n]) }], values: { pick: todo.slice(0, 12).map(([n]) => n) },
-      onSubmit: async (d) => { for (const n of d.pick) { const p = todo.find((x) => x[0] === n); await post('/admin/subjects', { name: p[0], code: p[1], groupe: p[2] }); } return d.pick.length; } });
+    const r = await formModal({ title: 'Programme officiel', size: 'lg', intro: h`<p class="small muted" style="margin-top:0">Cochez les matières à ajouter. Groupe et type proposés par défaut : vous pourrez les modifier ensuite.</p>`,
+      fields: [{ name: 'pick', label: 'Matières', type: 'multiselect', full: true, options: todo.map(([n, , g, t]) => [n, `${n} — ${findGroup(g).name}, ${findType(t).name}`]) }], values: { pick: todo.slice(0, 12).map(([n]) => n) },
+      onSubmit: async (d) => { for (const n of d.pick) { const p = todo.find((x) => x[0] === n); await post('/admin/subjects', { name: p[0], code: p[1], group_id: findGroup(p[2]).id, type_id: findType(p[3]).id }); } return d.pick.length; } });
     if (r) { toast(`${r} matière(s) ajoutée(s)`); rerender(); }
   };
   view.addEventListener('click', async (e) => {
     const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]');
-    if (ed) { const s = list.find((x) => x.id === +ed.dataset.edit); if (await formModal({ title: 'Modifier la matière', fields, values: s, onSubmit: (d) => put(`/admin/subjects/${s.id}`, d) })) { toast('Matière modifiée'); rerender(); } }
+    if (ed) { const s = list.find((x) => x.id === +ed.dataset.edit); if (await formModal({ title: 'Modifier la matière', fields, values: s, onReady, onSubmit: (d) => put(`/admin/subjects/${s.id}`, d) })) { toast('Matière modifiée'); rerender(); } }
     if (dl && await confirmDialog({ title: 'Supprimer cette matière ?', message: 'Elle sera retirée de toutes les classes. Impossible si des notes existent.', danger: true, okLabel: 'Supprimer' })) {
       try { await del(`/admin/subjects/${dl.dataset.del}`); toast('Matière supprimée'); rerender(); } catch (ex) { toast(ex.message, 'err'); }
     }
@@ -497,7 +576,7 @@ async function attributions(view, params) {
     <div class="actions"><button class="btn btn-outline" data-copy>${icon('copy')} Copier d'une autre classe</button><button class="btn btn-primary" data-add>${icon('plus')} Ajouter une matière</button></div></div>
   <div class="toolbar">${classSelect(classes, cid, 'data-class')}<span class="muted small">${list.length} matière(s) • Σ coefficients ${list.reduce((a, x) => a + x.coef, 0)} • ${list.reduce((a, x) => a + x.hours_week, 0)} h/semaine</span></div>
   <div class="card">${list.length ? h`<div class="table-wrap"><table class="t rt"><thead><tr><th>Matière</th><th class="center">Coefficient</th><th class="center">Heures / sem.</th><th>Enseignant</th><th></th></tr></thead>
-    <tbody>${list.map((a) => h`<tr data-id="${a.id}"><td class="primary-cell">${a.subject} <span class="badge">G${a.groupe}</span></td>
+    <tbody>${list.map((a) => h`<tr data-id="${a.id}"><td class="primary-cell">${a.subject} <span class="chip">${a.group_name || '—'}</span> <span class="badge">${a.type_name || '—'}</span></td>
       <td class="center" data-label="Coefficient"><input class="input num-input" type="number" min="0.5" max="10" step="0.5" data-k="coef" value="${a.coef}"></td>
       <td class="center" data-label="Heures / sem."><input class="input num-input" type="number" min="0" max="20" step="1" data-k="hours_week" value="${a.hours_week}"></td>
       <td data-label="Enseignant"><select class="select" data-k="teacher_id" style="min-width:200px">${tOpts(a.teacher_id)}</select></td>
