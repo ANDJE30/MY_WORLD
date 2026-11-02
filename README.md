@@ -37,4 +37,4 @@ La configuration `firebaseConfig` n'est pas un mot de passe : elle identifie le 
 
 ## Mettre à jour le site
 
-Le code source et le script de construction se trouvent dans le dossier de travail de l'application (`src/`, `build.py`). La construction produit `dist/web`, dont le contenu remplace celui de cette branche.
+Le code source, le script de construction (`src/build.py`) et les diagrammes UML sont dans l'archive `AI721_ASTRA_LUZ_2.0_source.zip` remise avec les livrables. La construction produit `dist/web`, dont le contenu remplace celui de cette branche.
