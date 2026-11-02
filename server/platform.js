@@ -59,7 +59,9 @@ export const inPlatform = (fn) => withDb(pdb, fn);
 /* ---------- Paramètres de l'entreprise ---------- */
 export const PLATFORM_DEFAULTS = {
   societe: COMPANY, slogan: "Solutions numériques pour l'éducation", adresse: 'Yaoundé, Cameroun', tel: '', email: '', site: '',
-  rccm: '', niu: '', tarif: 150000, devise: 'FCFA'
+  rccm: '', niu: '', tarif: 150000, devise: 'FCFA',
+  // passerelle SMS des messages aux parents (le secret est chiffré par le coffre)
+  sms_provider: process.env.DEMO === '1' ? 'simulation' : 'aucun', sms_user: '', sms_sender: '', sms_from: '', sms_secret_enc: ''
 };
 export function getPlatformSettings() {
   const out = { ...PLATFORM_DEFAULTS };

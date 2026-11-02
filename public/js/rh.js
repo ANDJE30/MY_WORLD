@@ -1,6 +1,6 @@
 // Dossier administratif des enseignants : assiduité, pointage, documents administratifs (administration)
 // et « Mes documents » (enseignant : lecture, accusé de réception, réponse à une demande d'explication).
-import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, withBusy, initials, debounce, fonctionsOf } from './ui.js';
+import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, withBusy, initials, debounce, fonctionsOf, terms } from './ui.js';
 import { get, post, put, del, openPdf } from './api.js';
 import { state, go, rerender } from './app.js';
 
@@ -33,7 +33,7 @@ function periodChoices() {
     months.push([`M${yy}-${String(m).padStart(2, '0')}`, new Date(Date.UTC(yy, m - 1, 15)).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }).replace(/^./, (c) => c.toUpperCase())]);
   }
   return [['A', "Année (cumul à ce jour)"], ['T1', 'Trimestre 1'], ['T2', 'Trimestre 2'], ['T3', 'Trimestre 3'],
-    ...[1, 2, 3, 4, 5, 6].map((s) => [`S${s}`, `Séquence ${s}`]), ...months];
+    ...[1, 2, 3, 4, 5, 6].map((s) => [`S${s}`, terms(`Séquence ${s}`)]), ...months];
 }
 const periodSelect = (sel, attrs = 'data-period') => h`<select class="select" style="width:auto" ${raw(attrs)} aria-label="Période">${periodChoices().map(([v, l]) => h`<option value="${v}" ${v === sel ? raw('selected') : ''}>${l}</option>`)}</select>`;
 
@@ -106,7 +106,7 @@ async function pointage(body, params) {
   const rows = d.rows.map((r) => ({ ...r }));
   const bySlot = [...new Set(rows.map((r) => r.slot))];
   const future = date > todayIso();
-  const notice = d.ferie ? `Jour non ouvré : ${d.ferie}.` : !d.actif ? "Aucun cours n'est prévu ce jour de la semaine." : !d.seq ? 'Cette date est en dehors des séquences (vacances) : elle n’est pas décomptée.' : '';
+  const notice = d.ferie ? `Jour non ouvré : ${d.ferie}.` : !d.actif ? "Aucun cours n'est prévu ce jour de la semaine." : !d.seq ? terms('Cette date est en dehors des séquences (vacances) : elle n’est pas décomptée.') : '';
   const statusSeg = (r, i) => h`<div class="seg" role="radiogroup" aria-label="Présence">${[['present', 'Présent'], ['absence', 'Absent'], ['retard', 'Retard']]
     .map(([k, l]) => h`<button type="button" class="${r.status === k ? 'on' : ''}" data-st="${i}:${k}">${l}</button>`)}</div>`;
   let filter = '';
@@ -439,13 +439,13 @@ export async function newDocument({ teacherId = null, type = 'presence', refDoc 
           <div class="field full"><label for="nd_f">${DOC_FACTS_LABEL[t]}${L ? ' *' : ' (facultatif)'}</label><textarea class="textarea" id="nd_f" name="faits" maxlength="4000" rows="${L ? 6 : 2}" placeholder="${L ? 'Un fait par ligne : date, classe, nature du manquement…' : 'ex. Mention relative à un intérim ou à une fonction particulière'}">${refDoc && t === 'observation' ? refDoc.faits || '' : ''}</textarea>
             ${L ? h`<span class="hint">Cliquez sur une proposition pour l'ajouter.</span>` : ''}</div>
           ${L ? h`<div class="field full"><label>Faits constatés dans la plateforme</label><div class="chips" style="gap:6px">${faits.facts.length ? faits.facts.map((f, i) => h`<button type="button" class="chip" style="cursor:pointer;text-align:left" data-fact="${i}"><b>${f.cat} :</b> ${f.text}</button>`) : h`<span class="small muted">Aucun manquement relevé automatiquement (assiduité, notes, progression).</span>`}</div></div>
-            <div class="field full"><label>Motifs usuels</label><div class="chips" style="gap:6px">${MOTIFS.map((m, i) => h`<button type="button" class="chip" style="cursor:pointer" data-motif="${i}">+ ${m}</button>`)}</div></div>` : ''}
+            <div class="field full"><label>Motifs usuels</label><div class="chips" style="gap:6px">${MOTIFS.map((m, i) => h`<button type="button" class="chip" style="cursor:pointer" data-motif="${i}">+ ${terms(m)}</button>`)}</div></div>` : ''}
           <details class="field full"><summary class="small" style="cursor:pointer">Ampliations</summary><textarea class="textarea mt" name="ampliations" maxlength="500" rows="3">${R.ampliations[t].join('\n')}</textarea></details>
         </div>`);
         const fa = $('[name=faits]', zone);
         const add = (txt) => { fa.value = (fa.value.trim() ? fa.value.trim() + '\n' : '') + txt; fa.focus(); };
         $$('[data-fact]', zone).forEach((b) => (b.onclick = () => add(faits.facts[+b.dataset.fact].text)));
-        $$('[data-motif]', zone).forEach((b) => (b.onclick = () => add(MOTIFS[+b.dataset.motif])));
+        $$('[data-motif]', zone).forEach((b) => (b.onclick = () => add(terms(MOTIFS[+b.dataset.motif]))));
         $('[name=period]', zone)?.addEventListener('change', (e) => { cur.period = e.target.value; draw(); });
         $('[data-hr]', zone)?.addEventListener('click', async () => { if (await hrForm(a)) draw(); });
       };

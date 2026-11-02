@@ -21,7 +21,7 @@ async function home(view) {
   const eleves = assignments.reduce((a, x) => a + x.effectif, 0);
   const done = assignments.reduce((a, x) => a + Math.min(x.effectif, x.saisies[seq] || 0), 0);
   const validated = assignments.filter((a) => a.validated.includes(seq)).length;
-  const pl = assignments.reduce((a, x) => a + x.planned, 0), dn = assignments.reduce((a, x) => a + x.done, 0);
+  const pl = assignments.reduce((a, x) => a + x.planned, 0), dn = assignments.reduce((a, x) => a + x.done, 0), dg = assignments.reduce((a, x) => a + (x.digital || 0), 0);
   const today = new Date().getDay() || 7;
   const todays = tt.cells.filter((c) => c.day === today).sort((a, b) => a.slot - b.slot);
   const hour = new Date().getHours();
@@ -33,7 +33,7 @@ async function home(view) {
     ${kpi('layers', assignments.length, 'Classes / matières', `${eleves} élèves au total`)}
     ${kpi('edit', `${eleves ? Math.round((done / eleves) * 100) : 0} %`, `Notes saisies — S${seq}`, `${done} / ${eleves} notes`, 'gold')}
     ${kpi('checkCircle', `${validated} / ${assignments.length}`, 'Saisies validées', `Séquence ${seq}`, 'blue')}
-    ${kpi('target', pl ? `${Math.round((dn / pl) * 100)} %` : '—', 'Couverture du programme', `${dn} leçons faites / ${pl} prévues`)}
+    ${kpi('target', pl ? `${Math.round((dn / pl) * 100)} %` : '—', 'Couverture du programme', `${dn} leçons faites / ${pl} prévues • ${dg} digitalisée(s)`)}
   </div>
   <div class="grid g-3 mt">
     <div class="span-2">
@@ -72,15 +72,16 @@ async function progression(view, params) {
   const data = await get(`/progression?cs=${cs}`);
   const rows = data.rows;
   const render = () => {
-    const tp = rows.reduce((a, r) => a + (+r.planned || 0), 0), td = rows.reduce((a, r) => a + (+r.done || 0), 0);
-    mount(view, h`<div class="page-head"><div><h2>Progression annuelle</h2><p>Nombre de leçons prévues et effectivement faites, par séquence.</p></div>
+    const tp = rows.reduce((a, r) => a + (+r.planned || 0), 0), td = rows.reduce((a, r) => a + (+r.done || 0), 0), tg = rows.reduce((a, r) => a + (+r.digital || 0), 0);
+    mount(view, h`<div class="page-head"><div><h2>Progression annuelle</h2><p>Nombre de leçons prévues, effectivement faites et digitalisées, par séquence.</p></div>
       <div class="actions"><button class="btn btn-outline" data-pdf>${icon('pdf')} Fiche de progression PDF</button></div></div>
     <div class="toolbar"><select class="select" style="width:auto" data-cs>${assignments.map((a) => h`<option value="${a.id}" ${a.id === cs ? raw('selected') : ''}>${a.classe} — ${a.subject}</option>`)}</select></div>
-    <div class="grid g-3">
+    <div class="grid g-4">
       ${raw(kpi('book', tp, 'Leçons prévues (année)').s)}${raw(kpi('checkCircle', td, 'Leçons faites', '', 'gold').s)}
       <div class="card kpi"><div class="ico blue">${icon('target')}</div><div class="v">${tp ? Math.round((td / tp) * 100) : 0} %</div><div class="l">Taux de couverture</div>${progressBar(tp ? (td / tp) * 100 : 0)}</div>
+      <div class="card kpi"><div class="ico">${icon('database')}</div><div class="v">${tg}</div><div class="l">Leçons digitalisées</div><div class="s">${tp ? Math.round((tg / tp) * 100) : 0} % du programme prévu</div>${progressBar(tp ? (tg / tp) * 100 : 0, 'gold')}</div>
     </div>
-    <div class="card mt"><div class="table-wrap"><table class="t rt"><thead><tr><th>Séquence</th><th class="center">Leçons prévues</th><th class="center">Leçons faites</th><th>Couverture</th><th>Observations</th></tr></thead>
+    <div class="card mt"><div class="table-wrap"><table class="t rt"><thead><tr><th>Séquence</th><th class="center">Leçons prévues</th><th class="center">Leçons faites</th><th>Couverture</th><th class="center">Leçons digitalisées</th><th>Observations</th></tr></thead>
       <tbody>${rows.map((r, i) => {
     const lock = r.status === 'closed' ? raw('disabled') : '';
     const pct = +r.planned ? Math.min(100, (+r.done / +r.planned) * 100) : 0;
@@ -88,6 +89,8 @@ async function progression(view, params) {
           <td class="center" data-label="Prévues"><input class="input num-input" type="number" min="0" max="500" inputmode="numeric" data-k="planned" value="${r.planned}" ${lock}></td>
           <td class="center" data-label="Faites"><input class="input num-input" type="number" min="0" max="500" inputmode="numeric" data-k="done" value="${r.done}" ${lock}></td>
           <td data-label="Couverture" style="min-width:140px"><div class="small">${fmtNum(pct, 0)} %</div>${progressBar(pct, pct < 60 ? 'red' : pct < 85 ? 'gold' : '')}</td>
+          <td class="center" data-label="Digitalisées"><input class="input num-input" type="number" min="0" max="500" inputmode="numeric" data-k="digital" value="${r.digital || 0}" ${lock}
+            title="Leçons mises en forme numérique (support numérique, plateforme, vidéo…)"></td>
           <td data-label="Observations"><input class="input" style="min-width:180px;min-height:38px" maxlength="300" data-k="comment" value="${r.comment || ''}" placeholder="Retards, difficultés…" ${lock}></td></tr>`;
   })}</tbody></table></div>
       <div class="card-b row" style="justify-content:flex-end"><button class="btn btn-primary" data-save>${icon('save')} Enregistrer la progression</button></div></div>`);
@@ -100,7 +103,7 @@ async function progression(view, params) {
       const el = e.target.closest('[data-k]'); if (!el) return;
       const r = rows[+el.closest('tr').dataset.i]; r[el.dataset.k] = el.dataset.k === 'comment' ? el.value : Math.max(0, parseInt(el.value || '0', 10) || 0);
       dirty = true;
-      if (el.dataset.k === 'done' && +r.done > +r.planned) el.classList.add('invalid'); else el.classList.remove('invalid');
+      if ((el.dataset.k === 'done' && +r.done > +r.planned) || (el.dataset.k === 'digital' && +r.digital > Math.max(+r.planned, +r.done))) el.classList.add('invalid'); else el.classList.remove('invalid');
     };
   };
   let dirty = false;

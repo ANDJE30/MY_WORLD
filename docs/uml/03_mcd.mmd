@@ -43,6 +43,8 @@ erDiagram
   USERS ||--o{ STAFF_ATTENDANCE : "pointé"
   USERS ||--o{ STAFF_DOCUMENTS : "destinataire"
   STAFF_DOCUMENTS |o--o{ STAFF_DOCUMENTS : "en référence à"
+  PARENT_CAMPAIGNS ||--o{ PARENT_MESSAGES : "contient"
+  USERS ||--o{ PARENT_CAMPAIGNS : "envoie"
   USERS {
     int id PK
     text role
@@ -117,6 +119,7 @@ erDiagram
     int seq PK
     int planned
     int done
+    int digital
   }
   DISCIPLINE_RECORDS {
     int student_id PK
@@ -189,4 +192,21 @@ erDiagram
   DAYS_OFF {
     text date PK
     text label
+  }
+  PARENT_CAMPAIGNS {
+    int id PK
+    text titre
+    text texte
+    text canal "sms | manuel"
+    int total
+    int envoyes
+    int echecs
+  }
+  PARENT_MESSAGES {
+    int id PK
+    int campaign_id FK
+    text phone "E.164 (+237…)"
+    text enfants
+    text message
+    text status
   }

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy, periodPlan, HR_FIELDS, FONCTIONS } from '../db.js';
+import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy, periodPlan, HR_FIELDS, FONCTIONS, TERMES } from '../db.js';
 import { seal, unseal } from '../vault.js';
 import { inPlatform, pdb, TENANTS_DIR } from '../platform.js';
 import { renderPdfBuffer, statsReport } from '../pdf.js';
@@ -59,7 +59,7 @@ r.get('/dashboard', (_req, res) => {
 });
 
 /* ============ Paramètres de l'établissement ============ */
-r.get('/settings', (_req, res) => res.json({ ...getSettings(), _fonctions: FONCTIONS }));
+r.get('/settings', (_req, res) => res.json({ ...getSettings(), _fonctions: FONCTIONS, _termes: TERMES }));
 /** Après un changement d'appellation synonyme, les fonctions des personnels qui la reprennent sont mises à jour (ex. « Animateur Pédagogique de SVT » → « Coordonnateur de SVT »). */
 function renameFonction(oldT, newT) {
   if (!oldT || !newT || oldT === newT) return 0;
@@ -79,7 +79,9 @@ r.put('/settings', (req, res) => {
   for (const k of Object.keys(DEFAULT_SETTINGS)) {
     if (!(k in b) || k === 'annee_cloturee' || k === 'feries_annee') continue;
     const def = DEFAULT_SETTINGS[k];
-    if (FONCTIONS[k]) {
+    if (TERMES[k]) {
+      out[k] = oneOf(str(b[k], { max: 40, label: TERMES[k].label }), TERMES[k].options, TERMES[k].label);
+    } else if (FONCTIONS[k]) {
       // appellation choisie dans la liste officielle (une valeur antérieure hors liste reste acceptée telle quelle)
       const v = str(b[k], { max: 60, label: FONCTIONS[k].label });
       if (!FONCTIONS[k].options.includes(v) && v !== before[k]) throw bad(`${FONCTIONS[k].label} : appellation non prévue (${FONCTIONS[k].options.join(', ')})`);
@@ -110,7 +112,8 @@ r.put('/settings', (req, res) => {
   });
   audit(req, 'PARAMETRES_MODIFIES', Object.keys(out).join(', '));
   for (const k of Object.keys(FONCTIONS)) if (k in out && out[k] !== before[k]) audit(req, 'APPELLATION_FONCTION', `${FONCTIONS[k].label} : ${before[k]} → ${out[k]}${renamed ? ` (${renamed} fonction(s) du personnel mises à jour)` : ''}`);
-  res.json({ ...getSettings(), _fonctions: FONCTIONS, _renamed: renamed });
+  for (const k of Object.keys(TERMES)) if (k in out && out[k] !== before[k]) audit(req, 'APPELLATION', `${TERMES[k].label} : ${before[k]} → ${out[k]}`);
+  res.json({ ...getSettings(), _fonctions: FONCTIONS, _termes: TERMES, _renamed: renamed });
 });
 
 /* ============ Calendrier & clôtures ============ */
@@ -669,7 +672,7 @@ r.get('/stats', (req, res) => res.json(computeStats(req.query.period || 'S1')));
 /* ============ Suivi de saisie (progressions des enseignants) ============ */
 r.get('/progressions', (_req, res) => {
   res.json(db.prepare(`SELECT cs.id, c.name classe, s.name subject, u.full_name teacher,
-      COALESCE(SUM(p.planned),0) planned, COALESCE(SUM(p.done),0) done
+      COALESCE(SUM(p.planned),0) planned, COALESCE(SUM(p.done),0) done, COALESCE(SUM(p.digital),0) digital
     FROM class_subjects cs JOIN classes c ON c.id = cs.class_id JOIN subjects s ON s.id = cs.subject_id
     LEFT JOIN users u ON u.id = cs.teacher_id LEFT JOIN progressions p ON p.class_subject_id = cs.id
     GROUP BY cs.id ORDER BY c.name, s.name`).all());
@@ -694,7 +697,7 @@ r.get('/audit', (req, res) => {
 /* ============ Sauvegarde / restauration / nouvelle année ============ */
 const TABLES = ['settings', 'users', 'classes', 'subject_groups', 'subject_types', 'subjects', 'class_subjects', 'students', 'officer_classes', 'periods', 'notes', 'note_validations',
   'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'timetable', 'announcements', 'year_archives',
-  'days_off', 'staff_attendance', 'staff_documents'];
+  'days_off', 'staff_attendance', 'staff_documents', 'parent_campaigns', 'parent_messages'];
 function buildDump() {
   const dump = { app: 'AI721 SchoolX CM', version: 3, created_at: new Date().toISOString(), tables: {} };
   for (const t of TABLES) dump.tables[t] = db.prepare(`SELECT * FROM ${t}`).all();

@@ -1,5 +1,5 @@
 // Point d'entrée : détection de l'interface (site, console AI721, établissement), connexion, coque responsive, routeur.
-import { h, raw, mount, $, $$, icon, toast, modal, initials, ROLE_LABEL, debounce } from './ui.js';
+import { h, raw, mount, $, $$, icon, toast, modal, initials, ROLE_LABEL, debounce, setTerms, terms } from './ui.js';
 import { get, post, setHandlers, setBase } from './api.js';
 
 export const state = { user: null, school: null, periods: [], current: 1, incidentTypes: [], ctx: null };
@@ -64,6 +64,7 @@ async function boot() {
   if (ctx.kind === 'landing') return (await import('./landing.js')).renderLanding(root);
   state.school = await get('/auth/public').catch((e) => ({ error: e.message, status: e.status }));
   if (state.school.error) return renderUnknown(state.school.error);
+  setTerms(state.school.termes);
   if (ctx.kind === 'chooser') return renderChooser();
   document.title = `${PORTALS[ctx.portal].name} — ${ctx.kind === 'console' ? 'AI721 TECH STUFF' : (state.school.nom_court || state.school.nom)}`;
   // abonnement expiré, impayé ou établissement suspendu : seule la page de connexion (avec le message) est affichée
@@ -112,8 +113,8 @@ function renderLogin(notice) {
       <div>
         <div class="portal-badge">${icon(P.icon, 'sm')} ${P.name}</div>
         <h1>${P.h1}</h1>
-        <p>${P.p}</p>
-        <div class="hero-feats">${P.feats.map(([ic, t, d]) => h`<div class="hero-feat">${icon(ic)}<div><b>${t}</b><br>${d}</div></div>`)}</div>
+        <p>${terms(P.p)}</p>
+        <div class="hero-feats">${P.feats.map(([ic, t, d]) => h`<div class="hero-feat">${icon(ic)}<div><b>${t}</b><br>${terms(d)}</div></div>`)}</div>
       </div>
       <div class="small hero-foot" style="opacity:.6">© ${new Date().getFullYear()} ${s.societe || 'AI721 TECH STUFF'} • Connexion chiffrée • Accès réservé</div>
     </section>

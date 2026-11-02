@@ -20,16 +20,16 @@ export function seedDemo() {
   const today = new Date();
   const y = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
   tx(() => {
-    for (const t of ['staff_documents', 'staff_attendance', 'days_off', 'timetable', 'incidents', 'discipline_records', 'discipline_validations', 'progressions', 'note_validations', 'notes',
+    for (const t of ['parent_messages', 'parent_campaigns', 'staff_documents', 'staff_attendance', 'days_off', 'timetable', 'incidents', 'discipline_records', 'discipline_validations', 'progressions', 'note_validations', 'notes',
       'officer_classes', 'students', 'class_subjects', 'subjects', 'subject_groups', 'subject_types', 'classes', 'announcements', 'audit_log', 'sessions', 'users', 'settings', 'periods', 'year_archives']) db.exec(`DELETE FROM ${t}`);
     db.exec("DELETE FROM sqlite_sequence");
 
     saveSettings({ ...DEFAULT_SETTINGS,
-      nom: 'Lycée Pilote SchoolX de Yaoundé', nom_court: 'LPEY', type: "Lycée d'enseignement général", statut: 'Public', sous_systeme: 'Francophone',
+      nom: 'Lycée Pilote SchoolX de Yaoundé', nom_court: 'LPEY', nom_en: 'SchoolX Pilot High School Yaoundé', type: "Lycée d'enseignement général", statut: 'Public', sous_systeme: 'Francophone',
       delegation_regionale: 'du Centre', delegation_departementale: 'du Mfoundi', region: 'Centre', departement: 'Mfoundi', ville: 'Yaoundé',
       bp: '1234 Yaoundé', tel: '+237 6 99 00 00 00', email: 'contact@lpey.cm', immatriculation: 'LPEY-CE-0001', arrete_creation: 'Arrêté n° 000/A/MINESEC (fictif)',
       devise: 'Discipline – Travail – Excellence', chef_titre: 'Le Proviseur', chef_nom: 'Dr. ATANGANA Marie-Claire', censeur_nom: 'M. FOUDA Bernard',
-      censeur_titre: 'Censeur', sg_titre: 'Surveillant Général', ap_titre: 'Animateur Pédagogique',
+      censeur_titre: 'Censeur', sg_titre: 'Surveillant Général', ap_titre: 'Animateur Pédagogique', ref_documents: 'MINESEC/DRES-CE/DDES-MFDI/LPEY',
       surveillant_general: 'M. NGUEMA Paul', annee_scolaire: `${y}-${y + 1}`, jours_actifs: [1, 2, 3, 4, 5] });
 
     // Calendrier : la séquence 1 est terminée, la séquence 2 est en cours
@@ -120,7 +120,7 @@ export function seedDemo() {
     const css = db.prepare('SELECT * FROM class_subjects').all();
     const insN = db.prepare('INSERT INTO notes(student_id, class_subject_id, seq, value, absent, updated_by) VALUES(?,?,?,?,?,?)');
     const insV = db.prepare('INSERT INTO note_validations(class_subject_id, seq, validated_at, validated_by) VALUES(?,?,unixepoch(),?)');
-    const insPr = db.prepare('INSERT INTO progressions(class_subject_id, seq, planned, done, comment) VALUES(?,?,?,?,?)');
+    const insPr = db.prepare('INSERT INTO progressions(class_subject_id, seq, planned, done, digital, comment) VALUES(?,?,?,?,?,?)');
     css.forEach((cs, i) => {
       const st = students.filter((s) => s.class_id === cs.class_id);
       const diff = (rand() - 0.5) * 3;
@@ -135,8 +135,9 @@ export function seedDemo() {
         if (seq === 1) insV.run(cs.id, 1, cs.teacher_id);
       }
       const planned = Math.round(cs.hours_week * 5);
-      insPr.run(cs.id, 1, planned, Math.max(0, planned - Math.floor(rand() * 3)), rand() < 0.3 ? 'Retard dû aux évaluations' : null);
-      insPr.run(cs.id, 2, planned, Math.floor(planned * 0.4), null);
+      const done1 = Math.max(0, planned - Math.floor(rand() * 3)), done2 = Math.floor(planned * 0.4);
+      insPr.run(cs.id, 1, planned, done1, Math.floor(done1 * (0.2 + rand() * 0.5)), rand() < 0.3 ? 'Retard dû aux évaluations' : null);
+      insPr.run(cs.id, 2, planned, done2, Math.floor(done2 * rand() * 0.6), null);
     });
 
     // Discipline

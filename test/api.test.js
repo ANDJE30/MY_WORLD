@@ -455,6 +455,94 @@ test('appellations des fonctions : choix dans les paramètres, signatures et fon
   assert.ok((await a.get('/admin/users?role=discipline')).data.some((u) => u.specialite === 'Surveillant Général Adjoint'));
 });
 
+test('appellations : Séquence/Situation et Professeur Principal/Titulaire', async () => {
+  const a = await admin();
+  const st = (await a.get('/admin/settings')).data;
+  assert.deepEqual(st._termes.terme_sequence.options, ['Séquence', 'Situation']);
+  assert.deepEqual(st._termes.terme_pp.options, ['Professeur Principal', 'Titulaire']);
+  assert.equal((await a.put('/admin/settings', { terme_sequence: 'Période' })).status, 400);
+  assert.equal((await a.put('/admin/settings', { terme_sequence: 'Situation', terme_pp: 'Titulaire' })).status, 200);
+  assert.deepEqual((await client().get('/auth/public')).data.termes, { terme_sequence: 'Situation', terme_pp: 'Titulaire' });
+  assert.equal((await a.get('/admin/results?class_id=1&period=S1')).data.period.label, 'Situation 1');
+  // les messages d'erreur emploient l'appellation choisie
+  const err = await a.post('/admin/periods/6/close', { password: 'Admin@2026' });
+  assert.ok(err.status >= 400 && /situation/i.test(err.data.error) && !/séquence/i.test(err.data.error), err.data.error);
+  for (const p of ['/pdf/bulletins?class_id=1&period=S1', '/pdf/releve?cs=1&period=T1', '/pdf/progression?teacher_id=2']) assert.ok(isPdf(await a.get(p)), p);
+  assert.equal((await a.put('/admin/settings', { terme_sequence: 'Séquence', terme_pp: 'Professeur Principal' })).status, 200);
+  assert.equal((await a.get('/admin/results?class_id=1&period=S1')).data.period.label, 'Séquence 1');
+});
+
+test('progression : leçons digitalisées', async () => {
+  const t = client(); await t.login('mbargajp', 'Prof@2026');
+  const { assignments } = (await t.get('/teacher/assignments')).data;
+  const cs = assignments[0].id;
+  const g = (await t.get(`/progression?cs=${cs}`)).data;
+  assert.ok('digital' in g.rows[0]);
+  const open = g.rows.find((r) => r.status === 'open');
+  const row = { seq: open.seq, planned: 10, done: 6, digital: 4, comment: 'Leçons 3 à 6 mises en ligne' };
+  assert.equal((await t.put('/progression', { cs, rows: [row] })).status, 200);
+  assert.equal((await t.get(`/progression?cs=${cs}`)).data.rows.find((r) => r.seq === open.seq).digital, 4);
+  assert.equal((await t.put('/progression', { cs, rows: [{ ...row, digital: 11 }] })).status, 400); // plus que prévu
+  assert.equal((await t.put('/progression', { cs, rows: [{ ...row, digital: -1 }] })).status, 400);
+  const closed = g.rows.find((r) => r.status === 'closed');
+  if (closed) assert.equal((await t.put('/progression', { cs, rows: [{ ...closed, digital: (closed.digital || 0) + 1 }] })).status, 400); // séquence clôturée
+  assert.ok((await t.get('/teacher/assignments')).data.assignments.find((x) => x.id === cs).digital >= 4);
+  const a = await admin();
+  assert.ok((await a.get('/admin/progressions')).data.every((x) => 'digital' in x));
+  assert.ok(isPdf(await t.get('/pdf/progression')));
+});
+
+test('messages aux parents : numéros, aperçu personnalisé, envoi SMS (simulation) et envoi manuel', async () => {
+  const { normalizePhone, smsInfo, gsmify } = await import('../server/sms.js');
+  assert.equal(gsmify('Loïc, fête « réunion »'), 'Loic, fete " réunion "');
+  assert.equal(normalizePhone('6 99 00 00 00'), '+237699000000');
+  assert.equal(normalizePhone('+237 677 12 34 56'), '+237677123456');
+  assert.equal(normalizePhone('00237 222 23 45 67'), '+237222234567');
+  assert.equal(normalizePhone('12345'), null);
+  assert.equal(normalizePhone('+33 6 12 34 56 78'), '+33612345678');
+  assert.equal(smsInfo('a'.repeat(160)).segments, 1);
+  assert.equal(smsInfo('a'.repeat(161)).segments, 2);
+  assert.equal(smsInfo('Fête').encoding, 'Unicode');
+  const a = await admin();
+  const ref = (await a.get('/admin/parents/modeles')).data;
+  assert.ok(ref.modeles.bulletins && ref.modeles.reunion && ref.passerelle.configured); // simulation en démonstration
+  const body = { modele: 'reunion', texte: ref.modeles.reunion.texte, class_ids: [1], regrouper: true,
+    variables: { date: '2026-11-21', heure: '09:30', lieu: "dans l'enceinte de l'établissement", objet: 'bilan du premier trimestre' } };
+  assert.equal((await a.post('/admin/parents/apercu', { ...body, variables: { ...body.variables, objet: '' } })).status, 400); // ordre du jour manquant
+  assert.equal((await a.post('/admin/parents/apercu', { ...body, texte: 'Bonjour {inconnu}' })).status, 400);
+  const p = (await a.post('/admin/parents/apercu', body)).data;
+  assert.ok(p.destinataires > 0 && p.eleves >= p.destinataires);
+  const ex = p.exemples[0];
+  assert.ok(ex.message.includes(gsmify(ex.enfants.split(' ; ')[0])), 'le nom de l’enfant figure dans le message');
+  assert.match(ex.message, /samedi 21 novembre 2026 à 9 h 30/);
+  assert.ok(!/\{\w+\}/.test(ex.message));
+  // envoi par la passerelle (simulation)
+  const c = await a.post('/admin/parents/campagnes', { ...body, canal: 'sms' });
+  assert.equal(c.status, 201);
+  assert.equal(c.data.total, p.destinataires);
+  assert.equal(c.data.envoyes, c.data.total);
+  const det = (await a.get(`/admin/parents/campagnes/${c.data.id}`)).data;
+  assert.ok(det.messages.every((m) => m.status === 'simule' && /^\+\d{8,15}$/.test(m.phone)));
+  // envoi manuel (WhatsApp / SMS depuis le téléphone)
+  const m = await a.post('/admin/parents/campagnes', { modele: 'bulletins', texte: ref.modeles.bulletins.texte, class_ids: [2],
+    variables: { periode: ref.periodes[0], date: '2026-12-05', heure: '10:00', lieu: 'au foyer' }, canal: 'manuel' });
+  assert.equal(m.status, 201);
+  const md = (await a.get(`/admin/parents/campagnes/${m.data.id}`)).data;
+  assert.ok(md.messages.every((x) => x.status === 'a_envoyer') && /bulletins du 1er trimestre/.test(md.messages[0].message));
+  assert.equal((await a.post(`/admin/parents/messages/${md.messages[0].id}/envoye`, { canal: 'whatsapp' })).status, 200);
+  const list = (await a.get('/admin/parents/campagnes')).data;
+  assert.equal(list.find((x) => x.id === m.data.id).envoyes, 1);
+  // réservé à l'administration ; la passerelle se configure dans la console AI721
+  const t = client(); await t.login('mbargajp', 'Prof@2026');
+  assert.equal((await t.get('/admin/parents/modeles')).status, 403);
+  const k = client('/console/api'); await k.login('AI721', 'Ai721@2026');
+  const ps = (await k.get('/settings')).data;
+  assert.equal(ps.sms_provider, 'simulation');
+  assert.ok(!('sms_secret_enc' in ps));
+  assert.equal((await k.put('/settings', { sms_provider: 'pigeon' })).status, 400);
+  assert.equal((await k.post('/sms/test', { to: '699000000' })).data.simulated, true);
+});
+
 test('assiduité des enseignants : dossier, absences, retards, pointage et taux', async () => {
   const a = await admin();
   const tid = 3; // EKOTO Solange
@@ -529,7 +617,7 @@ test('documents administratifs : émission, numérotation, réponse, suite, annu
   await a.put('/rh/enseignants/2', { date_prise_service: '2018-09-03' });
   const cps = await DOC({ teacher_id: 2, type: 'prise_service' });
   assert.equal(cps.status, 201);
-  assert.match(cps.data.reference, /^N° \d{3}\/\d{4}-\d{4}\/LPEY\/P\/CPS$/);
+  assert.match(cps.data.reference, /^N° \d{3}\/\d{2}-\d{2}\/CPS\/MINESEC\/DRES-CE\/DDES-MFDI\/LPEY$/);
   // attestation de présence effective : taux d'assiduité figé dans le document
   const ape = await DOC({ teacher_id: 2, type: 'presence', period: 'S1' });
   assert.equal(ape.status, 201);

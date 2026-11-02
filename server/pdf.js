@@ -1,6 +1,6 @@
 // Génération des documents PDF officiels (PDFKit) — en-tête bilingue République du Cameroun.
 import PDFDocument from 'pdfkit';
-import { getSettings, titres } from './db.js';
+import { getSettings, titres, applyTerms } from './db.js';
 import { appreciation } from './calc.js';
 
 export const C = { primary: '#0B5D4B', accent: '#C8962E', dark: '#1F2937', muted: '#6B7280', zebra: '#F3F6F5', line: '#CBD5D1', red: '#B42318' };
@@ -14,10 +14,19 @@ function logoBuffer(s) {
   return m ? Buffer.from(m[2], 'base64') : null;
 }
 
+/** Les appellations choisies (Situation, Titulaire) s'appliquent à tout le texte imprimé, y compris aux calculs de largeur. */
+function withTerms(doc) {
+  const s = doc._settings;
+  if (!s || (s.terme_sequence !== 'Situation' && s.terme_pp !== 'Titulaire')) return doc;
+  for (const m of ['text', 'heightOfString', 'widthOfString']) { const orig = doc[m].bind(doc); doc[m] = (t, ...a) => orig(applyTerms(t, s), ...a); }
+  return doc;
+}
+
 /** Génère un PDF en mémoire (rapports archivés). */
 export function renderPdfBuffer({ title, landscape = false }, fn) {
   const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 36, bufferPages: true, info: { Title: title, Author: 'AI721 SchoolX CM', Creator: 'AI721 SchoolX CM' } });
   doc._settings = getSettings();
+  withTerms(doc);
   const chunks = [];
   doc.on('data', (c) => chunks.push(c));
   const done = new Promise((resolve, reject) => { doc.on('end', () => resolve(Buffer.concat(chunks))); doc.on('error', reject); });
@@ -32,7 +41,16 @@ export function createDoc(res, { title, filename, landscape = false, settings })
   res.setHeader('Content-Disposition', `inline; filename="${String(filename || 'document').replace(/[^\w.-]+/g, '_')}.pdf"`);
   doc.pipe(res);
   doc._settings = settings || getSettings();
-  return doc;
+  return withTerms(doc);
+}
+
+const REGIONS_EN = { Adamaoua: 'ADAMAWA', Centre: 'CENTRE', Est: 'EAST', 'Extrême-Nord': 'FAR NORTH', Littoral: 'LITTORAL', Nord: 'NORTH', 'Nord-Ouest': 'NORTH WEST',
+  Ouest: 'WEST', Sud: 'SOUTH', 'Sud-Ouest': 'SOUTH WEST' };
+const sansArt = (t) => String(t || '').replace(/^\s*(du|de la|de l'|de l’|des|de|d')\s*/i, '').trim();
+/** Délégations en anglais : « du Centre » → « REGIONAL DELEGATION OF CENTRE », « du Mfoundi » → « DIVISIONAL DELEGATION OF MFOUNDI ». */
+export function enDelegations(s) {
+  const reg = REGIONS_EN[s.region] || sansArt(s.delegation_regionale).toUpperCase();
+  return { reg: s.delegation_regionale || s.region ? `REGIONAL DELEGATION OF ${reg}` : '', dep: s.delegation_departementale ? `DIVISIONAL DELEGATION OF ${sansArt(s.delegation_departementale).toUpperCase()}` : '' };
 }
 
 /** En-tête officiel bilingue + titre du document. Retourne la position y suivante. */
@@ -56,8 +74,7 @@ export function header(doc, title, subtitle) {
     [s.delegation_departementale ? `DÉLÉGATION DÉPARTEMENTALE ${s.delegation_departementale}`.toUpperCase() : ''],
     [String(s.nom || '').toUpperCase(), true, 8]];
   const en = [['REPUBLIC OF CAMEROON', true, 8.5], ['Peace – Work – Fatherland', false, 7.5], ['*****'], [s.ministere_en, true],
-    ['*****'], [s.delegation_regionale ? `REGIONAL DELEGATION ${s.delegation_regionale}`.toUpperCase() : ''],
-    [s.delegation_departementale ? `DIVISIONAL DELEGATION ${s.delegation_departementale}`.toUpperCase() : ''],
+    ['*****'], [enDelegations(s).reg], [enDelegations(s).dep],
     [[s.bp ? `BP ${s.bp}` : '', s.tel ? `Tél. ${s.tel}` : ''].filter(Boolean).join(' – '), false, 7]];
   const y1 = block(L, fr, 'center');
   const y2 = block(L + W - colW, en, 'center');
@@ -169,6 +186,10 @@ export function finalize(doc) {
     doc.switchToPage(i);
     const L = doc.page.margins.left, W = doc.page.width - L - doc.page.margins.right, y = doc.page.height - 26;
     const old = doc.page.margins.bottom; doc.page.margins.bottom = 0;
+    if (doc._official) { // acte administratif : seule la pagination, et seulement s'il y a plusieurs pages
+      if (range.count > 1) doc.font('Helvetica').fontSize(7.5).fillColor('#666666').text(`${i - range.start + 1} / ${range.count}`, L, y, { width: W, align: 'center', lineBreak: false });
+      doc.page.margins.bottom = old; continue;
+    }
     doc.moveTo(L, y - 4).lineTo(L + W, y - 4).lineWidth(0.4).strokeColor(C.line).stroke();
     doc.font('Helvetica').fontSize(7).fillColor(C.muted)
       .text(`${s.nom} — Document généré par AI721 SchoolX CM le ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Douala' })}`, L, y, { width: W * 0.75, lineBreak: false })
@@ -207,14 +228,16 @@ export function progressionDoc(doc, { teacher, items }) {
     y = ensureSpace(doc, y, 160);
     doc.font('Helvetica-Bold').fontSize(10).fillColor(C.primary).text(`${it.classe} — ${it.subject}`, doc.page.margins.left, y);
     y = doc.y + 4;
-    const tp = it.rows.reduce((a, r) => a + r.planned, 0), td = it.rows.reduce((a, r) => a + r.done, 0);
+    const tp = it.rows.reduce((a, r) => a + r.planned, 0), td = it.rows.reduce((a, r) => a + r.done, 0), tg = it.rows.reduce((a, r) => a + (r.digital || 0), 0);
     y = table(doc, y, [
-      { header: 'Séquence', width: 1.2, value: (r) => `Séquence ${r.seq}` },
-      { header: 'Leçons prévues', width: 1, align: 'center', key: 'planned', decimals: 0 },
-      { header: 'Leçons faites', width: 1, align: 'center', key: 'done', decimals: 0 },
-      { header: 'Taux de couverture', width: 1.2, align: 'center', value: (r) => (r.planned ? `${fmt((r.done / r.planned) * 100, 1)} %` : '—') },
-      { header: 'Observations', width: 3, key: 'comment' }
-    ], [...it.rows, { seq: 'Total', planned: tp, done: td, comment: '', _bold: true, _highlight: true }]
+      { header: 'Séquence', width: 1.2, value: (r) => (r.seq === '' ? 'Total' : `Séquence ${r.seq}`) },
+      { header: 'Leçons prévues', width: 0.9, align: 'center', key: 'planned', decimals: 0 },
+      { header: 'Leçons faites', width: 0.9, align: 'center', key: 'done', decimals: 0 },
+      { header: 'Taux de couverture', width: 1, align: 'center', value: (r) => (r.planned ? `${fmt((r.done / r.planned) * 100, 1)} %` : '—') },
+      { header: 'Leçons digitalisées', width: 1, align: 'center', value: (r) => String(r.digital || 0) },
+      { header: 'Taux de digitalisation', width: 1.1, align: 'center', value: (r) => (r.planned ? `${fmt(((r.digital || 0) / r.planned) * 100, 1)} %` : '—') },
+      { header: 'Observations', width: 2.4, key: 'comment' }
+    ], [...it.rows, { seq: 'Total', planned: tp, done: td, digital: tg, comment: '', _bold: true, _highlight: true }]
       .map((r) => (r.seq === 'Total' ? { ...r, seq: '' } : r)));
   }
   signatures(doc, y, ["L'Enseignant", SIG.ap(doc), SIG.adjoint(doc)]);

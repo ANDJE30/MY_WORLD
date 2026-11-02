@@ -30,6 +30,7 @@ r.get('/public', (req, res) => {
   const ps = inPlatform(getPlatformSettings);
   res.json({ code: req.tenant.code, nom: s.nom, nom_court: s.nom_court, logo: s.logo, devise: s.devise, annee_scolaire: s.annee_scolaire, ville: s.ville,
     fonctions: { chef_titre: s.chef_titre, censeur_titre: s.censeur_titre, sg_titre: s.sg_titre, ap_titre: s.ap_titre },
+    termes: { terme_sequence: s.terme_sequence, terme_pp: s.terme_pp },
     subscription: { valid: st.valid, code: st.code, label: st.label, message: st.message, valid_to: st.current?.valid_to || null },
     societe: ps.societe, societe_tel: ps.tel, societe_email: ps.email,
     demo: demo && req.tenant.code === 'lpey' ? { admin: DEMO_ACCOUNTS.admin, teacher: DEMO_ACCOUNTS.teacher, discipline: DEMO_ACCOUNTS.discipline } : null });

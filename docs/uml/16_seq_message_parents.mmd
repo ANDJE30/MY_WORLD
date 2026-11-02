@@ -1,0 +1,29 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrateur
+  participant UI as Interface (Messages aux parents)
+  participant API as API SchoolX (/e/code/api)
+  participant DB as Base de l'établissement
+  participant GW as Passerelle SMS (configurée par AI721)
+  actor P as Parents
+  A->>UI: modèle « Réunion des parents », date, heure, lieu, ordre du jour, classes
+  UI->>API: POST /admin/parents/apercu
+  API->>DB: élèves actifs + téléphones des parents
+  API-->>UI: destinataires, élèves sans numéro, exemples personnalisés, nombre de SMS
+  A->>UI: Envoyer
+  UI->>API: POST /admin/parents/campagnes {canal}
+  API->>DB: campagne + un message par numéro (nom de l'enfant, classe)
+  alt canal SMS automatique
+    loop 5 envois simultanés
+      API->>GW: SMS (numéro E.164, texte optimisé GSM)
+      GW-->>API: accepté / échec
+      API->>DB: statut du message, compteurs
+    end
+    GW-->>P: SMS
+  else envoi manuel
+    API-->>UI: liste des messages à envoyer
+    A->>UI: WhatsApp ou SMS (parent par parent)
+    UI->>P: message prérempli depuis le téléphone de l'administration
+    UI->>API: POST /admin/parents/messages/:id/envoye
+  end
+  API-->>UI: historique : envoyés, échecs (relance possible), à envoyer

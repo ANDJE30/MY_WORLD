@@ -13,14 +13,15 @@ flowchart LR
     U8(["Suivre le tableau de bord :<br/>abonnés, élèves, recettes, échéances"])
     U9(["Éditer reçus et liste des établissements (PDF)"])
     U10(["Paramétrer l'entreprise, consulter le journal"])
+    U12(["Configurer la passerelle SMS<br/>des messages aux parents, tester un envoi"])
     U11(["Se connecter à l'interface Administration<br/>de son établissement"])
   end
-  SA --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8 & U9 & U10
+  SA --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8 & U9 & U10 & U12
   U7 -. "lien /e/code/admin + identifiants" .-> U11
   U11 --- ADM
   U2 -. "«include»" .-> U3
   classDef actor fill:#e0e7ff,stroke:#4338ca,color:#1e1b4b,font-weight:bold
   classDef uc fill:#eef2ff,stroke:#4338ca,color:#1e1b4b
   class SA,ADM actor
-  class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11 uc
+  class U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12 uc
   style SYS fill:#ffffff,stroke:#4338ca,stroke-width:2px

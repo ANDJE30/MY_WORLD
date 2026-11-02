@@ -1,10 +1,11 @@
 // Espace administrateur.
-import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, seqOptions, periodOptions, fonctionsOf, sansArticle,
+import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, seqOptions, periodOptions, fonctionsOf, sansArticle, setTerms, getTerms,
   barsH, barsV, parseCSV, downloadCSV, readFileText, copyText, withBusy, ROLE_LABEL, DAYS, initials, noteClass, debounce, fieldHtml, readForm, colorFor } from './ui.js';
 import { get, post, put, del, openPdf, postPdf, apiUrl } from './api.js';
 import { state, go, refreshPeriods, setParams, rerender } from './app.js';
 import { notesEditor, disciplineEditor, incidentsPage, timetableHtml, periodLabel, studentHistory, entryPeriodOptions, periodParam } from './shared.js';
 import { assiduite, documentsRh, dossier, newDocument } from './rh.js';
+import { messagesParents } from './parents.js';
 
 export const routes = [
   { path: 'dashboard', title: 'Tableau de bord', short: 'Accueil', icon: 'home', group: 'Pilotage', mobile: true, render: dashboard },
@@ -26,6 +27,7 @@ export const routes = [
   { path: 'discipline', title: 'Discipline', icon: 'flag', group: 'Vie scolaire', render: disciplineAdmin },
   { path: 'incidents', title: 'Registre des incidents', icon: 'clipboard', group: 'Vie scolaire', render: async (v, p) => incidentsPage(v, p, await get('/classes/mine')) },
   { path: 'annonces', title: 'Annonces', icon: 'megaphone', group: 'Communication', render: annonces },
+  { path: 'parents', title: 'Messages aux parents', short: 'Parents', icon: 'send', group: 'Communication', render: messagesParents },
   { path: 'etablissement', title: 'Établissement', icon: 'building', group: 'Administration', render: etablissement },
   { path: 'audit', title: "Journal d'audit", icon: 'history', group: 'Administration', render: audit },
   { path: 'sauvegarde', title: 'Sauvegarde & année', icon: 'database', group: 'Administration', render: sauvegarde }
@@ -75,6 +77,11 @@ async function dashboard(view) {
 }
 
 /* ========================= Établissement ========================= */
+// texte d'introduction de l'onglet Appellations (valeur non traduite : il cite les deux formes)
+const APPEL_INTRO = "Choisissez les appellations en usage dans votre établissement. « Séquence » ou « Situation » et « Professeur Principal » ou « Titulaire » s'appliquent "
+  + "à toute l'interface et à tous les documents PDF. Les appellations des fonctions figurent sur les zones de signature des bulletins, procès-verbaux, relevés, fiches "
+  + "disciplinaires et de progression, ainsi que sur les documents administratifs du personnel. En changeant l'appellation de l'animation pédagogique, la fonction des "
+  + "enseignants concernés suit automatiquement (ex. « Animateur Pédagogique de Mathématiques » → « Coordonnateur de Mathématiques »).";
 async function etablissement(view, params) {
   const s = await get('/admin/settings');
   const tab = params.tab || 'identite';
@@ -83,6 +90,7 @@ async function etablissement(view, params) {
     identite: [
       { name: 'nom', label: "Nom de l'établissement", required: true, full: true },
       { name: 'nom_court', label: 'Sigle / nom court', placeholder: 'ex. LBY' },
+      { name: 'nom_en', label: 'Nom en anglais (en-tête bilingue)', placeholder: 'ex. GOVERNMENT TECHNICAL HIGH SCHOOL NKOLOSSAN' },
       { name: 'immatriculation', label: 'Matricule / code établissement' },
       { name: 'type', label: "Type d'établissement", type: 'select', placeholder: false, options: ["Lycée d'enseignement général", 'Lycée technique', 'Lycée bilingue', 'Lycée classique et moderne', "Collège d'enseignement secondaire (CES)",
         "Collège d'enseignement technique (CETIC)", 'Collège privé laïc', 'Collège privé confessionnel', 'Lycée polyvalent'].map((x) => [x, x]) },
@@ -98,10 +106,14 @@ async function etablissement(view, params) {
       { name: 'delegation_regionale', label: 'Délégation régionale (suffixe)', placeholder: 'ex. du Centre' },
       { name: 'delegation_departementale', label: 'Délégation départementale (suffixe)', placeholder: 'ex. du Mfoundi' },
       { name: 'ministere', label: 'Ministère (français)', full: true }, { name: 'ministere_en', label: 'Ministère (anglais)', full: true },
-      { name: 'ref_documents', label: 'Référence des documents administratifs du personnel', full: true, placeholder: 'ex. MINESEC/DRES-CE/DDES-MFI/LPEY/P', hint: 'Insérée dans le numéro des attestations et courriers (N° 001/2026-2027/…/DE). Par défaut : sigle/P.' }],
+      { name: 'ref_documents', label: 'Référence des documents administratifs du personnel', full: true, placeholder: 'ex. MINESEC/DRES-CE/DDES-MFDI/LPEY', hint: 'Complète le numéro des attestations et courriers : N° 001/26-27/APEP/<cette référence>. Par défaut : MINESEC/sigle.' }],
     fonctions: (() => {
       const opt = (k, fmt = (x) => x) => { const o = s._fonctions[k].options.map((x) => [x, fmt(x)]); if (s[k] && !s._fonctions[k].options.includes(s[k])) o.push([s[k], `${fmt(s[k])} (ancienne valeur)`]); return o; };
       return [
+        { name: 'terme_sequence', label: "Période d'évaluation — appellation", type: 'select', placeholder: false, noTerms: true, options: s._termes.terme_sequence.options.map((x) => [x, x]),
+          hint: 'Les 6 périodes d’évaluation de l’année : « Séquence 1 … 6 » ou « Situation 1 … 6 » (approche par les compétences). Les trimestres sont inchangés.' },
+        { name: 'terme_pp', label: 'Responsable de classe — appellation', type: 'select', placeholder: false, noTerms: true, options: s._termes.terme_pp.options.map((x) => [x, x]),
+          hint: 'Enseignant responsable d’une classe : « Professeur Principal » ou « Titulaire ».' },
         { name: 'chef_titre', label: "Chef d'établissement — appellation", type: 'select', placeholder: false, options: opt('chef_titre', sansArticle), hint: 'Proviseur (lycée), Directeur ou Principal (collège, CES, CETIC)' },
         { name: 'chef_nom', label: "Nom du chef d'établissement", placeholder: 'ex. Dr. ATANGANA Marie-Claire' },
         { name: 'censeur_titre', label: "Adjoint du chef d'établissement — appellation", type: 'select', placeholder: false, options: opt('censeur_titre') },
@@ -118,7 +130,7 @@ async function etablissement(view, params) {
   };
   const days = [1, 2, 3, 4, 5, 6];
   mount(view, h`<div class="page-head"><div><h2>Paramètres de l'établissement</h2><p>Ces informations apparaissent sur tous les documents officiels (bulletins, relevés, fiches).</p></div></div>
-    <div class="tabs">${T('identite', 'Identité')}${T('officiel', 'En-tête officiel')}${T('fonctions', 'Fonctions')}${T('logo', 'Logo')}${T('pedagogie', 'Pédagogie')}${T('horaires', 'Horaires & jours')}</div>
+    <div class="tabs">${T('identite', 'Identité')}${T('officiel', 'En-tête officiel')}${T('fonctions', 'Appellations')}${T('logo', 'Logo')}${T('pedagogie', 'Pédagogie')}${T('horaires', 'Horaires & jours')}</div>
     <div class="card"><div class="card-b">${tab === 'logo' ? h`
       <div class="row" style="gap:24px;align-items:flex-start">
         <div class="logo" style="width:140px;height:140px;border-radius:20px;font-size:40px" data-preview>${s.logo ? h`<img src="${s.logo}" alt="Logo">` : initials(s.nom_court || s.nom)}</div>
@@ -134,9 +146,7 @@ async function etablissement(view, params) {
         ${s.time_slots.map((t, i) => slotRow(t, i))}</tbody></table></div>
       <div class="row mt"><button class="btn btn-outline btn-sm" data-add-slot>${icon('plus', 'sm')} Ajouter un créneau</button><div style="flex:1"></div><button class="btn btn-primary" data-save-h>${icon('save')} Enregistrer</button></div>
       <div class="alert info mt">${icon('info')}<div>La modification des créneaux n'efface pas les emplois du temps existants. Vérifiez-les après un changement important.</div></div>`
-      : h`${tab === 'fonctions' ? h`<div class="alert info mb">${icon('info')}<div class="small">Choisissez les appellations en usage dans votre établissement. Elles figurent sur les zones de signature
-        des bulletins, procès-verbaux, relevés, fiches disciplinaires et de progression, ainsi que sur les documents administratifs du personnel. En changeant l'appellation
-        de l'animation pédagogique, les fonctions des enseignants concernés suivent automatiquement (ex. « Animateur Pédagogique de Mathématiques » → « Coordonnateur de Mathématiques »).</div></div>` : ''}
+      : h`${tab === 'fonctions' ? h`<div class="alert info mb">${icon('info')}<div class="small">${APPEL_INTRO}</div></div>` : ''}
       <form class="form-grid" data-form>${F[tab].map((f) => fieldHtml(f, s[f.name]))}</form>
       ${tab === 'fonctions' ? h`<div class="card mt" style="box-shadow:none"><div class="card-h"><h3>Aperçu des signatures</h3></div><div class="card-b"><div class="grid g-4" data-sig-preview></div></div></div>` : ''}
       <div class="row mt" style="justify-content:flex-end"><button class="btn btn-primary" data-save>${icon('save')} Enregistrer</button></div>`}
@@ -144,7 +154,12 @@ async function etablissement(view, params) {
   $$('[data-tab]', view).forEach((b) => (b.onclick = () => go('etablissement', { tab: b.dataset.tab })));
   const save = async (btn, payload) => withBusy(btn, async () => {
     try {
+      const before = { ...getTerms() };
       const ns = await put('/admin/settings', payload);
+      if (ns.terme_sequence !== before.terme_sequence || ns.terme_pp !== before.terme_pp) {
+        setTerms({ terme_sequence: ns.terme_sequence, terme_pp: ns.terme_pp }); state.school.termes = { terme_sequence: ns.terme_sequence, terme_pp: ns.terme_pp };
+        toast('Appellations enregistrées : l’interface est actualisée.'); setTimeout(() => location.reload(), 900); return;
+      }
       Object.assign(state.school, { nom: ns.nom, nom_court: ns.nom_court, logo: ns.logo, annee_scolaire: ns.annee_scolaire,
         fonctions: { chef_titre: ns.chef_titre, censeur_titre: ns.censeur_titre, sg_titre: ns.sg_titre, ap_titre: ns.ap_titre } });
       toast(`Paramètres enregistrés${ns._renamed ? ` — ${ns._renamed} fonction(s) du personnel mise(s) à jour` : ''}`);
@@ -156,7 +171,7 @@ async function etablissement(view, params) {
     const art = (t) => (/^(le |la |l'|the )/i.test(t) ? t : /^[aeiouyéèêâîôh]/i.test(t) ? `L'${t}` : `Le ${t}`);
     const draw = () => {
       const v = (n) => $(`[name="${n}"]`, view)?.value || '';
-      const items = [['Bulletin, procès-verbal', art(v('chef_titre')), v('chef_nom')], ['Relevé, procès-verbal, statistiques', art(v('censeur_titre')), v('censeur_nom')],
+      const items = [['Bulletin, procès-verbal', art(v('chef_titre')), v('chef_nom')], ['Bulletin (classe)', art(v('terme_pp')), ''], ['Relevé, procès-verbal, statistiques', art(v('censeur_titre')), v('censeur_nom')],
         ['Fiches disciplinaires', art(v('sg_titre')), v('surveillant_general')], ['Fiche de progression', art(v('ap_titre')), '']];
       mount(prev, h`${items.map(([doc, t, n]) => h`<div style="text-align:center;padding:10px;border:1px dashed var(--border);border-radius:10px"><div class="small muted">${doc}</div>
         <div style="text-decoration:underline;font-weight:700;margin-top:6px">${t}</div><div style="height:28px"></div><div class="small">${n || '—'}</div></div>`)}`);
@@ -279,7 +294,7 @@ async function suivi(view, params) {
     return notesEditor($('[data-ed]', view), { cs: +params.cs, period, onChange: (p, c) => go('suivi', { cs: c, period: p }) });
   }
   const seqs = period[0] === 'T' ? [+period[1] * 2 - 1, +period[1] * 2] : [+period.slice(1)];
-  const checks = await Promise.all(seqs.map((q) => get(`/admin/periods/${q}/check`)));
+  const [checks, progs] = await Promise.all([Promise.all(seqs.map((q) => get(`/admin/periods/${q}/check`))), get('/admin/progressions')]);
   // fusion des séquences du trimestre
   const notes = checks[0].notes.map((n) => ({ ...n, per: Object.fromEntries(seqs.map((q, k) => [q, checks[k].notes.find((x) => x.id === n.id)])) }));
   const disc = checks[0].discipline.map((d) => ({ ...d, per: Object.fromEntries(seqs.map((q, k) => [q, checks[k].discipline.find((x) => x.class_id === d.class_id)])) }));
@@ -310,7 +325,14 @@ async function suivi(view, params) {
   <div class="card"><div class="card-h"><h3>Fiches disciplinaires</h3></div><div class="table-wrap"><table class="t rt"><thead><tr><th>Classe</th><th>Responsable(s)</th>${seqs.map((q) => h`<th>Séquence ${q}</th>`)}<th></th></tr></thead>
     <tbody>${disc.map((d) => h`<tr><td class="primary-cell">${d.classe}</td><td data-label="Responsable">${d.officers || h`<span class="badge red">Aucun</span>`}</td>
     ${seqs.map((q) => h`<td data-label="Séquence ${q}">${d.per[q]?.validated_at ? h`<span class="badge green">Validée</span>` : h`<span class="badge amber">En cours</span>`}</td>`)}
-    <td class="actions-cell"><a class="btn btn-ghost btn-sm" href="#/discipline?class=${d.class_id}&period=${period}">${icon('eye', 'sm')} Ouvrir</a></td></tr>`)}</tbody></table></div></div>`);
+    <td class="actions-cell"><a class="btn btn-ghost btn-sm" href="#/discipline?class=${d.class_id}&period=${period}">${icon('eye', 'sm')} Ouvrir</a></td></tr>`)}</tbody></table></div></div>
+  <div class="card mt"><div class="card-h"><h3>Progressions annuelles</h3><span class="sub">cumul de l'année : couverture et digitalisation des leçons</span></div>
+    <div class="table-wrap"><table class="t rt"><thead><tr><th>Classe</th><th>Matière</th><th>Enseignant</th><th class="num">Prévues</th><th class="num">Faites</th><th>Couverture</th><th class="num">Digitalisées</th><th>Digitalisation</th></tr></thead>
+    <tbody>${progs.map((p) => { const cov = p.planned ? (p.done / p.planned) * 100 : 0, dig = p.planned ? (p.digital / p.planned) * 100 : 0;
+    return h`<tr><td class="primary-cell">${p.classe}</td><td data-label="Matière">${p.subject}</td><td data-label="Enseignant">${p.teacher || h`<span class="badge red">Aucun</span>`}</td>
+      <td data-label="Prévues" class="num">${p.planned}</td><td data-label="Faites" class="num">${p.done}</td>
+      <td data-label="Couverture" style="min-width:120px"><div class="small">${fmtNum(cov, 0)} %</div>${progressBar(cov, cov < 60 ? 'red' : cov < 85 ? 'gold' : '')}</td>
+      <td data-label="Digitalisées" class="num">${p.digital}</td><td data-label="Digitalisation" style="min-width:120px"><div class="small">${fmtNum(dig, 0)} %</div>${progressBar(dig, 'gold')}</td></tr>`; })}</tbody></table></div></div>`);
   $('[data-period]', view).onchange = (e) => go('suivi', { period: e.target.value });
   $$('[data-f]', view).forEach((b) => (b.onclick = () => go('suivi', { period, f: b.dataset.f })));
   $('[data-csv]', view).onclick = () => downloadCSV(`suivi_${period}.csv`, [['Classe', 'Matière', 'Enseignant', ...seqs.flatMap((q) => [`S${q} saisies`, `S${q} effectif`, `S${q} validée`])],
