@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DATA_DIR, openSqlite, openTenantDb, saveSettings, getSettings, tx, periodPlan, db } from './db.js';
 import { withDb } from './context.js';
-import { hashPassword, genPassword, slug } from './security.js';
+import { hashPassword, verifyPassword, genPassword, slug } from './security.js';
 import { seal } from './vault.js';
 
 export const COMPANY = 'AI721 TECH STUFF';
@@ -176,19 +176,42 @@ export function createTenant(d, by = 'AI721') {
 }
 
 /* ---------- Démarrage : super admin, migration d'une installation mono-établissement ---------- */
+function logSuperadmin(title, pw) {
+  console.log('\n=============================================================');
+  console.log(` Console ${COMPANY} — ${title}`);
+  console.log('   Adresse     : /console');
+  console.log('   Identifiant : AI721');
+  console.log(`   Mot de passe : ${process.env.SUPERADMIN_PASSWORD ? '(défini par SUPERADMIN_PASSWORD)' : `${pw}  (à changer à la première connexion)`}`);
+  console.log('=============================================================\n');
+}
+// Mot de passe de démonstration publié par les versions antérieures à 3.4 (page d'accueil, documentation) : il ne doit
+// jamais protéger une console en ligne. Seule exception : SUPERADMIN_PASSWORD le désigne explicitement (tests, poste local).
+const KNOWN_PASSWORDS = ['Ai721@2026'];
+export function secureSuperadmin() {
+  const u = pdb.prepare("SELECT * FROM users WHERE role = 'superadmin'").all().find((x) => KNOWN_PASSWORDS.some((k) => verifyPassword(k, x.pass_hash)));
+  if (!u || KNOWN_PASSWORDS.includes(process.env.SUPERADMIN_PASSWORD)) return null;
+  const pw = process.env.SUPERADMIN_PASSWORD || genPassword();
+  pdb.prepare('UPDATE users SET pass_hash = ?, must_change = ?, failed_attempts = 0, locked_until = 0 WHERE id = ?').run(hashPassword(pw), process.env.SUPERADMIN_PASSWORD ? 0 : 1, u.id);
+  pdb.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+  logSuperadmin('mot de passe public remplacé (sécurité)', pw);
+  return pw;
+}
+
 export function initPlatform() {
   if (!pdb.prepare('SELECT 1 FROM users').get()) {
-    const demo = process.env.DEMO === '1';
-    const pw = process.env.SUPERADMIN_PASSWORD || (demo ? 'Ai721@2026' : genPassword());
+    // aucun mot de passe fixe, même en démonstration : SUPERADMIN_PASSWORD, sinon mot de passe aléatoire affiché une fois
+    const pw = process.env.SUPERADMIN_PASSWORD || genPassword();
     pdb.prepare(`INSERT INTO users(role, username, pass_hash, full_name, must_change) VALUES('superadmin', 'AI721', ?, ?, ?)`)
-      .run(hashPassword(pw), `Super administrateur ${COMPANY}`, process.env.SUPERADMIN_PASSWORD || demo ? 0 : 1);
-    console.log('\n=============================================================');
-    console.log(` Console ${COMPANY} — compte super administrateur créé`);
-    console.log('   Adresse     : /console');
-    console.log('   Identifiant : AI721');
-    console.log(`   Mot de passe : ${process.env.SUPERADMIN_PASSWORD ? '(défini par SUPERADMIN_PASSWORD)' : pw}`);
-    console.log('=============================================================\n');
-  }
+      .run(hashPassword(pw), `Super administrateur ${COMPANY}`, process.env.SUPERADMIN_PASSWORD ? 0 : 1);
+    logSuperadmin('compte super administrateur créé', pw);
+  } else if (process.env.SUPERADMIN_RESET === '1') {
+    // mot de passe AI721 oublié : redémarrer une fois avec SUPERADMIN_RESET=1 (et SUPERADMIN_PASSWORD, sinon mot de passe aléatoire)
+    const pw = process.env.SUPERADMIN_PASSWORD || genPassword();
+    const u = pdb.prepare("SELECT id FROM users WHERE role = 'superadmin' ORDER BY id LIMIT 1").get();
+    pdb.prepare('UPDATE users SET pass_hash = ?, must_change = ?, failed_attempts = 0, locked_until = 0, active = 1 WHERE id = ?').run(hashPassword(pw), process.env.SUPERADMIN_PASSWORD ? 0 : 1, u.id);
+    pdb.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+    logSuperadmin('mot de passe réinitialisé (SUPERADMIN_RESET=1 : retirez cette variable)', pw);
+  } else secureSuperadmin();
   // Installation 1.x (une seule base data/edugest.db) : conversion en premier établissement de la plateforme
   const legacy = path.join(DATA_DIR, 'edugest.db');
   if (fs.existsSync(legacy) && !pdb.prepare('SELECT 1 FROM tenants').get()) migrateLegacy(legacy);

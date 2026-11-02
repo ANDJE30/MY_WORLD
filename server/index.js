@@ -22,6 +22,7 @@ import staffRoutes from './routes/staff.js';
 import parentsRoutes from './routes/parents.js';
 import echeancierRoutes from './routes/echeancier.js';
 import platformRoutes from './routes/platform.js';
+import { espacesOuverts, ROLE_SLUG, SLUG_ROLE } from './espace.js';
 import { HttpError } from './util.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,7 +34,7 @@ initPlatform();
 if (process.env.DEMO === '1' && !pdb.prepare('SELECT 1 FROM tenants').get()) {
   const { seedPlatformDemo } = await import('./seed.js');
   seedPlatformDemo();
-  console.log('Mode démonstration : console AI721 / Ai721@2026 ; établissement de démonstration /e/lpey');
+  console.log('Mode démonstration : établissements fictifs créés (dont /e/lpey). Aucun identifiant n\'est affiché aux visiteurs.');
 }
 
 export const app = express();
@@ -88,6 +89,27 @@ app.get('/manifest.webmanifest', (req, res) => {
   });
 });
 
+/* ---------------- Cloisonnement des interfaces ----------------
+   Chaque compte n'ouvre que son interface :
+   - un navigateur connecté à un établissement (administration, enseignant, vie scolaire) n'accède pas à la console AI721 ;
+   - une session enseignant ou vie scolaire n'ouvre pas l'interface d'administration (ni l'inverse) : redirection vers son espace. */
+const readCookie = (req, name) => { const m = String(req.headers.cookie || '').split(/;\s*/).find((c) => c.startsWith(name + '=')); return m ? decodeURIComponent(m.slice(name.length + 1)) : null; };
+const espaceDe = (e) => `/e/${e.code}/${ROLE_SLUG[e.role]}`;
+const CONSOLE_REFUSEE = "Accès refusé : la console AI721 est réservée au super administrateur d'AI721 TECH STUFF. Ce navigateur est connecté à un établissement.";
+app.get(['/console', '/console/'], (req, res, next) => {
+  const e = espacesOuverts(req)[0];
+  if (e) return res.redirect(302, `${espaceDe(e)}?refus=console`);
+  next();
+});
+app.get(['/e/:code/:slug', '/e/:code/:slug/'], (req, res, next) => {
+  const want = SLUG_ROLE[req.params.slug], token = readCookie(req, COOKIE);
+  const t = want && token ? getTenantByCode(req.params.code) : null;
+  if (!t) return next();
+  const user = withDb(tenantHandle(t), () => getSession(token), { tenant: t });
+  if (user && user.role !== want && ROLE_SLUG[user.role]) return res.redirect(302, `/e/${t.code}/${ROLE_SLUG[user.role]}?refus=${req.params.slug}`);
+  next();
+});
+
 // Fichiers statiques (SPA)
 app.use(express.static(PUBLIC, { maxAge: '1h', setHeaders: (res, p) => { if (p.endsWith('index.html') || p.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache'); } }));
 
@@ -107,6 +129,12 @@ function sessionAndCsrf(req, res, next) {
     const origin = req.get('origin');
     if (origin && new URL(origin).host !== req.get('host')) throw new HttpError(403, 'Origine refusée.');
   }
+  // l'interface qui appelle l'API (en-tête X-Portal) doit être celle du rôle connecté
+  const portal = req.get('X-Portal');
+  if (req.user && portal && portal !== req.user.role && !/^\/auth\/(me|logout|public)$/.test(req.path)) {
+    const own = req.tenant && ROLE_SLUG[req.user.role] ? `/e/${req.tenant.code}/${ROLE_SLUG[req.user.role]}` : null;
+    throw Object.assign(new HttpError(403, `Accès refusé : cette interface est réservée ${{ superadmin: 'au super administrateur AI721', admin: "à l'administrateur de l'établissement", teacher: 'aux enseignants', discipline: 'aux responsables disciplinaires' }[portal] || 'à un autre profil'}.`), { redirect: own });
+  }
   if (req.user?.must_change && !req.path.startsWith('/auth/')) throw new HttpError(428, 'Vous devez changer votre mot de passe.');
   next();
 }
@@ -120,7 +148,12 @@ consoleApi.use(apiRate, sessionAndCsrf);
 consoleApi.use('/auth', authRoutes);
 consoleApi.use('/', platformRoutes);
 consoleApi.use(notFound);
-app.use('/console/api', bodyParser, (req, _res, next) => { req.cookiePath = '/console'; inPlatform(next); }, consoleApi);
+app.use('/console/api', (req, _res, next) => {
+  // console fermée à un navigateur connecté à un établissement (seules les informations publiques de l'accueil restent lisibles)
+  const e = req.path !== '/auth/public' && espacesOuverts(req)[0];
+  if (e) throw Object.assign(new HttpError(403, CONSOLE_REFUSEE), { redirect: espaceDe(e) });
+  next();
+}, bodyParser, (req, _res, next) => { req.cookiePath = '/console'; inPlatform(next); }, consoleApi);
 
 /* ---------------- API d'un établissement ---------------- */
 const tenantApi = express.Router();

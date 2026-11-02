@@ -30,13 +30,6 @@ export async function renderLanding(root) {
       <div class="lp-roles mt">${roles.map(([ic, t, d], i) => h`<div class="lp-role r${i}">${icon(ic, 'lg')}<b>${t}</b><span class="small" style="opacity:.85">${d}</span></div>`)}</div></section>
     <section class="lp-sec" style="padding-top:0"><h2>Tout ce dont votre établissement a besoin</h2>
       <div class="grid g-3 mt">${feats.map(([ic, t, d]) => h`<div class="card lp-feat"><div class="ico">${icon(ic)}</div><h4>${t}</h4><div class="small muted">${d}</div></div>`)}</div></section>
-    ${p.demo ? h`<section class="lp-sec lp-demo" style="padding-top:0"><h2>Démonstration</h2><p class="muted">Établissement fictif pré-rempli : choisissez un espace.</p>
-      <div class="grid g-2 mt"><div>
-        <a class="portal-card" data-p="admin" href="/e/lpey/admin"><div class="pc-ico">${icon('building', 'lg')}</div><div><b>Administration</b><div class="small muted">admin / Admin@2026</div></div>${icon('arrowRight')}</a>
-        <a class="portal-card" data-p="teacher" href="/e/lpey/enseignant"><div class="pc-ico">${icon('teacher', 'lg')}</div><div><b>Enseignant</b><div class="small muted">mbargajp / Prof@2026</div></div>${icon('arrowRight')}</a>
-        <a class="portal-card" data-p="discipline" href="/e/lpey/discipline"><div class="pc-ico">${icon('shield', 'lg')}</div><div><b>Vie scolaire</b><div class="small muted">sg.nguemap / Disc@2026</div></div>${icon('arrowRight')}</a></div>
-        <div><a class="portal-card" href="/console" style="border-color:#4338ca"><div class="pc-ico" style="background:linear-gradient(135deg,#4f46e5,#1e1b4b)">${icon('key', 'lg')}</div>
-          <div><b>Console AI721 (super administrateur)</b><div class="small muted">${p.demo.superadmin.u} / ${p.demo.superadmin.p}</div></div>${icon('arrowRight')}</a></div></div></section>` : ''}
     <footer class="lp-foot"><b style="color:#fff">${p.societe}</b> — ${p.slogan || ''}<br>${[p.adresse, p.tel, p.email].filter(Boolean).join(' • ')}<br><span style="opacity:.7">AI721 SchoolX CM © ${new Date().getFullYear()}</span></footer>
   </div>`);
   $('#acces').onsubmit = (e) => {

@@ -19,7 +19,7 @@ sequenceDiagram
     API-->>N: 403 + lien de la bonne interface (aucune session ouverte)
   else Succès
     API->>DB: Créer la session (jeton haché SHA-256)
-    API-->>N: 200 + cookie HttpOnly / SameSite=Strict limité à /e/code/
+    API-->>N: 200 + cookie de session HttpOnly / SameSite=Strict limité à /e/code/<br/>+ témoin d'espace signé (sx_esp_code, HttpOnly, tout le site)
     opt Première connexion
       N->>U: Exige un mot de passe personnel
       U->>N: Nouveau mot de passe
@@ -28,3 +28,14 @@ sequenceDiagram
     end
     N->>U: Tableau de bord selon le rôle
   end
+  Note over U,DB: Cloisonnement des interfaces (version 3.4)
+  U->>N: Ouvre une autre interface (/e/code/admin ou /console)
+  N->>API: GET /e/code/admin (cookie de session) ou GET /console (témoin d'espace)
+  alt Rôle différent de l'interface demandée
+    API-->>N: 302 vers son propre espace (?refus=…)
+    N->>U: « Accès refusé » : explication dans son espace
+  else Rôle de l'interface
+    API-->>N: 200 : interface ouverte
+  end
+  N->>API: Chaque appel d'API porte l'interface affichée (X-Portal)
+  API-->>N: 403 « Accès refusé » si X-Portal ≠ rôle de la session

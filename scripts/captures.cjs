@@ -1,9 +1,12 @@
 // Parcours de bout en bout + captures d'écran du manuel (Playwright).
-// Usage : DEMO=1 npm start (dossier de données vide)  puis  LANG=fr_FR.UTF-8 node scripts/captures.cjs [url]   (LANG : dates au format jj/mm/aaaa)
+// Usage : SUPERADMIN_PASSWORD='…' DEMO=1 npm start (dossier de données vide)
+//         puis  SUPERADMIN_PASSWORD='…' LANG=fr_FR.UTF-8 node scripts/captures.cjs [url]   (LANG : dates au format jj/mm/aaaa)
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://localhost:4100', OUT = path.join(__dirname, '..', 'docs', 'captures') + '/';
 const errs = [];
+// mot de passe de la console AI721 de l'instance capturée (aucun mot de passe fixe depuis la version 3.4)
+const AI721_PW = process.env.SUPERADMIN_PASSWORD || 'Ai721@2026';
 async function ctxFor(browser, vp) {
   const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: vp.width < 500 ? 2 : 1, isMobile: vp.width < 500, hasTouch: vp.width < 500, locale: 'fr-FR' });
   const page = await ctx.newPage();
@@ -42,7 +45,7 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.goto(BASE + '/e/lpey/admin'); await page.fill('#u', 'mbargajp'); await page.fill('#p', 'Prof@2026'); await page.click('button[type=submit]');
   await page.waitForSelector('#loginErr:not(.hidden)'); await shot(page, '01f_mauvaise_interface');
   // ---- Console AI721
-  await login(page, '/console', 'AI721', 'Ai721@2026');
+  await login(page, '/console', 'AI721', AI721_PW);
   await visit(page, '/console', 'dashboard', '40_console_tableau_de_bord', true);
   await visit(page, '/console', 'etablissements', '41_console_etablissements');
   await visit(page, '/console', 'etablissement?id=1', '42_console_fiche', true);
@@ -148,6 +151,9 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.click('[data-rep] >> nth=0'); await page.waitForSelector('#rep');
   await page.fill('#rep', "Monsieur le Proviseur,\nJ'ai l'honneur de vous informer que j'étais retenu, à la date indiquée, par la correction des épreuves du BEPC blanc régional, sur convocation de l'Inspection pédagogique (copie jointe). Je n'ai pas pu prévenir le conseil d'enseignement à temps et vous prie de bien vouloir m'en excuser.\nVeuillez agréer, Monsieur le Proviseur, l'expression de ma haute considération.");
   await shot(page, '58_enseignant_reponse'); await page.click('.modal [data-close]');
+  // ---- Cloisonnement (v3.4) : un enseignant connecté n'ouvre ni l'administration ni la console AI721
+  await page.goto(`${BASE}/e/lpey/admin`); await page.waitForSelector('.toast'); await page.waitForTimeout(300); await shot(page, '01g_acces_refuse_admin');
+  await page.goto(`${BASE}/console`); await page.waitForSelector('.toast'); await page.waitForTimeout(300); await shot(page, '01h_acces_refuse_console');
   await ctx.close();
   ({ ctx, page } = await ctxFor(browser, M)); await login(page, '/e/lpey/enseignant', 'mbargajp', 'Prof@2026'); await page.waitForTimeout(600); await shot(page, '28_mobile_enseignant_accueil');
   await page.goto(`${BASE}/e/lpey/enseignant#/saisie?period=S2`); await page.waitForSelector('.note-input'); await shot(page, '29_mobile_saisie_notes');
@@ -172,7 +178,7 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.goto(`${BASE}/e/lpey/discipline#/saisie?period=S2`); await page.waitForSelector('[data-k=abs_nj]'); await shot(page, '36_mobile_discipline');
   await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; }); await shot(page, '37_mobile_mode_sombre'); await ctx.close();
   ({ ctx, page } = await ctxFor(browser, M)); await page.goto(BASE + '/console'); await page.waitForSelector('#u'); await shot(page, '38_mobile_connexion_console');
-  await login(page, '/console', 'AI721', 'Ai721@2026'); await page.waitForTimeout(700); await shot(page, '39_mobile_console'); await ctx.close();
+  await login(page, '/console', 'AI721', AI721_PW); await page.waitForTimeout(700); await shot(page, '39_mobile_console'); await ctx.close();
   console.log('Erreurs :', errs.length ? errs : 'aucune');
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

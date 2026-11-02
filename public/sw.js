@@ -1,5 +1,5 @@
 // Service worker : met en cache la coquille de l'application (jamais les données de l'API).
-const CACHE = 'schoolx-v3-3';
+const CACHE = 'schoolx-v3-4';
 const SHELL = ['/', '/index.html', '/css/app.css', '/js/app.js', '/js/ui.js', '/js/api.js', '/js/shared.js', '/js/admin.js', '/js/teacher.js', '/js/discipline.js', '/js/rh.js', '/js/parents.js', '/js/echeancier.js', '/js/console.js', '/js/landing.js', '/img/icon.svg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

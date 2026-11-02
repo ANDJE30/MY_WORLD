@@ -38,3 +38,5 @@ export function unseal(blob) {
     return Buffer.concat([d.update(Buffer.from(ct, 'base64')), d.final()]).toString('utf8');
   } catch { return null; }
 }
+/** Clé dérivée pour un autre usage (ex. signature des témoins d'espace), stable tant que la clé du coffre l'est. */
+export const deriveKey = (label) => crypto.createHmac('sha256', KEY).update(String(label)).digest();

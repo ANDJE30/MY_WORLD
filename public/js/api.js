@@ -3,6 +3,9 @@
 export class ApiError extends Error { constructor(status, message, data) { super(message); this.status = status; this.data = data; } }
 let BASE = '/console/api';
 export const setBase = (b) => { BASE = b; };
+// interface affichée (superadmin, admin, teacher, discipline) : le serveur refuse les appels d'un autre rôle
+let PORTAL = null;
+export const setPortal = (p) => { PORTAL = p || null; };
 export const apiUrl = (path) => `${BASE}${path}`;
 let onAuthLost = () => {}, onMustChange = () => {}, onSubscription = () => {};
 export const setHandlers = (h) => { onAuthLost = h.onAuthLost || onAuthLost; onMustChange = h.onMustChange || onMustChange; onSubscription = h.onSubscription || onSubscription; };
@@ -12,7 +15,7 @@ export async function api(path, { method = 'GET', body, raw = false, base } = {}
   try {
     res = await fetch(`${base ?? BASE}${path}`, {
       method, credentials: 'same-origin',
-      headers: { 'X-Requested-With': 'EduGest', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      headers: { 'X-Requested-With': 'EduGest', ...(PORTAL ? { 'X-Portal': PORTAL } : {}), ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined
     });
   } catch { throw new ApiError(0, 'Connexion au serveur impossible. Vérifiez votre connexion Internet.'); }
@@ -24,6 +27,8 @@ export async function api(path, { method = 'GET', body, raw = false, base } = {}
     if (res.status === 401 && !path.startsWith('/auth/login')) onAuthLost();
     if (res.status === 428) onMustChange();
     if (res.status === 402 && !path.startsWith('/auth/login')) onSubscription(data?.error);
+    // interface d'un autre rôle (ou console ouverte depuis un établissement) : retour à l'espace du compte connecté
+    if (res.status === 403 && data?.redirect && /^Accès refusé/.test(data.error || '') && !path.startsWith('/auth/login')) location.replace(data.redirect);
     throw new ApiError(res.status, data?.error || `Erreur ${res.status}`, data);
   }
   return data;

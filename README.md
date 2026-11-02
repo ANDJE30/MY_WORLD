@@ -36,24 +36,24 @@ npm install
 ```
 
 ```bash
-DEMO=1 npm start
+SUPERADMIN_PASSWORD='VotreMotDePasse!2026' DEMO=1 npm start
 ```
 
-Le mode démonstration crée une plateforme avec 4 établissements fictifs (http://localhost:3000) :
+Le mode démonstration crée une plateforme avec 4 établissements fictifs (http://localhost:3000). **Aucun identifiant n'est affiché par l'application** (accueil, pages de connexion, API publique) ; ceux de l'établissement fictif, réservés aux développeurs et aux démonstrations encadrées, sont les suivants :
 
 | Interface | Adresse | Identifiant / mot de passe |
 |---|---|---|
-| Console AI721 | `/console` | `AI721` / `Ai721@2026` |
+| Console AI721 | `/console` | `AI721` / valeur de `SUPERADMIN_PASSWORD` (sans elle : mot de passe aléatoire affiché une fois dans le terminal) |
 | Administration | `/e/lpey/admin` | `admin` / `Admin@2026` |
 | Enseignants | `/e/lpey/enseignant` | `mbargajp` / `Prof@2026` |
 | Vie scolaire | `/e/lpey/discipline` | `sg.nguemap` / `Disc@2026` |
 
 Les autres établissements de démonstration illustrent les situations d'abonnement : `lbdouala` (actif), `cetbafoussam` (expiré) et `cesgaroua` (en attente de paiement).
 
-Pour une installation réelle, lancez `npm start` sur un dossier de données vide. Le compte `AI721` est créé au premier démarrage avec le mot de passe `SUPERADMIN_PASSWORD`, ou un mot de passe affiché une seule fois dans la console. Une installation 1.x existante (`data/edugest.db`) est **convertie automatiquement** en premier établissement de la plateforme.
+Pour une installation réelle, lancez `npm start` sur un dossier de données vide. Le compte `AI721` est créé au premier démarrage avec le mot de passe `SUPERADMIN_PASSWORD`, ou un mot de passe aléatoire affiché une seule fois dans la console (à changer à la première connexion). L'ancien mot de passe de démonstration de la console, publié jusqu'à la version 3.3, est **remplacé automatiquement au démarrage**. Mot de passe AI721 oublié : redémarrez une fois avec `SUPERADMIN_RESET=1` (et `SUPERADMIN_PASSWORD`), puis retirez la variable. Une installation 1.x existante (`data/edugest.db`) est **convertie automatiquement** en premier établissement de la plateforme.
 
 ```bash
-npm test                  # 36 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, chronogramme et modèles Word, nom de domaine, PDF, migrations)
+npm test                  # 38 tests d'intégration (plateforme, abonnements, isolation, cloisonnement des interfaces, sécurité, calculs, clôtures, assiduité, documents administratifs, chronogramme et modèles Word, nom de domaine, PDF, migrations)
 ```
 
 ## Déploiement
@@ -69,7 +69,7 @@ npm test                  # 36 tests d'intégration (plateforme, abonnements, is
 - Domaine propre (recommandé pour la production) : `ai721-schoolx.cm`. Déclarez-le dans Render (*Settings ▸ Custom Domains*) ou utilisez-le comme `DOMAIN` sur un serveur. Définissez ensuite `CANONICAL_URL=https://ai721-schoolx.cm` : toutes les autres adresses y seront redirigées (redirection 301).
 
 **Mettre à jour le site** :
-- **Render** : chaque fusion dans `master` redéploie automatiquement le service.
+- **Render** : chaque fusion dans `master` redéploie automatiquement le service. Définissez `SUPERADMIN_PASSWORD` dans *Environment* (Render le demande à la création du Blueprint) : sans cette variable, le disque gratuit étant recréé à chaque démarrage, un nouveau mot de passe AI721 aléatoire est généré à chaque fois et ne figure que dans les journaux du service.
 - **Serveur de production** : lancez `sudo bash /opt/edugest/deploy/mise-a-jour.sh`. Le script sauvegarde la base, récupère le code et redémarre l'application. Les migrations de la base s'appliquent automatiquement et les données sont conservées.
 
 Variables d'environnement :
@@ -78,7 +78,8 @@ Variables d'environnement :
 |---|---|
 | `PORT` | Port d'écoute |
 | `DATA_DIR` | Dossier des données, `./data` par défaut. Contient `platform.db`, `tenants/<code>/edugest.db`, `backups/`, `vault.key` |
-| `SUPERADMIN_PASSWORD` | Mot de passe du compte AI721 |
+| `SUPERADMIN_PASSWORD` | Mot de passe du compte AI721 (à la création du compte, ou avec `SUPERADMIN_RESET=1`) |
+| `SUPERADMIN_RESET=1` | Réinitialise le mot de passe AI721 au démarrage (puis retirer la variable) |
 | `VAULT_KEY` | 32 octets en hexadécimal : clé du coffre des accès (sinon `DATA_DIR/vault.key`, à sauvegarder avec les données) |
 | `DEMO=1` | Plateforme de démonstration |
 | `TRUST_PROXY` | 1 derrière un proxy, 0 en exposition directe |
@@ -100,7 +101,9 @@ Variables d'environnement :
   - contrôle d'accès par rôle et par ressource, séquences clôturées verrouillées ;
   - journal d'audit et sauvegardes automatiques ;
   - coffre des accès chiffré en AES-256-GCM, limité aux mots de passe **générés** (un mot de passe choisi par l'utilisateur n'est jamais conservé) ;
-  - contrôle de l'abonnement et de la suspension à chaque requête.
+  - contrôle de l'abonnement et de la suspension à chaque requête ;
+  - **cloisonnement des interfaces** : un compte n'ouvre que son interface. Le serveur redirige vers son propre espace un enseignant ou un responsable disciplinaire qui ouvre l'administration. Il ferme la console AI721 (page et API) à tout navigateur connecté à un établissement, grâce à un témoin signé HttpOnly. Chaque appel à l'API vérifie que l'interface appelante (`X-Portal`) correspond au rôle de la session ;
+  - aucun identifiant de démonstration affiché ni transmis par l'API, et aucun mot de passe fixe pour la console AI721.
 
 ```
 server/            API, sécurité, calculs, PDF, base de données, jeu de démonstration
@@ -114,6 +117,12 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
 
 ## Historique des versions
+
+- **3.4** (sécurité) :
+  - identifiants de démonstration retirés de l'accueil, des pages de connexion et de l'API publique ;
+  - plus de mot de passe AI721 fixe : le mot de passe vient de `SUPERADMIN_PASSWORD` ou est généré aléatoirement, et l'ancien mot de passe public est remplacé automatiquement. `SUPERADMIN_RESET=1` permet une réinitialisation ;
+  - cloisonnement des interfaces côté serveur. La console AI721 est fermée aux navigateurs connectés à un établissement (administration, enseignants, vie scolaire). L'administration est fermée aux enseignants et aux responsables disciplinaires, et chaque compte est redirigé vers son espace avec une explication. L'API vérifie l'interface appelante ;
+  - les liens transmis (fiche d'accès, WhatsApp, SMS) ouvrent chacun uniquement l'espace de travail de son destinataire.
 
 - **3.3** :
   - **chronogramme des dépôts** des documents périodiques (*Pilotage ▸ Chronogramme des dépôts*). L'administrateur importe le chronogramme reçu de la hiérarchie (Word .docx ou PDF). La plateforme lit le tableau, y compris les cellules sur plusieurs lignes, et propose les échéances à vérifier : intitulé, date limite, destinataire et périodicité (ponctuelle, mensuelle, à chaque séquence ou trimestre, annuelle) ;

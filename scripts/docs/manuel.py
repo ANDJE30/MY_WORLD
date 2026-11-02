@@ -10,7 +10,7 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre é
 D = Doc("Manuel d'utilisation — AI721 SchoolX CM", "Manuel d'utilisation")
 D.cover("Manuel d'utilisation", 'AI721 SchoolX CM',
         "Guide pas à pas pour le super administrateur AI721, les administrateurs d'établissement, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.3 (anciennement EduGest CM)'), ('Date', today),
+        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.4 (anciennement EduGest CM)'), ('Date', today),
          ('Public', 'Super administrateur AI721 TECH STUFF, administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Éditeur', 'AI721 TECH STUFF'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -35,6 +35,9 @@ D.note("**Nouveau en version 3.2 :** appellations **Séquence** ou **Situation**
 D.note("**Nouveau en version 3.3 :** l'administrateur charge le **chronogramme des dépôts** des documents périodiques reçu de la hiérarchie (Word ou PDF) ; "
        "la plateforme en extrait les échéances, **rappelle** les documents à produire et propose pour chacun un **modèle Word pré-rempli**, modifiable (section 4.24). "
        "L'adresse de l'application reprend son nom : **ai721-schoolx-cm.onrender.com** (et **ai721-schoolx.cm** comme domaine propre) ; elle remplace edugest-cm.onrender.com.", 'ok')
+D.note("**Nouveau en version 3.4 (sécurité) :** aucun identifiant ni mot de passe de démonstration n'est plus affiché. **Chaque compte n'ouvre que son espace de travail** : "
+       "la console AI721 est fermée aux administrateurs d'établissement, aux enseignants et aux responsables disciplinaires ; l'interface d'administration est fermée aux enseignants "
+       "et aux responsables disciplinaires, qui sont reconduits vers leur propre espace (section 2.1).", 'ok')
 D.table(['Votre profil', 'Ce que vous pouvez faire', 'Chapitre'], [
     ['Super administrateur (AI721)', "Créer les établissements abonnés, enregistrer abonnements et paiements, transmettre et retrouver les accès des administrateurs", '3'],
     ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année, assiduité et documents administratifs des enseignants, chronogramme des dépôts et modèles Word", '4'],
@@ -75,6 +78,13 @@ D.note("**Sécurité :** après 5 mots de passe erronés, le compte est verrouil
 D.p("Si vous utilisez la page d'une autre interface (par exemple un enseignant sur l'interface Administration), la connexion est refusée et le lien de **votre** interface vous est proposé. "
     "Si l'abonnement de l'établissement a expiré ou n'est pas réglé, la page de connexion l'indique : l'administration doit contacter AI721 TECH STUFF.", align='justify')
 D.figures_row([c('01f_mauvaise_interface.png'), c('01e_abonnement_expire.png')], 'Mauvaise interface (à gauche) et abonnement expiré (à droite)', width=8)
+D.h3('Chaque compte n’ouvre que son espace de travail')
+D.p("Le lien transmis par l'administration (fiche d'accès, WhatsApp ou SMS) ouvre l'espace de travail de son destinataire, et lui seul. Une fois connecté :", align='justify')
+D.bullets([("Enseignant ou responsable disciplinaire : ", "l'adresse de l'interface **Administration** vous ramène automatiquement dans votre espace, avec le message « Accès refusé »."),
+           ("Tout compte d'établissement (administrateur compris) : ", "la **console AI721** (/console) est refusée sur ce navigateur ; vous êtes reconduit dans votre espace."),
+           ("Page de l'établissement (/e/<code>) : ", "elle ouvre directement votre espace, sans proposer les autres."),
+           ("Aucune indication d'identifiant : ", "les pages de connexion et la page d'accueil n'affichent jamais d'identifiant ni de mot de passe, même en démonstration.")])
+D.figures_row([c('01g_acces_refuse_admin.png'), c('01h_acces_refuse_console.png')], "Enseignant connecté : interface Administration refusée (à gauche) et console AI721 refusée (à droite)", width=8)
 D.h2('2.2 Votre mot de passe')
 D.p("Le mot de passe qui vous a été remis est **facile à retenir** (deux mots et trois chiffres, ex. mangue-lion-482) et reste valable : vous pouvez l'utiliser tel quel. "
     "Il est conservé de façon chiffrée dans le **coffre des accès** de votre administrateur, qui peut vous le rappeler en cas d'oubli.", align='justify')
@@ -104,6 +114,10 @@ D.p("Cliquez sur votre avatar (en haut à droite) pour accéder à **Mon profil*
 # =============================================================== 3 (nouveau) — console AI721
 D.h1('3. Guide du super administrateur (AI721 TECH STUFF)')
 D.p("La console AI721 (adresse /console) permet à l'éditeur de gérer les établissements abonnés : création, abonnements annuels, paiements, accès des administrateurs et suivi.", align='justify')
+D.note("**Mot de passe de la console :** il n'existe plus de mot de passe fixe. Il est défini par la variable **SUPERADMIN_PASSWORD** du serveur (sur Render : *Environment*), "
+       "sinon généré au premier démarrage et affiché une seule fois dans les journaux du serveur, puis à changer à la première connexion. En cas d'oubli, l'équipe technique "
+       "redémarre une fois le serveur avec SUPERADMIN_RESET=1. **La console est refusée à tout navigateur connecté à un établissement** : pour intervenir dans l'espace "
+       "d'un établissement, utilisez une fenêtre de navigation privée, ou déconnectez-vous de cet espace avant de revenir à la console.", 'warn')
 D.h2('3.1 Tableau de bord de la console')
 D.figure(c('40_console_tableau_de_bord.png'), 'Tableau de bord de la console AI721', max_h=14)
 D.bullets([("Indicateurs : ", "établissements abonnés (actifs / inactifs), élèves et enseignants gérés, recettes de l'année (et montant attendu), établissements à relancer."),
@@ -617,7 +631,8 @@ D.table(['Problème', 'Solution'], [
     ["Session expirée", "Après 2 heures d'inactivité, reconnectez-vous ; les saisies non envoyées sont restaurées."],
     ["« Ce compte doit se connecter via… »", "Vous êtes sur l'interface d'un autre rôle : cliquez sur « Ouvrir cette interface » ou utilisez le lien qui vous a été transmis."],
     ["« L'abonnement … a expiré » / « en attente de paiement »", "L'établissement doit renouveler ou régler son abonnement auprès d'AI721 TECH STUFF ; l'accès est rétabli dès l'encaissement."],
-    ["J'ai oublié mon mot de passe", "Enseignants et responsables : l'administrateur le retrouve dans son coffre. Administrateur : contactez AI721 TECH STUFF."],
+    ["J'ai oublié mon mot de passe", "Enseignants et responsables : l'administrateur le retrouve dans son coffre. Administrateur : contactez AI721 TECH STUFF. Console AI721 : redémarrage du serveur avec SUPERADMIN_RESET=1."],
+    ["« Accès refusé » en ouvrant l'Administration ou la console AI721", "Ces interfaces ne sont pas celles de votre compte : vous êtes ramené dans votre espace. Sur un ordinateur partagé, déconnectez-vous d'abord de votre espace pour laisser l'administrateur se connecter."],
     ["Le taux d'assiduité d'un enseignant semble faux", "Vérifiez son emploi du temps (les heures dues en dépendent), les jours non ouvrés et le pointage de la période (onglet Absences & retards)."],
     ["Aucun cours n'apparaît dans le pointage", "Le jour n'est pas un jour de cours, est un jour non ouvré, ou les emplois du temps ne sont pas encore générés."],
     ["Je ne peux plus modifier un document administratif", "Il a déjà été remis ou lu par l'enseignant : annulez-le (avec un motif) et émettez-en un nouveau."],
@@ -636,6 +651,8 @@ D.table(['Problème', 'Solution'], [
 # =============================================================== 8
 D.h1('9. Bonnes pratiques de sécurité')
 D.bullets(["Ne communiquez jamais votre mot de passe, même à un collègue ; l'administrateur n'en a pas besoin.",
+           "Chaque compte n'ouvre que son espace : ne cherchez pas à ouvrir l'administration ou la console AI721 avec un compte enseignant ou de vie scolaire, l'accès est refusé et tracé.",
+           "AI721 TECH STUFF : définissez SUPERADMIN_PASSWORD sur le serveur, ne publiez jamais les accès de démonstration et ouvrez la console dans un navigateur non connecté à un établissement.",
            "Déconnectez-vous sur les ordinateurs partagés (salle des professeurs, cybercafé).",
            "Détruisez la fiche d'identifiants papier après avoir choisi votre mot de passe personnel.",
            "Administrateurs : téléchargez une sauvegarde chaque semaine, consultez le journal d'audit, désactivez immédiatement le compte d'un personnel qui quitte l'établissement.",
@@ -664,9 +681,8 @@ D.p("**Références :** N° numéro/millésime/code/référence de l'établissem
 D.h1('Annexe C — Comptes du mode démonstration')
 D.p("L'instance de démonstration contient un établissement **fictif** (« Lycée Pilote SchoolX de Yaoundé ») avec 6 classes, 181 élèves, 12 enseignants et "
     "2 responsables. Elle est réinitialisée régulièrement : ne l'utilisez pas pour de vraies données.", align='justify')
-D.table(['Profil', 'Interface', 'Identifiant', 'Mot de passe'], [['Super administrateur', '/console', 'AI721', 'Ai721@2026'],
-    ['Administrateur', '/e/lpey/admin', 'admin', 'Admin@2026'], ['Enseignant (mathématiques)', '/e/lpey/enseignant', 'mbargajp', 'Prof@2026'],
-    ['Responsable disciplinaire', '/e/lpey/discipline', 'sg.nguemap', 'Disc@2026']], widths=[4.6, 4.4, 3.4, 4.2], font=9.5)
+D.note("**Accès de démonstration :** depuis la version 3.4, ils ne sont plus affichés par l'application ni publiés dans ce manuel. AI721 TECH STUFF les communique "
+       "lors d'une démonstration encadrée. La console AI721 n'a aucun mot de passe de démonstration : son mot de passe est propre à chaque serveur.", 'warn')
 D.p("Les enseignants de démonstration ont un dossier administratif, un pointage depuis la rentrée et plusieurs documents (prise de service, présence effective, rappel à l'ordre, "
     "demandes d'explication avec et sans réponse, lettre d'observation). L'enseignant de démonstration a une demande d'explication à laquelle répondre. "
     "Un chronogramme des dépôts fictif (29 échéances, dont une en retard) est déjà importé.", align='justify')
