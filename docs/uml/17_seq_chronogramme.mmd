@@ -1,0 +1,30 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrateur
+  participant UI as Interface (Chronogramme des dépôts)
+  participant API as API SchoolX (/e/code/api)
+  participant LX as Lecteur (docx.js / unpdf + chrono.js)
+  participant DB as Base de l'établissement
+  A->>UI: Importer un chronogramme (fichier Word .docx ou PDF reçu de la hiérarchie)
+  UI->>API: POST /admin/echeancier/chronogrammes {nom_fichier, data}
+  API->>DB: chronogramme enregistré, fichier conservé (tenants/code/chronogrammes)
+  API->>LX: lire le document
+  LX-->>API: lignes du tableau (cellules sur plusieurs lignes regroupées)
+  API->>LX: repérer les échéances (calendrier des séquences)
+  LX-->>API: intitulé, date limite, destinataire, périodicité, modèle Word
+  API-->>UI: propositions à vérifier
+  A->>UI: corrige, décoche, enregistre
+  UI->>API: POST /admin/echeancier/echeances {items}
+  API->>DB: échéances de l'année
+  Note over A,DB: Les jours suivants
+  A->>UI: connexion / tableau de bord
+  UI->>API: GET /admin/echeancier/rappels
+  API-->>UI: en retard, du jour, dans le délai de rappel
+  UI-->>A: rappel (notification et points d'attention)
+  A->>UI: Modèle Word
+  UI->>API: GET /admin/echeancier/echeances/:id/modele
+  API->>DB: établissement, effectifs, résultats, assiduité, discipline…
+  API-->>A: document .docx pré-rempli, modifiable dans Word
+  A->>UI: Déposé (date, observation, pièce déposée)
+  UI->>API: POST /admin/echeancier/echeances/:id/depot
+  API->>DB: statut « déposé », pièce archivée (tenants/code/depots)

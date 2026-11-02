@@ -11,7 +11,7 @@ L'éditeur, **AI721 TECH STUFF**, commercialise la plateforme sur **abonnement a
 | Profil | Interface | Fonctions principales |
 |---|---|---|
 | **Super administrateur AI721** | `/console` | Établissements abonnés (une base de données dédiée par établissement), abonnements et paiements (reçus PDF), coffre des accès des administrateurs, liens et fiches d'accès (PDF, WhatsApp), suspension et renouvellement, tableau de bord commercial |
-| **Administrateur d'établissement** | `/e/<code>/admin` | Paramétrage, comptes du personnel avec **coffre des accès** (mots de passe générés et liens, envoi par WhatsApp), classes, matières (groupe et type), élèves, attributions, emplois du temps, clôtures par séquence et par trimestre, **clôture de l'année** (statistiques annuelles et sauvegarde archivées), bulletins, PV, **statistiques exportables en PDF**, **messages aux parents** (SMS, WhatsApp), **assiduité des enseignants** (pointage journalier, taux d'assiduité) et **documents administratifs** (présence effective au poste, prise de service, rappel à l'ordre, lettre d'observation, demande d'explication) |
+| **Administrateur d'établissement** | `/e/<code>/admin` | Paramétrage, comptes du personnel avec **coffre des accès** (mots de passe générés et liens, envoi par WhatsApp), classes, matières (groupe et type), élèves, attributions, emplois du temps, clôtures par séquence et par trimestre, **clôture de l'année** (statistiques annuelles et sauvegarde archivées), bulletins, PV, **statistiques exportables en PDF**, **messages aux parents** (SMS, WhatsApp), **assiduité des enseignants** (pointage journalier, taux d'assiduité), **chronogramme des dépôts** (import du chronogramme Word ou PDF, rappels, modèles Word pré-remplis, suivi des dépôts) et **documents administratifs** (présence effective au poste, prise de service, rappel à l'ordre, lettre d'observation, demande d'explication) |
 | **Enseignant** | `/e/<code>/enseignant` | Saisie des notes **par séquence ou par trimestre**, progression annuelle (dont leçons digitalisées), validation, relevés PDF, emploi du temps, **mes documents administratifs** (accusé de réception, **réponse en ligne aux demandes d'explication**) et mon assiduité |
 | **Responsable disciplinaire** | `/e/<code>/discipline` | Absences, retards, consignes, sanctions, incidents, récapitulatif trimestriel, fiches PDF |
 
@@ -25,6 +25,7 @@ Les quatre interfaces de connexion sont distinctes : chacune a son adresse, ses 
 | Manuel d'utilisation | [`docs/Manuel_utilisation_AI721_SchoolX_CM.docx`](docs/Manuel_utilisation_AI721_SchoolX_CM.docx) · [`.pdf`](docs/Manuel_utilisation_AI721_SchoolX_CM.pdf) |
 | Diagrammes UML (sources Mermaid + PNG) | [`docs/uml/`](docs/uml) |
 | Captures d'écran | [`docs/captures/`](docs/captures) |
+| Exemple de chronogramme des dépôts (fictif, pour essayer l'import) | [`docs/exemples/Chronogramme_exemple_2026-2027.docx`](docs/exemples/Chronogramme_exemple_2026-2027.docx) · [`.pdf`](docs/exemples/Chronogramme_exemple_2026-2027.pdf) |
 
 ## Démarrage rapide (local)
 
@@ -52,16 +53,20 @@ Les autres établissements de démonstration illustrent les situations d'abonnem
 Pour une installation réelle, lancez `npm start` sur un dossier de données vide. Le compte `AI721` est créé au premier démarrage avec le mot de passe `SUPERADMIN_PASSWORD`, ou un mot de passe affiché une seule fois dans la console. Une installation 1.x existante (`data/edugest.db`) est **convertie automatiquement** en premier établissement de la plateforme.
 
 ```bash
-npm test                  # 32 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, PDF, migrations)
+npm test                  # 36 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, chronogramme et modèles Word, nom de domaine, PDF, migrations)
 ```
 
 ## Déploiement
 
 | Usage | Hébergeur | Procédure |
 |---|---|---|
-| **Démonstration** (gratuit, en un clic) | Render (offre Free) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/andje30/my_world) — le fichier `render.yaml` configure tout. Le disque gratuit est éphémère : la base de démonstration se recrée à chaque redémarrage. |
-| **Production gratuite** | Oracle Cloud *Always Free* (VM ARM, 200 Go persistants) | Créez une VM Ubuntu, pointez un domaine vers son IP, puis exécutez `sudo DOMAIN=schoolx.ai721.cm SUPERADMIN_PASSWORD='…' bash deploy/oracle-cloud-init.sh` (Docker + Caddy, HTTPS automatique, clé du coffre générée). |
+| **Démonstration** (gratuit, en un clic) | Render (offre Free) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/andje30/my_world) — le fichier `render.yaml` crée le service **`ai721-schoolx-cm`**, publié à l'adresse **https://ai721-schoolx-cm.onrender.com**. Le disque gratuit est éphémère : la base de démonstration se recrée à chaque redémarrage. |
+| **Production gratuite** | Oracle Cloud *Always Free* (VM ARM, 200 Go persistants) | Créez une VM Ubuntu, pointez un domaine vers son IP, puis exécutez `sudo DOMAIN=ai721-schoolx.cm SUPERADMIN_PASSWORD='…' bash deploy/oracle-cloud-init.sh` (Docker + Caddy, HTTPS automatique, clé du coffre générée). |
 | Production sur un serveur existant | Tout VPS | `cd deploy && DOMAIN=… SUPERADMIN_PASSWORD=… VAULT_KEY=$(openssl rand -hex 32) docker compose up -d --build` |
+
+**Nom de domaine** : l'adresse reprend le nom de l'application.
+- Render : `https://ai721-schoolx-cm.onrender.com` (service `ai721-schoolx-cm`). Le sous-domaine d'un service Render existant ne se renomme pas : le Blueprint crée un nouveau service. Sur l'ancien service `edugest-cm`, définissez `CANONICAL_URL=https://ai721-schoolx-cm.onrender.com` pour rediriger les anciens liens, ou supprimez-le.
+- Domaine propre (recommandé pour la production) : `ai721-schoolx.cm`. Déclarez-le dans Render (*Settings ▸ Custom Domains*) ou utilisez-le comme `DOMAIN` sur un serveur. Définissez ensuite `CANONICAL_URL=https://ai721-schoolx.cm` : toutes les autres adresses y seront redirigées (redirection 301).
 
 **Mettre à jour le site** :
 - **Render** : chaque fusion dans `master` redéploie automatiquement le service.
@@ -78,11 +83,12 @@ Variables d'environnement :
 | `DEMO=1` | Plateforme de démonstration |
 | `TRUST_PROXY` | 1 derrière un proxy, 0 en exposition directe |
 | `AUTO_BACKUP=0` | Désactive les sauvegardes automatiques (toutes les 6 h, 14 jours conservés) |
+| `CANONICAL_URL` | Adresse officielle, par exemple `https://ai721-schoolx.cm`. Les requêtes reçues sur une autre adresse publique y sont redirigées de façon permanente. |
 
 ## Architecture
 
 - **Multi-établissements** : une base « plateforme » (établissements, abonnements, super admin) et **une base SQLite par établissement**. Chaque requête s'exécute dans le contexte de son établissement (`AsyncLocalStorage`) ; le cookie de session est limité à `/e/<code>/`.
-- **Backend** : Node.js 22, Express 5, SQLite natif (`node:sqlite`, mode WAL), PDFKit. Deux dépendances seulement, sans module natif : l'application tourne sur x86 comme sur ARM.
+- **Backend** : Node.js 22, Express 5, SQLite natif (`node:sqlite`, mode WAL), PDFKit, unpdf (lecture du texte des PDF). Trois dépendances seulement, sans module natif : l'application tourne sur x86 comme sur ARM. Les documents Word (.docx) sont écrits et lus sans bibliothèque externe (`server/docx.js`).
 - **Frontend** : SPA en JavaScript natif (modules ES), sans étape de build, avec un design system CSS maison (thème clair et sombre) et une PWA.
 - **Sécurité** :
   - mots de passe hachés avec scrypt ;
@@ -108,6 +114,13 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
 
 ## Historique des versions
+
+- **3.3** :
+  - **chronogramme des dépôts** des documents périodiques (*Pilotage ▸ Chronogramme des dépôts*). L'administrateur importe le chronogramme reçu de la hiérarchie (Word .docx ou PDF). La plateforme lit le tableau, y compris les cellules sur plusieurs lignes, et propose les échéances à vérifier : intitulé, date limite, destinataire et périodicité (ponctuelle, mensuelle, à chaque séquence ou trimestre, annuelle) ;
+  - **rappels** : tableau de bord, message à la connexion de l'administrateur, liste « Rappels » (en retard, du jour, dans le délai de rappel) ;
+  - **modèles Word modifiables** pour chaque document à produire, pré-remplis avec les données de l'établissement. Ils reprennent l'en-tête officiel bilingue et le logo, et contiennent les tableaux des effectifs, des résultats, de la couverture des programmes, de l'assiduité du personnel, de la discipline et des candidats, ainsi que les sections à compléter et le bloc de signature ;
+  - **suivi des dépôts** : date, observation et pièce déposée archivée (Word ou PDF), annulation, filtres et taux de dépôt ;
+  - **nom de domaine** aligné sur le nom de l'application : service Render `ai721-schoolx-cm` (https://ai721-schoolx-cm.onrender.com), domaine propre `ai721-schoolx.cm` et redirection permanente des anciennes adresses (`CANONICAL_URL`).
 
 - **3.2** :
   - appellations au choix : **Séquence** ou **Situation**, **Professeur Principal** ou **Titulaire** (interface, messages et PDF) ;

@@ -2,9 +2,14 @@
 # Le disque de l'offre gratuite est éphémère : la plateforme de démonstration (console AI721 + 4 établissements fictifs)
 # est recréée à chaque redémarrage.
 # Pour la production, voir docs/DEPLOIEMENT.md (Oracle Cloud Always Free ou Render avec disque persistant).
+# Nom du service = nom de l'application : adresse publique https://ai721-schoolx-cm.onrender.com
+# (Render ajoute un suffixe aléatoire si ce sous-domaine est déjà pris ; le sous-domaine d'un service existant ne change pas).
+# Domaine personnalisé (ex. ai721-schoolx.cm) : l'ajouter dans Render ▸ Settings ▸ Custom Domains, puis définir
+# CANONICAL_URL=https://ai721-schoolx.cm pour rediriger automatiquement les autres adresses vers lui.
+# Ancien service « edugest-cm » : définir CANONICAL_URL=https://ai721-schoolx-cm.onrender.com pour rediriger les anciens liens.
 services:
   - type: web
-    name: edugest-cm
+    name: ai721-schoolx-cm
     runtime: node
     plan: free
     region: frankfurt

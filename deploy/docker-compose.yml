@@ -1,5 +1,5 @@
 # Production sur un serveur (VPS Oracle Cloud Always Free, OVH, Contabo, serveur de l'établissement…)
-# Usage : DOMAIN=schoolx.ai721.cm SUPERADMIN_PASSWORD='MotDePasseFort!2026' VAULT_KEY=$(openssl rand -hex 32) docker compose up -d --build
+# Usage : DOMAIN=ai721-schoolx.cm SUPERADMIN_PASSWORD='MotDePasseFort!2026' VAULT_KEY=$(openssl rand -hex 32) docker compose up -d --build
 # Conservez VAULT_KEY en lieu sûr : elle chiffre le coffre des accès (mots de passe générés).
 services:
   app:

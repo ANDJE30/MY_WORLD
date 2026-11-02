@@ -45,6 +45,9 @@ erDiagram
   STAFF_DOCUMENTS |o--o{ STAFF_DOCUMENTS : "en référence à"
   PARENT_CAMPAIGNS ||--o{ PARENT_MESSAGES : "contient"
   USERS ||--o{ PARENT_CAMPAIGNS : "envoie"
+  CHRONOGRAMMES |o--o{ ECHEANCES : "échéances extraites"
+  USERS ||--o{ CHRONOGRAMMES : "importe"
+  USERS |o--o{ ECHEANCES : "dépose"
   USERS {
     int id PK
     text role
@@ -209,4 +212,28 @@ erDiagram
     text enfants
     text message
     text status
+  }
+  CHRONOGRAMMES {
+    int id PK
+    text titre
+    text annee
+    text fichier "tenants/code/chronogrammes"
+    text nom_fichier
+    text mime "docx | pdf"
+    int extraits
+  }
+  ECHEANCES {
+    int id PK
+    int chronogramme_id FK
+    text annee
+    text titre
+    text date_limite
+    text destinataire
+    text modele "modèle Word"
+    text periodicite
+    int rappel_jours
+    text status "a_produire | depose"
+    text depose_at
+    text depot_fichier "pièce déposée"
+    text observation
   }

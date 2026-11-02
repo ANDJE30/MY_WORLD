@@ -11,8 +11,8 @@ D = Doc('Cahier des charges — AI721 SchoolX CM', 'Cahier des charges')
 D.cover('Cahier des charges fonctionnel et technique', 'AI721 SchoolX CM',
         "Plateforme web responsive (SaaS) de gestion des notes, des faits disciplinaires et des emplois du temps des établissements d'enseignement secondaire général et technique du Cameroun — proposée par AI721 TECH STUFF",
         [('Projet', 'AI721 SchoolX CM — plateforme de gestion scolaire multi-établissements'), ('Éditeur', 'AI721 TECH STUFF (super administrateur : AI721)'), ('Document', 'Cahier des charges (spécifications fonctionnelles, techniques et conception UML)'),
-         ('Version', '3.2'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
-         ('Historique', "1.0 : version initiale.  1.1 : groupe et type de matière dissociés.  2.0 : plateforme multi-établissements AI721 (abonnements annuels, console super admin, quatre interfaces de connexion, coffre des accès), saisie et statistiques par trimestre, statistiques PDF, clôture annuelle.  3.0 : nouveau nom « AI721 SchoolX CM » ; dossier administratif des enseignants (pointage, taux d'assiduité, attestation de présence effective, certificat de prise de service, rappel à l'ordre, lettre d'observation, demande d'explication avec réponse en ligne).  3.1 : appellations des fonctions paramétrables (chef d'établissement, adjoint, vie scolaire, animation pédagogique).  3.2 : appellations Séquence/Situation et Professeur Principal/Titulaire, leçons digitalisées, attestation de présence effective au modèle officiel (APEP), messages aux parents (SMS, WhatsApp)."),
+         ('Version', '3.3'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
+         ('Historique', "1.0 : version initiale.  1.1 : groupe et type de matière dissociés.  2.0 : plateforme multi-établissements AI721 (abonnements annuels, console super admin, quatre interfaces de connexion, coffre des accès), saisie et statistiques par trimestre, statistiques PDF, clôture annuelle.  3.0 : nouveau nom « AI721 SchoolX CM » ; dossier administratif des enseignants (pointage, taux d'assiduité, attestation de présence effective, certificat de prise de service, rappel à l'ordre, lettre d'observation, demande d'explication avec réponse en ligne).  3.1 : appellations des fonctions paramétrables (chef d'établissement, adjoint, vie scolaire, animation pédagogique).  3.2 : appellations Séquence/Situation et Professeur Principal/Titulaire, leçons digitalisées, attestation de présence effective au modèle officiel (APEP), messages aux parents (SMS, WhatsApp).  3.3 : chronogramme des dépôts des documents périodiques (import Word ou PDF, rappels, modèles Word pré-remplis et modifiables, suivi des dépôts) ; nom de domaine aligné sur le nom de l'application (ai721-schoolx-cm.onrender.com, ai721-schoolx.cm)."),
 
          ('Destinataires', "Chefs d'établissement, censeurs, surveillants généraux, enseignants, promoteurs d'établissements privés, équipe technique"),
          ('Rédaction', 'Équipe de développement full stack AI721 SchoolX CM')], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -43,11 +43,19 @@ D.p("Enfin, l'établissement doit **informer les familles** (remise des bulletin
     "confiées aux élèves arrivent rarement. La version 3.2 ajoute l'envoi de **messages aux parents** par SMS ou WhatsApp, personnalisés avec le nom de l'enfant, "
     "adapte le vocabulaire de chaque établissement (**séquence** ou **situation**, **professeur principal** ou **titulaire**), suit les **leçons digitalisées** "
     "et produit l'attestation de présence effective au poste selon le **modèle administratif en usage (APEP)**.", align='justify')
+D.p("Chaque année, la hiérarchie (délégations départementale et régionale, inspections pédagogiques, Office du Baccalauréat…) adresse aux établissements un "
+    "**chronogramme de dépôt des documents périodiques** : états des effectifs, rapport de rentrée, statistiques des résultats, procès-verbaux des conseils de classe, "
+    "taux de couverture des programmes, états de présence du personnel, rapports disciplinaires, listes des candidats, rapport de fin d'année. Ces échéances, "
+    "mensuelles, séquentielles ou trimestrielles, sont faciles à oublier et chaque document est rédigé à partir de zéro. La version 3.3 permet à l'administrateur "
+    "de **charger ce chronogramme (Word ou PDF)** : la plateforme en extrait les échéances, **rappelle** le document à produire avant la date limite et propose "
+    "pour chacun un **modèle Word pré-rempli**, modifiable au besoin, puis garde la trace du dépôt. L'adresse de l'application reprend désormais son nom : "
+    "**ai721-schoolx-cm.onrender.com**, et **ai721-schoolx.cm** comme domaine propre.", align='justify')
 D.h2('1.2 Problématique')
 D.bullets(["Comment permettre à chaque enseignant de saisir ses notes **où qu'il soit**, depuis un ordinateur, une tablette ou un simple smartphone, même avec une connexion instable ?",
            "Comment garantir que les moyennes, rangs et décisions soient **calculés sans erreur** et que les documents officiels soient **conformes** à la présentation administrative camerounaise ?",
            "Comment donner au chef d'établissement une **vision en temps réel** de l'avancement des saisies et lui permettre de **clôturer** une séquence selon un calendrier précis ?",
            "Comment mesurer objectivement l'**assiduité des enseignants** et produire en quelques secondes des documents administratifs **numérotés, traçables et conformes** ?",
+           "Comment ne plus **oublier aucun document périodique** exigé par la hiérarchie et le produire vite, dans la présentation attendue ?",
            "Comment **sécuriser** des données personnelles de mineurs, conformément à la loi n° 2024/017 du 23 décembre 2024 relative à la protection des données à caractère personnel ?"])
 D.h2('1.3 Objectifs')
 D.table(['Objectif', 'Indicateur de réussite'], [
@@ -60,6 +68,7 @@ D.table(['Objectif', 'Indicateur de réussite'], [
     ["Suivre l'assiduité du personnel enseignant", "Taux d'assiduité calculé à partir de l'emploi du temps et du pointage, par séquence, trimestre, mois ou année"],
     ["Informer les parents rapidement", "Message personnalisé (nom de l'enfant, classe) envoyé à tous les parents d'une ou plusieurs classes en quelques minutes"],
     ["Dématérialiser les documents administratifs du personnel", "Attestation, certificat ou courrier numéroté émis en moins d'une minute ; réponses aux demandes d'explication reçues en ligne"],
+    ["Respecter le chronogramme des dépôts", "Échéances extraites automatiquement du chronogramme reçu (Word ou PDF), rappel avant chaque date limite, modèle Word pré-rempli en un clic, taux de dépôt suivi"],
     ["Commercialiser la plateforme (AI721)", "Création d'un établissement abonné en moins de 2 minutes ; abonnements, paiements et échéances suivis depuis une console unique"]],
     widths=[7.5, 9], caption='Objectifs du projet')
 D.h2('1.4 Périmètre')
@@ -72,6 +81,7 @@ D.bullets(["la gestion administrative de référence : établissement, classes, 
            "la gestion des emplois du temps : conception, génération automatique, détection des conflits ;",
            "la communication avec les parents : messages personnalisés par SMS (passerelle de la plateforme), WhatsApp ou export CSV ;",
            "la gestion administrative du personnel enseignant : dossier (grade, statut, prise de service, affectation), pointage, absences et retards, taux d'assiduité, documents administratifs et registre ;",
+           "le suivi du **chronogramme des dépôts** des documents périodiques : import du chronogramme, rappels, modèles Word modifiables, archivage des pièces déposées ;",
            "l'édition de tous les documents officiels au format PDF ;",
            "l'administration technique : sauvegarde, restauration, journal d'audit, clôture de l'année et nouvelle année scolaire."])
 D.p("Sont **hors périmètre de la version 1.0** (mais prévus dans la feuille de route, § 13) : le portail parents/élèves, la gestion financière "
@@ -187,7 +197,15 @@ EF = [
    ('EF-119', "Demande d'explication", "Courrier numéroté avec délai de réponse (24 h à 7 jours, à compter de la réception) et **espace de réponse de l'intéressé** (lignes d'écriture ou réponse transmise en ligne), puis cadre « suite réservée par le chef d'établissement ».", 'M'),
    ('EF-120', 'Faits proposés', "Lors de la rédaction d'un courrier, la plateforme propose les manquements qu'elle constate (absences non justifiées, retards, notes non validées d'une séquence échue, progression en retard) et une liste de motifs usuels.", 'S'),
    ('EF-121', 'Cycle de vie et registre', "Registre annuel filtrable (type, statut, enseignant, année) ; remise en main propre (date), réponse, suite réservée et clôture, annulation motivée (le numéro n'est pas réattribué) ; registre et état d'assiduité en PDF ; alertes au tableau de bord.", 'M')]),
- ('3.9 Enseignant', [
+ ('3.9 Administrateur — chronogramme des dépôts des documents périodiques', [
+   ('EF-150', 'Import du chronogramme', "Chargement du chronogramme reçu de la hiérarchie au format **Word (.docx)** ou **PDF** (10 Mo au plus) ; le fichier est conservé et consultable ; un ancien fichier .doc est refusé avec la marche à suivre (l'enregistrer en .docx) ; un PDF scanné, sans texte, est accepté et signalé : les échéances se saisissent alors à la main.", 'M'),
+   ('EF-151', 'Lecture et repérage des échéances', "Lecture des tableaux, y compris les cellules écrites sur plusieurs lignes, les colonnes centrées et les pages en paysage ; colonnes repérées par leur en-tête (document, date ou délai, destinataire) ; dates « 15/10/2026 », « 15 octobre 2026 », « 1er oct. » ; périodicités : mensuelle (« le 5 de chaque mois »), à chaque séquence (« dans les 10 jours après chaque séquence »), à chaque trimestre, fin d'année, rentrée ; formules de signature (« Fait à …, le … ») ignorées ; doublons supprimés.", 'M'),
+   ('EF-152', 'Vérification avant enregistrement', "Tableau des échéances proposées, modifiable (intitulé, date limite, destinataire, modèle Word) et lignes décochables ; relecture d'un chronogramme déjà importé ; saisie manuelle d'une échéance.", 'M'),
+   ('EF-153', 'Échéances', "Liste groupée par mois avec état (à venir, bientôt, aujourd'hui, en retard, déposé) et filtres ; indicateurs : nombre d'échéances, documents déposés et taux, documents proches, retards ; délai de rappel propre à chaque échéance (7 jours par défaut) ; modification et suppression.", 'M'),
+   ('EF-154', 'Rappels', "Carte « Rappels » en tête de page, points d'attention du tableau de bord (en retard de dépôt, à déposer prochainement) et notification à la connexion de l'administrateur (une fois par session).", 'M'),
+   ('EF-155', 'Modèles Word pré-remplis', "Pour chaque échéance, un document **.docx modifiable** (Word, LibreOffice, WPS) : en-tête officiel bilingue avec logo, référence N° …, « Fait à …, le … », titre, année scolaire et date limite, destinataire, **tableaux pré-remplis avec les données de l'établissement** (effectifs par classe et par sexe, résultats de la période, couverture des programmes et leçons digitalisées, présence et assiduité du personnel du mois ou du trimestre, discipline, personnel, candidats aux examens), sections « [À compléter : …] » et bloc de signature. Onze modèles : effectifs, rapport de rentrée, résultats, procès-verbaux des conseils de classe, couverture des programmes, assiduité du personnel, rapport disciplinaire, rapport trimestriel, rapport de fin d'année, candidats aux examens, document générique.", 'M'),
+   ('EF-156', 'Dépôt', "Enregistrement du dépôt : date (non future), observation (accusé de réception…), pièce déposée facultative (Word ou PDF) archivée et consultable ; annulation du dépôt.", 'M')]),
+ ('3.10 Enseignant', [
    ('EF-70', 'Tableau de bord', "Classes et matières attribuées, avancement de la saisie de la séquence en cours, couverture du programme, cours du jour, annonces.", 'M'),
    ('EF-71', 'Progression annuelle', "Pour chaque classe/matière et chaque séquence : leçons prévues, leçons faites, **leçons digitalisées**, taux de couverture et de digitalisation, observations ; fiche PDF ; suivi de l'ensemble par l'administration.", 'M'),
    ('EF-72', 'Saisie des notes', "Grille par classe et par **séquence** ou par **trimestre** (deux séquences côte à côte et moyenne trimestrielle en direct) : note sur 20 (virgule ou point, 2 décimales), absent, appréciation et statistiques ; chaque séquence garde son propre verrou.", 'M'),
@@ -198,18 +216,19 @@ EF = [
    ('EF-77', 'Mes documents administratifs', "Liste des documents émis à son nom (hors documents annulés), lecture du PDF, accusé de réception (qui fait courir le délai de réponse), suite réservée ; alerte sur le tableau de bord.", 'M'),
    ('EF-78', "Réponse à une demande d'explication", "Réponse écrite en ligne (brouillon conservé sur l'appareil), transmise une seule fois et reproduite dans l'espace de réponse du document ; réponse hors délai signalée.", 'M'),
    ('EF-79', 'Mon assiduité', "Taux d'assiduité, heures dues et effectuées, absences et retards par période ; relevé d'assiduité PDF.", 'S')]),
- ('3.10 Responsable disciplinaire', [
+ ('3.11 Responsable disciplinaire', [
    ('EF-80', 'Tableau de bord', "Classes à charge, fiches validées, heures d'absence non justifiées, incidents.", 'M'),
    ('EF-81', 'Fiche disciplinaire', "Par classe et séquence : absences justifiées et non justifiées (heures), retards, consignes, avertissement et blâme de conduite, jours d'exclusion, observation.", 'M'),
    ('EF-82', 'Incidents', "Signalement daté (nature, gravité, sanction, description), registre filtrable, historique par élève, suppression tant que la séquence est ouverte.", 'M'),
    ('EF-83', 'Validation', "Validation de la fiche d'une classe pour la séquence (prérequis à la clôture).", 'M'),
    ('EF-85', 'Récapitulatif trimestriel', "Vue par trimestre cumulant les deux séquences (absences, retards, sanctions, incidents) et fiche PDF du trimestre.", 'S'),
    ('EF-84', 'Exports PDF', "Fiche des faits disciplinaires de la classe (séquence, trimestre ou année) et fiche individuelle de l'élève.", 'M')]),
- ('3.11 Exigences transverses', [
+ ('3.12 Exigences transverses', [
    ('EF-90', 'Responsive', "Interface adaptée à l'ordinateur (barre latérale), à la tablette (rail d'icônes) et au smartphone (menu tiroir + barre d'onglets).", 'M'),
    ('EF-91', 'Application installable', "Progressive Web App : installation sur l'écran d'accueil, coquille disponible hors ligne.", 'S'),
    ('EF-92', 'Documents PDF', "En-tête bilingue officiel « République du Cameroun / Republic of Cameroon », logo, pagination, date d'édition, zones de signature.", 'M'),
-   ('EF-93', 'Données de démonstration', "Mode démonstration avec établissement fictif pour la formation et l'évaluation.", 'C')])]
+   ('EF-93', 'Données de démonstration', "Mode démonstration avec établissement fictif pour la formation et l'évaluation.", 'C'),
+   ('EF-94', 'Nom de domaine', "Adresse alignée sur le nom de l'application : service Render « ai721-schoolx-cm » (https://ai721-schoolx-cm.onrender.com) et domaine propre ai721-schoolx.cm ; redirection permanente (301/308) des anciennes adresses vers l'adresse officielle définie par CANONICAL_URL.", 'S')])]
 for title, rows in EF:
     D.h2(title)
     D.table(['ID', 'Fonctionnalité', 'Description', 'Prio.'], [list(r) for r in rows], widths=[1.4, 3.4, 10.6, 1.2], font=9)
@@ -251,6 +270,10 @@ D.table(['Réf.', 'Règle'], [
   ['RG-34', "Les appellations « Situation » et « Titulaire », si elles sont choisies, remplacent « Séquence » et « Professeur principal » dans tout le texte produit par la plateforme (interface, messages d'erreur, PDF). Les données saisies par les utilisateurs ne sont jamais modifiées. Les deux termes étant du même genre, les accords sont conservés (la séquence / la situation)."],
   ['RG-35', "Leçons digitalisées : entier positif, au plus égal au plus grand des nombres de leçons prévues et faites de la séquence ; taux de digitalisation = leçons digitalisées ÷ leçons prévues. Une séquence clôturée est verrouillée."],
   ['RG-36', "Messages aux parents : seuls les élèves actifs des classes choisies sont concernés ; le numéro du parent est normalisé au format international (+237 et 9 chiffres pour le Cameroun) ; un numéro absent ou invalide est signalé et écarté ; un SMS compte 160 caractères (70 si un caractère hors alphabet GSM subsiste), 153 ou 67 par segment au-delà ; les champs non renseignés utilisés dans le texte sont refusés."],
+  ['RG-37', "État d'une échéance : « déposé » dès qu'un dépôt est enregistré ; sinon « en retard » si la date limite est passée, « aujourd'hui » le jour même, « bientôt » si elle tombe dans le délai de rappel (7 jours par défaut, de 0 à 60), « à venir » au-delà. Les rappels portent sur les échéances en retard, du jour et bientôt dues de l'année scolaire active."],
+  ['RG-38', "Dates des échéances périodiques : mensuelle « le J de chaque mois » → dépôt le jour J d'octobre à juillet pour le mois écoulé (sans jour précisé : dernier jour de chaque mois, de septembre à juin) ; à chaque séquence → fin de la séquence + le délai indiqué (« dans les N jours », 7 par défaut) ; à chaque trimestre → fin des séquences 2, 4 et 6 + le délai ; fin d'année → fin de la séquence 6 + 14 jours ; rentrée → début de la séquence 1 + 30 jours. Une date sans année est placée de septembre à décembre sur la 1re année scolaire, de janvier à août sur la 2e."],
+  ['RG-39', "Fichiers : chronogrammes en .docx ou .pdf, pièces déposées en .docx ou .pdf, 10 Mo au plus, format vérifié par la signature du fichier. Supprimer un chronogramme conserve par défaut les échéances déjà enregistrées ; les échéances déposées ne sont jamais supprimées avec lui."],
+  ['RG-40', "Le modèle Word d'une échéance est choisi d'après les mots de son intitulé (effectifs, résultats, couverture, présence ou assiduité du personnel, discipline, candidats…) et reste modifiable ; les tableaux pré-remplis reprennent la période de l'échéance (séquence, trimestre ou mois) et les appellations choisies par l'établissement."],
   ['RG-33', "Les appellations « Animateur Pédagogique » et « Coordonnateur » étant synonymes, en changer met à jour la fonction des enseignants qui la reprennent (ex. « Animateur Pédagogique de SVT » → « Coordonnateur de SVT »). Les autres appellations ne modifient pas les fonctions des personnels, car un préfet et un préfet adjoint, ou un surveillant général et son adjoint, peuvent coexister."],
   ['RG-19', "Chaque matière a exactement un groupe et un type, choisis indépendamment. Sur le bulletin, les matières sont regroupées et sous-totalisées par groupe, dans l'ordre des positions. Un groupe ou un type utilisé par une matière ne peut être supprimé ; il en reste toujours au moins un de chaque. Les libellés sont uniques (sans distinction de casse)."]],
   widths=[1.6, 15], caption='Règles de gestion', font=9.5)
@@ -279,6 +302,7 @@ D.table(['Menace', 'Mesure mise en œuvre'], [
   ['Usage hors abonnement', "Contrôle de l'abonnement et de la suspension sur chaque requête de l'établissement (réponse 402) ; suspension = fermeture immédiate des sessions."],
   ['Confidentialité des dossiers du personnel', "Documents et assiduité d'un enseignant accessibles à lui seul et à l'administration (404 pour tout autre compte) ; émission, remise, consultation PDF, réponse, suite et annulation tracées dans le journal d'audit."],
   ['Messages aux parents', "Fonction réservée à l'administration ; clé de la passerelle SMS chiffrée (AES-256-GCM) et jamais renvoyée par l'API ; numéros validés ; chaque envoi et chaque relance tracés dans le journal d'audit."],
+  ['Fichiers importés et déposés', "Formats limités (.docx, .pdf) et contrôlés par leur signature, 10 Mo au plus ; fichiers rangés dans le dossier de l'établissement, hors du dossier public, servis au seul administrateur avec un nom de fichier assaini ; le Word est lu comme du texte XML (aucune macro exécutée) et le PDF par une bibliothèque de lecture de texte (aucun script exécuté)."],
   ['Fuite d\'informations', "Messages d'erreur génériques avec référence ; en-têtes HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, COOP/CORP."]],
   widths=[3.6, 13], caption='Mesures de sécurité', font=9.5)
 D.note("**Conformité.** Les données traitées (identité, date de naissance, résultats, discipline de mineurs) sont des données personnelles au sens de la "
@@ -326,6 +350,7 @@ D.figure(u('06_seq_cloture.png'), 'Séquence « Clôture d\'une séquence »', m
 D.figure(u('11_seq_souscription.png'), "Séquence « Souscription d'un établissement et transmission des accès »", max_h=10)
 D.figure(u('13_seq_demande_explication.png'), "Séquence « Demande d'explication : émission, réponse en ligne et suite réservée »", max_h=14)
 D.figure(u('16_seq_message_parents.png'), "Séquence « Message aux parents : aperçu personnalisé, envoi par SMS ou WhatsApp »", max_h=11)
+D.figure(u('17_seq_chronogramme.png'), "Séquence « Chronogramme des dépôts : import, rappels, modèle Word et dépôt »", max_h=12)
 D.h2("6.5 Diagramme d'états-transitions")
 D.figure(u('07_etats_sequence.png'), "Cycle de vie d'une séquence d'évaluation", max_h=13)
 D.figure(u('12_etats_abonnement.png'), "Cycle de vie d'un abonnement", max_h=11)
@@ -345,6 +370,7 @@ D.table(['Couche', 'Technologie', 'Justification'], [
   ['Base de données', 'SQLite (module natif node:sqlite), mode WAL', "Zéro administration, un seul fichier facile à sauvegarder, transactions ACID, largement suffisant pour un établissement (des dizaines de milliers d'enregistrements)."],
   ['Documents', 'PDFKit', "Génération côté serveur de PDF vectoriels légers, identiques sur tous les terminaux."],
   ['Interface', 'JavaScript natif (modules ES), CSS moderne', "Aucune étape de compilation, chargement rapide sur réseau mobile, maintenance simple ; design system maison (clair/sombre)."],
+  ['Documents Word', 'docx.js (écriture et lecture maison), unpdf', "Modèles .docx générés et chronogrammes .docx lus sans dépendance (archive ZIP et XML) ; texte des PDF extrait par unpdf (pdf.js, sans module natif)."],
   ['Mobile', 'Progressive Web App', "Installation sur smartphone sans magasin d'applications ; une seule base de code pour tous les terminaux."],
   ['Sécurité', 'crypto (scrypt, SHA-256), CSP, cookies HttpOnly', "Primitives cryptographiques standard de Node.js, sans dépendance tierce."],
   ['Déploiement', 'Docker, Caddy (HTTPS automatique), Render', "Déploiement reproductible ; certificats TLS Let's Encrypt automatiques."],
@@ -362,11 +388,14 @@ D.table(['Chemin', 'Contenu'], [
   ['server/pdf.js', "Mise en page des documents officiels"],
   ['server/routes/*.js', "auth, admin, work (notes, progression, discipline), staff (pointage, documents administratifs, espace enseignant), pdfRoutes, common, access (contrôle d'accès)"],
   ['server/sms.js, server/routes/parents.js', "Messages aux parents : numéros, longueur des SMS, passerelles (Africa's Talking, Twilio, Orange), envoi et historique"],
+  ['server/docx.js', "Écriture et lecture des documents Word (.docx) : ZIP, paragraphes, tableaux, images"],
+  ['server/chrono.js', "Lecture des chronogrammes (Word, PDF), reconstitution des tableaux, repérage des dates, périodicités et modèles"],
+  ['server/modeles.js, server/routes/echeancier.js', "Modèles Word pré-remplis ; API du chronogramme : import, échéances, rappels, dépôts"],
   ['server/fonts/', "Polices des actes administratifs : Liberation Serif et Anton (licence SIL OFL)"],
   ['server/staff.js', "Assiduité (jours de classe, heures dues, taux), numérotation des documents, faits proposés"],
   ['server/pdfStaff.js', "Attestation de présence effective, certificat de prise de service, courriers, espace de réponse, états d'assiduité, registre"],
   ['server/seed.js', "Jeu de démonstration (établissement fictif)"],
-  ['public/js/*.js', "app (détection de l'interface, connexion, coquille, routeur), landing, console, admin, rh (assiduité et documents administratifs), parents (messages aux parents), teacher, discipline, shared, ui, api"],
+  ['public/js/*.js', "app (détection de l'interface, connexion, coquille, routeur), landing, console, admin, rh (assiduité et documents administratifs), parents (messages aux parents), echeancier (chronogramme des dépôts), teacher, discipline, shared, ui, api"],
   ['public/css/app.css', "Design system responsive"],
   ['test/api.test.js', "Tests d'intégration"], ['deploy/', "docker-compose, Caddyfile, script d'installation serveur"]],
   widths=[4.2, 12.4], font=9.5)
@@ -398,6 +427,8 @@ D.table(['Table', 'Rôle', 'Champs principaux'], [
   ['timetable', 'Emplois du temps', "class_id, day, slot, class_subject_id, room"],
   ['parent_campaigns', 'Envois de messages aux parents', "titre, modele, texte, variables, canal (sms | manuel), classes, total, envoyes, echecs, created_by"],
   ['parent_messages', 'Messages personnalisés', "campaign_id, phone (E.164), parent, enfants, classes, message, segments, status (a_envoyer, en_cours, envoye, simule, echec), error, sent_at"],
+  ['chronogrammes', 'Chronogrammes importés', "titre, annee, fichier, nom_fichier, mime (docx | pdf), taille, extraits (échéances retenues), uploaded_by, uploaded_at"],
+  ['echeances', 'Échéances de dépôt', "chronogramme_id, annee, titre, date_limite, destinataire, modele, periodicite (ponctuel, mensuel, sequentiel, trimestriel, annuel), source, rappel_jours, status (a_produire | depose), depose_at, depose_by, depot_fichier, depot_nom, observation"],
   ['staff_attendance', 'Absences et retards des enseignants', "user_id, date, kind (absence | retard), hours, minutes, slot (créneau), class_id, justified, motif, recorded_by"],
   ['staff_documents', 'Documents administratifs', "user_id, type, annee, num, reference, date_doc, objet, faits, ampliations, data (agent, signataire, assiduité figés), ref_doc_id, delai_heures, echeance, status, ack_at, reponse, reponse_at, suite"],
   ['days_off', 'Jours non ouvrés', "date, label"],
@@ -422,6 +453,7 @@ D.table(['Domaine', 'Principales routes'], [
   ['Enseignant', "GET teacher/assignments ; GET notes/grid?period=S2|T1 ; PUT notes/grid (séquence par note) ; POST notes/validate ; GET|PUT progression"],
   ['Discipline', "GET discipline/classes ; GET|PUT discipline/sheet ; POST discipline/validate ; GET|POST|DELETE discipline/incidents ; GET discipline/student/:id"],
   ['Messages aux parents', "GET admin/parents/modeles, admin/parents/campagnes, admin/parents/campagnes/:id ; POST admin/parents/apercu, admin/parents/campagnes, admin/parents/campagnes/:id/relancer, admin/parents/messages/:id/envoye ; console : POST sms/test"],
+  ['Chronogramme des dépôts', "GET admin/echeancier, admin/echeancier/rappels ; POST admin/echeancier/chronogrammes (fichier en base64), admin/echeancier/chronogrammes/:id/analyser ; GET|DELETE admin/echeancier/chronogrammes/:id[/fichier] ; POST|PUT|DELETE admin/echeancier/echeances[/:id] ; GET admin/echeancier/echeances/:id/modele, admin/echeancier/modeles/:type (Word) ; POST admin/echeancier/echeances/:id/depot|annuler-depot ; GET admin/echeancier/echeances/:id/depot"],
   ['Personnel (RH)', "GET rh/enseignants, rh/enseignants/:id, rh/referentiels ; PUT rh/enseignants/:id ; GET|PUT rh/pointage ; GET|POST rh/absences ; PUT|DELETE rh/absences/:id ; GET|POST rh/jours-feries ; DELETE rh/jours-feries/:date ; GET|POST rh/documents ; GET rh/documents/faits ; GET|PUT rh/documents/:id ; POST rh/documents/:id/remise|suite|annuler"],
   ['Espace enseignant (documents)', "GET mes-documents, mon-assiduite ; POST mes-documents/:id/accuse ; PUT mes-documents/:id/reponse"],
   ['Documents PDF', "GET pdf/document/:id, pdf/assiduite, pdf/assiduite-enseignant, pdf/registre-documents, pdf/releve, pdf/progression, pdf/discipline, pdf/discipline-eleve, pdf/bulletins, pdf/pv, pdf/liste, pdf/timetable, pdf/stats ; POST pdf/credentials"]],
@@ -440,15 +472,16 @@ D.p("**Choix retenu :** Render (gratuit) pour l'instance de démonstration acces
     "c'est la seule offre gratuite offrant un stockage persistant suffisant pour héberger durablement une base SQLite. L'application, sans module natif, "
     "fonctionne indifféremment sur les processeurs ARM d'Oracle et sur x86.", align='justify')
 D.h2('10.2 Procédures')
-D.bullets([("Démonstration (Render) : ", "connecter le dépôt GitHub à Render ▸ « New Blueprint » ▸ le fichier render.yaml crée le service ; l'URL publique est fournie par Render."),
+D.bullets([("Démonstration (Render) : ", "connecter le dépôt GitHub à Render ▸ « New Blueprint » ▸ le fichier render.yaml crée le service **ai721-schoolx-cm**, publié à l'adresse **https://ai721-schoolx-cm.onrender.com** (Render ajoute un suffixe si ce nom est déjà pris)."),
+           ("Nom de domaine : ", "le sous-domaine d'un service Render existant ne se renomme pas : l'ancien service « edugest-cm » est remplacé par le nouveau, puis supprimé ou conservé avec CANONICAL_URL=https://ai721-schoolx-cm.onrender.com pour rediriger les anciens liens. Pour la production, le domaine propre **ai721-schoolx.cm** se déclare dans Render (Custom Domains) ou sert de DOMAIN sur un serveur ; CANONICAL_URL=https://ai721-schoolx.cm redirige alors toutes les autres adresses."),
            ("Production (serveur Linux) : ", "créer une VM Ubuntu, faire pointer un nom de domaine vers son IP, puis exécuter deploy/oracle-cloud-init.sh ; Docker et Caddy installent l'application avec HTTPS automatique."),
            ("Premier démarrage : ", "le compte super administrateur « AI721 » est créé ; son mot de passe est défini par SUPERADMIN_PASSWORD ou affiché une fois dans les journaux. Une installation 1.x existante est automatiquement convertie en premier établissement de la plateforme."),
-           ("Variables d'environnement : ", "PORT, DATA_DIR (données : platform.db, tenants/<code>/, backups/, vault.key), SUPERADMIN_PASSWORD, VAULT_KEY (clé du coffre, recommandée en production), DEMO (1 = démonstration avec 4 établissements fictifs), TRUST_PROXY, AUTO_BACKUP."),
+           ("Variables d'environnement : ", "PORT, DATA_DIR (données : platform.db, tenants/<code>/, backups/, vault.key), SUPERADMIN_PASSWORD, VAULT_KEY (clé du coffre, recommandée en production), DEMO (1 = démonstration avec 4 établissements fictifs), TRUST_PROXY, AUTO_BACKUP, CANONICAL_URL (adresse officielle vers laquelle les autres adresses sont redirigées)."),
            ("Sauvegarde du serveur : ", "sauvegarder l'intégralité du dossier DATA_DIR, y compris vault.key (sans cette clé, les mots de passe du coffre ne sont plus lisibles).")])
 
 # ------------------------------------------------------------------ 11
 D.h1('11. Recette et assurance qualité')
-D.p("La qualité est assurée par une suite de tests d'intégration automatisés (32 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
+D.p("La qualité est assurée par une suite de tests d'intégration automatisés (36 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
     "dans un navigateur réel (Playwright) qui visite toutes les pages des quatre profils sur ordinateur, tablette et smartphone sans aucune erreur.", align='justify')
 D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Connexion correcte / incorrecte', "200 / 401, cookie HttpOnly", 'Réussi'], ['Requête sans en-tête anti-CSRF ou d\'origine étrangère', '403', 'Réussi'],
@@ -477,6 +510,10 @@ D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Nouveau nom AI721 SchoolX CM', 'Titre des pages, manifeste et sauvegardes au nouveau nom', 'Réussi'],
   ['Appellations Séquence/Situation et Professeur Principal/Titulaire', "Libellés « Situation 1 », messages d'erreur et PDF adaptés ; valeur hors liste refusée (400)", 'Réussi'],
   ['Leçons digitalisées', "Enregistrement, refus au-delà des leçons prévues ou faites, séquence clôturée verrouillée, fiche PDF", 'Réussi'],
+  ['Word : écriture puis relecture', "Archive .docx valide (parties obligatoires), tableaux et paragraphes relus à l'identique, caractères accentués et spéciaux", 'Réussi'],
+  ['Chronogramme : tableau PDF à cellules sur plusieurs lignes, repérage des échéances', "Lignes reconstituées ; date ponctuelle, 10 échéances mensuelles, 6 séquentielles et 3 trimestrielles aux bonnes dates ; modèle détecté ; formule de signature ignorée", 'Réussi'],
+  ['Chronogramme des dépôts : import Word, échéances, rappels, modèle Word, dépôt, PDF scanné, droits', "Propositions exactes ; .doc et faux PDF refusés (400) ; échéance dépassée rappelée au tableau de bord ; 11 modèles .docx ; pièce déposée restituée à l'identique ; dépôt futur refusé ; PDF sans texte signalé ; enseignant refusé (403)", 'Réussi'],
+  ['Nom de domaine canonique', "Sans CANONICAL_URL : aucun effet ; avec : 301 (pages) et 308 (API) vers l'adresse officielle, adresse officielle et /healthz servis normalement", 'Réussi'],
   ["Messages aux parents : numéros, aperçu, SMS (simulation), envoi manuel, droits", "Numéros normalisés (+237…), nom de l'enfant dans le message, date en toutes lettres, envoi simulé complet, statut « envoyé » après WhatsApp, enseignant refusé (403), secret jamais renvoyé", 'Réussi'],
   ['Appellations des fonctions : listes, refus hors liste, signatures, fonction des enseignants', "400 hors liste ; PDF générés avec Principal / Préfet Adjoint / Surveillant Général Adjoint / Coordonnateur ; « Animateur Pédagogique de Mathématiques » ↔ « Coordonnateur de Mathématiques »", 'Réussi'],
   ["Assiduité : dossier, absence d'une journée, justification, retard, pointage, jour non ouvré", "Heures dues, effectuées et taux exacts ; date future et créneau sans cours refusés (400) ; enseignant refusé (403)", 'Réussi'],
@@ -504,6 +541,7 @@ D.table(['Module', 'Description'], [
   ['Portail parents / élèves', "Consultation des notes, bulletins, absences et emploi du temps ; comptes parents liés au téléphone."],
   ['Alertes automatiques aux parents', "Envoi automatique d'un SMS en cas d'absence non justifiée ou de sanction, à partir de la passerelle déjà en place."],
   ['Accusés de réception des SMS', "Suivi de la remise effective des SMS (rapports de livraison des fournisseurs) et réponses des parents."],
+  ['Transmission électronique des dépôts', "Envoi direct des documents périodiques à la délégation (courriel ou plateforme du ministère) avec accusé de réception, à partir du chronogramme déjà en place."],
   ['Frais de scolarité', "Suivi des paiements, reçus, relances, intégration du paiement mobile (Mobile Money)."],
   ['Interface bilingue', "Interface et documents intégralement en anglais pour le sous-système anglophone (terminologie GCE : terms, Form, Lower/Upper Sixth)."],
   ['Évaluation par compétences', "Grilles de compétences et appréciations qualitatives par situation d'apprentissage (APC)."],
@@ -525,6 +563,8 @@ D.table(['Terme', 'Définition'], [
   ['Proviseur / Directeur / Principal', "Appellations du chef d'établissement (lycée ; collège, CES ou CETIC selon l'usage)."], ['Censeur / Préfet', "Adjoint du chef d'établissement chargé notamment des études ; le préfet adjoint le seconde."],
   ['Situation', "Autre appellation de la séquence d'évaluation, en usage avec l'approche par les compétences."], ['Titulaire', "Autre appellation du professeur principal d'une classe."],
   ['Leçon digitalisée', "Leçon disponible sous forme numérique (support, vidéo, plateforme d'apprentissage)."], ['APEP', "Attestation de présence effective au poste."],
+  ['Chronogramme des dépôts', "Calendrier, fixé par la hiérarchie, des documents périodiques que l'établissement doit produire et déposer, avec leurs dates limites."],
+  ['Échéance', "Document à déposer à une date limite donnée ; il est « déposé » une fois remis contre décharge."],
   ['Segment SMS', "Unité facturée : 160 caractères (alphabet GSM) ou 70 caractères (Unicode)."],
   ['Animateur pédagogique / coordonnateur', "Enseignant responsable de l'animation d'une discipline (progressions, réunions du conseil d'enseignement)."],
   ['Abonnement', "Droit d'utilisation annuel d'un établissement, du 1er septembre au 31 août."], ['Coffre des accès', "Liste chiffrée des identifiants et mots de passe générés, consultable par AI721 (administrateurs) et par l'administrateur (personnel)."],

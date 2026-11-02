@@ -1,11 +1,13 @@
 {
   "name": "ai721-schoolx-cm",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "AI721 SchoolX CM — gestion des notes, de la discipline et des emplois du temps des établissements secondaires du Cameroun",
   "private": true,
   "type": "module",
   "main": "server/index.js",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
@@ -14,6 +16,7 @@
   },
   "dependencies": {
     "express": "^5.1.0",
-    "pdfkit": "^0.17.0"
+    "pdfkit": "^0.17.0",
+    "unpdf": "^2.1.0"
   }
 }

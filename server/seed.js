@@ -4,7 +4,12 @@ import { DOC_TYPES, DEFAULT_AMPLIATIONS, schoolDays, weeklyLoad, agentSnapshot, 
 import { hashPassword, genPassword } from './security.js';
 import { seal } from './vault.js';
 import { generateTimetable } from './routes/admin.js';
-import { pdb, createTenant, inTenant, inPlatform, getTenantByCode, schoolYearOf, yearBounds } from './platform.js';
+import { pdb, createTenant, inTenant, inPlatform, getTenantByCode, schoolYearOf, yearBounds, TENANTS_DIR } from './platform.js';
+import { currentTenant } from './context.js';
+import { buildDocx, p as wp, r as wr, table as wtable, readDocx } from './docx.js';
+import { extractEcheances } from './chrono.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 export const DEMO_ACCOUNTS = [
   { role: 'admin', username: 'admin', password: 'Admin@2026', label: 'Administrateur' },
@@ -20,7 +25,7 @@ export function seedDemo() {
   const today = new Date();
   const y = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
   tx(() => {
-    for (const t of ['parent_messages', 'parent_campaigns', 'staff_documents', 'staff_attendance', 'days_off', 'timetable', 'incidents', 'discipline_records', 'discipline_validations', 'progressions', 'note_validations', 'notes',
+    for (const t of ['echeances', 'chronogrammes', 'parent_messages', 'parent_campaigns', 'staff_documents', 'staff_attendance', 'days_off', 'timetable', 'incidents', 'discipline_records', 'discipline_validations', 'progressions', 'note_validations', 'notes',
       'officer_classes', 'students', 'class_subjects', 'subjects', 'subject_groups', 'subject_types', 'classes', 'announcements', 'audit_log', 'sessions', 'users', 'settings', 'periods', 'year_archives']) db.exec(`DELETE FROM ${t}`);
     db.exec("DELETE FROM sqlite_sequence");
 
@@ -171,7 +176,49 @@ export function seedDemo() {
   // Emplois du temps générés automatiquement
   for (const c of db.prepare('SELECT id FROM classes ORDER BY id').all()) generateTimetable(c.id);
   seedStaff(y);
+  seedChronogramme(y);
   return DEMO_ACCOUNTS;
+}
+
+/** Chronogramme des dépôts (fictif) : fichier Word importé, échéances extraites, quelques dépôts déjà effectués. */
+function seedChronogramme(y) {
+  const t = currentTenant();
+  const rows = [['N°', 'Documents à produire', 'Date limite de dépôt', 'Destinataire'],
+    ['1', 'Fiche statistique de rentrée (effectifs par classe et par sexe)', `30/09/${y}`, 'DDES du Mfoundi'],
+    ['2', 'Rapport de rentrée scolaire', `Au plus tard le 15 octobre ${y}`, 'DRES du Centre'],
+    ['3', 'État de présence effective du personnel', 'Le 5 de chaque mois', 'DDES du Mfoundi'],
+    ['4', 'Statistiques des résultats de la séquence', 'Dans les 10 jours après chaque séquence', 'DDES du Mfoundi'],
+    ['5', 'Liste des candidats aux examens officiels', `30 novembre ${y}`, 'DRES du Centre (examens)'],
+    ['6', 'Synthèse des conseils de classe', 'Fin de chaque trimestre (dans les 7 jours)', 'DDES du Mfoundi'],
+    ['7', 'Taux de couverture des programmes et digitalisation des leçons', 'Fin de chaque trimestre', 'Inspection pédagogique'],
+    ['8', 'Rapport disciplinaire trimestriel', 'Fin de chaque trimestre', 'DDES du Mfoundi'],
+    ['9', "Rapport de fin d'année scolaire", `10 juillet ${y + 1}`, 'DRES du Centre']];
+  const buf = buildDocx({ title: 'Chronogramme des dépôts', body: [
+    wp([wr('DÉLÉGATION DÉPARTEMENTALE DES ENSEIGNEMENTS SECONDAIRES DU MFOUNDI (document fictif)', { b: true, size: 10 })], { align: 'center' }),
+    wp([wr(`CHRONOGRAMME DE DÉPÔT DES DOCUMENTS PÉRIODIQUES — ANNÉE SCOLAIRE ${y}-${y + 1}`, { b: true, size: 13 })], { align: 'center', after: 10 }),
+    wtable(rows, { widths: [1.1, 8.6, 4.6, 3.9] }),
+    wp([wr('NB : tout retard de dépôt sera signalé à la hiérarchie.', { i: true, size: 10 })], { before: 8 })] });
+  const periods = db.prepare('SELECT seq, start_date, end_date FROM periods ORDER BY seq').all();
+  const d = readDocx(buf);
+  const items = extractEcheances([...d.tables.flat(), ...d.paragraphs.map((x) => [x])], { y0: y, periods });
+  const today = new Date().toISOString().slice(0, 10);
+  tx(() => {
+    const cid = Number(db.prepare(`INSERT INTO chronogrammes(titre, annee, fichier, nom_fichier, mime, taille, extraits, uploaded_by, uploaded_at) VALUES(?,?,?,?,?,?,?,1,unixepoch() - 86400 * 50)`)
+      .run(`Chronogramme des dépôts DDES ${y}-${y + 1}`, `${y}-${y + 1}`, '', `Chronogramme_depots_DDES_${y}-${y + 1}.docx`,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buf.length, items.length).lastInsertRowid);
+    if (t) {
+      const dir = path.join(TENANTS_DIR, t.code, 'chronogrammes'); fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${cid}.docx`), buf);
+      db.prepare('UPDATE chronogrammes SET fichier = ? WHERE id = ?').run(`${cid}.docx`, cid);
+    }
+    const ins = db.prepare(`INSERT INTO echeances(chronogramme_id, annee, titre, date_limite, destinataire, modele, periodicite, source, status, depose_at, depose_by)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?)`);
+    for (const e of items) {
+      // dépôts effectués à temps, sauf les statistiques de la 1re séquence (en retard) pour la démonstration
+      const depose = e.date_limite < today && !/séquence 1$/i.test(e.titre);
+      ins.run(cid, `${y}-${y + 1}`, e.titre, e.date_limite, e.destinataire || null, e.modele, e.periodicite, e.source, depose ? 'depose' : 'a_produire', depose ? e.date_limite : null, depose ? 1 : null);
+    }
+  });
 }
 
 /** Dossier administratif des enseignants : données de carrière, pointage depuis la rentrée, documents administratifs (fictifs). */
