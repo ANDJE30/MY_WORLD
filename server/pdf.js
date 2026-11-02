@@ -3,7 +3,7 @@ import PDFDocument from 'pdfkit';
 import { getSettings } from './db.js';
 import { appreciation } from './calc.js';
 
-const C = { primary: '#0B5D4B', accent: '#C8962E', dark: '#1F2937', muted: '#6B7280', zebra: '#F3F6F5', line: '#CBD5D1', red: '#B42318' };
+export const C = { primary: '#0B5D4B', accent: '#C8962E', dark: '#1F2937', muted: '#6B7280', zebra: '#F3F6F5', line: '#CBD5D1', red: '#B42318' };
 const DAYS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 export const fmt = (v, d = 2) => (v == null || v === '' ? '—' : typeof v === 'number' ? v.toFixed(d).replace('.', ',') : String(v));
 // entiers sans décimales (effectifs, compteurs), décimaux avec 2 chiffres
@@ -16,7 +16,7 @@ function logoBuffer(s) {
 
 /** Génère un PDF en mémoire (rapports archivés). */
 export function renderPdfBuffer({ title, landscape = false }, fn) {
-  const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 36, bufferPages: true, info: { Title: title, Author: 'EduGest CM', Creator: 'EduGest CM' } });
+  const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 36, bufferPages: true, info: { Title: title, Author: 'AI721 SchoolX CM', Creator: 'AI721 SchoolX CM' } });
   doc._settings = getSettings();
   const chunks = [];
   doc.on('data', (c) => chunks.push(c));
@@ -27,7 +27,7 @@ export function renderPdfBuffer({ title, landscape = false }, fn) {
 
 export function createDoc(res, { title, filename, landscape = false, settings }) {
   const doc = new PDFDocument({ size: 'A4', layout: landscape ? 'landscape' : 'portrait', margin: 36, bufferPages: true,
-    info: { Title: title, Author: 'EduGest CM', Creator: 'EduGest CM' } });
+    info: { Title: title, Author: 'AI721 SchoolX CM', Creator: 'AI721 SchoolX CM' } });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${String(filename || 'document').replace(/[^\w.-]+/g, '_')}.pdf"`);
   doc.pipe(res);
@@ -67,7 +67,7 @@ export function header(doc, title, subtitle) {
   else {
     doc.circle(cx, y + 30, 28).lineWidth(1.5).strokeColor(C.primary).stroke();
     doc.font('Helvetica-Bold').fontSize(14).fillColor(C.primary)
-      .text((s.nom_court || s.nom || 'E').split(/\s+/).map((w) => w[0]).join('').slice(0, 3).toUpperCase(), cx - 28, y + 23, { width: 56, align: 'center' });
+      .text((/^\S{2,4}$/.test(s.nom_court || '') ? s.nom_court : (s.nom_court || s.nom || 'E').split(/\s+/).map((w) => w[0]).join('').slice(0, 3)).toUpperCase(), cx - 28, y + 23, { width: 56, align: 'center' });
   }
   doc.font('Helvetica').fontSize(6.5).fillColor(C.muted);
   if (s.immatriculation) doc.text(`Matricule : ${s.immatriculation}`, cx - 70, y + 68, { width: 140, align: 'center' });
@@ -75,6 +75,7 @@ export function header(doc, title, subtitle) {
   y = Math.max(y1, y2, y + 88) + 6;
   doc.moveTo(L, y).lineTo(L + W, y).lineWidth(1.2).strokeColor(C.accent).stroke();
   y += 8;
+  if (!title) return y; // courriers administratifs : en-tête officiel seul
   doc.font('Helvetica-Bold').fontSize(13).fillColor(C.primary).text(title.toUpperCase(), L, y, { width: W, align: 'center' });
   y = doc.y + 2;
   doc.font('Helvetica').fontSize(9).fillColor(C.muted).text(`Année scolaire ${s.annee_scolaire}${subtitle ? '  •  ' + subtitle : ''}`, L, y, { width: W, align: 'center' });
@@ -158,7 +159,7 @@ export function finalize(doc) {
     const old = doc.page.margins.bottom; doc.page.margins.bottom = 0;
     doc.moveTo(L, y - 4).lineTo(L + W, y - 4).lineWidth(0.4).strokeColor(C.line).stroke();
     doc.font('Helvetica').fontSize(7).fillColor(C.muted)
-      .text(`${s.nom} — Document généré par EduGest CM le ${new Date().toLocaleString('fr-FR')}`, L, y, { width: W * 0.75, lineBreak: false })
+      .text(`${s.nom} — Document généré par AI721 SchoolX CM le ${new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Douala' })}`, L, y, { width: W * 0.75, lineBreak: false })
       .text(`Page ${i - range.start + 1} / ${range.count}`, L + W * 0.75, y, { width: W * 0.25, align: 'right', lineBreak: false });
     doc.page.margins.bottom = old;
   }
@@ -430,7 +431,7 @@ export function platformHeader(doc, title, subtitle) {
   doc.font('Helvetica-Bold').fontSize(13).fillColor('#fff').text('AI', L + 14, y + 22, { width: 44, align: 'center' });
   doc.font('Helvetica-Bold').fontSize(17).fillColor('#fff').text(s.societe || 'AI721 TECH STUFF', L + 70, y + 14, { width: W * 0.55 });
   doc.font('Helvetica').fontSize(8.5).fillColor('#C7D2FE').text(s.slogan || '', L + 70, y + 36, { width: W * 0.55 });
-  doc.text('Éditeur de la plateforme EduGest CM', L + 70, y + 49, { width: W * 0.55 });
+  doc.text('Éditeur de la plateforme AI721 SchoolX CM', L + 70, y + 49, { width: W * 0.55 });
   const contact = [s.adresse, s.tel && `Tél. ${s.tel}`, s.email, s.site, s.rccm && `RCCM ${s.rccm}`, s.niu && `NIU ${s.niu}`].filter(Boolean).join('\n');
   doc.fontSize(7.5).fillColor('#E0E7FF').text(contact, L + W * 0.62, y + 12, { width: W * 0.36, align: 'right' });
   y += 86;
@@ -444,7 +445,7 @@ const frDate = (d) => (d ? String(d).slice(0, 10).split('-').reverse().join('/')
 
 /** Fiche d'accès remise à l'administrateur d'un établissement. */
 export function accessSheet(doc, { tenant, sub, username, password, links }) {
-  let y = platformHeader(doc, "Fiche d'accès à la plateforme EduGest CM", 'Document confidentiel — à remettre à l\'administrateur de l\'établissement');
+  let y = platformHeader(doc, "Fiche d'accès à la plateforme AI721 SchoolX CM", 'Document confidentiel — à remettre à l\'administrateur de l\'établissement');
   y = infoGrid(doc, y, [['Établissement', tenant.name], ['Code', tenant.code], ['Ville', tenant.ville],
     ['Abonnement', sub?.annee], ['Valable du', frDate(sub?.valid_from)], ['Au', frDate(sub?.valid_to)]], 2);
   const L = doc.page.margins.left, W = doc.page.width - L - doc.page.margins.right;
@@ -478,7 +479,7 @@ export function receipt(doc, { tenant, sub }) {
   y = infoGrid(doc, y, [['Reçu n°', no], ['Date de paiement', frDate(sub.paid_at)], ['Établissement', tenant.name], ['Code', tenant.code],
     ['Mode de paiement', sub.mode || '—'], ['Référence', sub.reference || '—']], 2);
   y = table(doc, y, [{ header: 'Désignation', width: 4.5, key: 'd' }, { header: 'Période', width: 2.2, key: 'p' }, { header: 'Montant', width: 1.5, align: 'right', key: 'm', bold: true }], [
-    { d: `Abonnement annuel à la plateforme EduGest CM — année scolaire ${sub.annee}\n(notes, discipline, emplois du temps, bulletins, statistiques, assistance)`,
+    { d: `Abonnement annuel à la plateforme AI721 SchoolX CM — année scolaire ${sub.annee}\n(notes, discipline, emplois du temps, bulletins, statistiques, assistance)`,
       p: `du ${frDate(sub.valid_from)}\nau ${frDate(sub.valid_to)}`, m: money(sub.montant, doc._settings.devise) }], { fontSize: 9, headerColor: P.primary });
   doc.roundedRect(L + W * 0.55, y, W * 0.45, 30, 5).fill('#EEF2FF');
   doc.font('Helvetica-Bold').fontSize(12).fillColor(P.band).text(`TOTAL PAYÉ : ${money(sub.paid ? sub.montant : 0, doc._settings.devise)}`, L + W * 0.55, y + 10, { width: W * 0.45 - 12, align: 'right' });
@@ -490,7 +491,7 @@ export function receipt(doc, { tenant, sub }) {
 
 /** Liste des établissements abonnés (console du super admin). */
 export function tenantsList(doc, rows, kpis) {
-  let y = platformHeader(doc, 'Établissements abonnés à EduGest CM', `Situation au ${new Date().toLocaleDateString('fr-FR')}`);
+  let y = platformHeader(doc, 'Établissements abonnés à AI721 SchoolX CM', `Situation au ${new Date().toLocaleDateString('fr-FR')}`);
   y = infoGrid(doc, y, [['Établissements', kpis.total], ['Actifs', kpis.actifs], ['Expirés / en attente', kpis.inactifs],
     ['Élèves gérés', kpis.eleves], ['Recettes année en cours', money(kpis.recettes_annee, doc._settings.devise)], ['Recettes cumulées', money(kpis.recettes_total, doc._settings.devise)]], 3);
   table(doc, y, [

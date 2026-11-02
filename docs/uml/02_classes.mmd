@@ -31,7 +31,36 @@ classDiagram
     +changerMotDePasse()
   }
   class Administrateur
-  class Enseignant { +specialite, matricule }
+  class Enseignant {
+    +specialite, matricule, grade, statut
+    +fonction, diplome, datePriseService
+    +acteAffectation
+    +tauxAssiduite(periode)
+  }
+  class Pointage {
+    +date, nature : absence|retard
+    +heures, minutes, creneau
+    +justifie, motif
+  }
+  class JourNonOuvre { +date, libelle }
+  class DocumentAdministratif {
+    <<abstract>>
+    +reference N° nnn/annee/sigle/code
+    +date, objet, faits, ampliations
+    +agentFige, signataireFige
+    +statut : emis|repondu|clos|annule
+    +remiseLe, suiteReservee
+    +annuler(motif)
+  }
+  class AttestationPresenceEffective { +periode, heuresDues, heuresEffectuees, tauxAssiduite }
+  class CertificatPriseDeService
+  class RappelALOrdre
+  class LettreObservation
+  class DemandeExplication {
+    +delaiHeures, echeance
+    +reponse, reponseLe
+    +repondre(texte)
+  }
   class ResponsableDisciplinaire { +fonction }
   class Classe { +nom, niveau, serie, cycle, salle }
   class Matiere { +intitule, code }
@@ -87,3 +116,14 @@ classDiagram
   Attribution "1" -- "0..*" CreneauEDT
   Administrateur "1" -- "0..*" Annonce : publie
   Utilisateur "1" -- "0..*" JournalAudit : génère
+  Enseignant "1" -- "0..*" Pointage : absences et retards
+  Pointage "0..*" -- "0..1" CreneauEDT : sur le créneau
+  Etablissement "1" -- "0..*" JourNonOuvre
+  Enseignant "1" -- "0..*" DocumentAdministratif : destinataire
+  Administrateur "1" -- "0..*" DocumentAdministratif : émet
+  DocumentAdministratif <|-- AttestationPresenceEffective
+  DocumentAdministratif <|-- CertificatPriseDeService
+  DocumentAdministratif <|-- RappelALOrdre
+  DocumentAdministratif <|-- LettreObservation
+  DocumentAdministratif <|-- DemandeExplication
+  LettreObservation "0..*" --> "0..1" DemandeExplication : en référence à

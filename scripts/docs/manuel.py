@@ -7,26 +7,29 @@ CAP = os.path.join(ROOT, 'docs', 'captures'); c = lambda f: os.path.join(CAP, f)
 today = datetime.date.today().strftime('%d/%m/%Y')
 URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre établissement"
 
-D = Doc("Manuel d'utilisation — EduGest CM", "Manuel d'utilisation")
-D.cover("Manuel d'utilisation", 'EduGest CM',
+D = Doc("Manuel d'utilisation — AI721 SchoolX CM", "Manuel d'utilisation")
+D.cover("Manuel d'utilisation", 'AI721 SchoolX CM',
         "Guide pas à pas pour le super administrateur AI721, les administrateurs d'établissement, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'EduGest CM — gestion des notes, de la discipline et des emplois du temps'), ('Version', '2.0 (plateforme multi-établissements AI721)'), ('Date', today),
+        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.0 (anciennement EduGest CM)'), ('Date', today),
          ('Public', 'Super administrateur AI721 TECH STUFF, administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Éditeur', 'AI721 TECH STUFF'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
 D.toc()
 
 # =============================================================== 1
-D.h1('1. Bienvenue dans EduGest CM')
-D.p("EduGest CM est une plateforme proposée par **AI721 TECH STUFF** aux établissements, sur abonnement annuel. Chaque établissement abonné dispose de son propre espace, "
+D.h1('1. Bienvenue dans AI721 SchoolX CM')
+D.p("AI721 SchoolX CM est une plateforme proposée par **AI721 TECH STUFF** aux établissements, sur abonnement annuel. Chaque établissement abonné dispose de son propre espace, "
     "accessible du **1er septembre au 31 août** de l'année scolaire couverte.", align='justify')
-D.p("EduGest CM est la plateforme en ligne de votre établissement pour gérer les **notes**, les **faits disciplinaires** et les **emplois du temps**. "
+D.p("AI721 SchoolX CM est la plateforme en ligne de votre établissement pour gérer les **notes**, les **faits disciplinaires** et les **emplois du temps**. "
     "Elle fonctionne dans un navigateur internet, sans installation, sur ordinateur, tablette et smartphone. Elle respecte l'organisation de l'année "
     "scolaire camerounaise : **6 séquences** regroupées en **3 trimestres**, notes sur 20, coefficients, rangs, conseils de classe.", align='justify')
+D.note("**Nouveau en version 3.0 :** la plateforme s'appelle désormais **AI721 SchoolX CM** (vos adresses, identifiants et données ne changent pas). "
+       "Elle gère aussi l'**assiduité des enseignants** (pointage, taux d'assiduité) et leurs **documents administratifs** : attestation de présence effective au poste, "
+       "certificat de prise de service, rappel à l'ordre, lettre d'observation et demande d'explication, à laquelle l'enseignant peut répondre en ligne.", 'ok')
 D.table(['Votre profil', 'Ce que vous pouvez faire', 'Chapitre'], [
     ['Super administrateur (AI721)', "Créer les établissements abonnés, enregistrer abonnements et paiements, transmettre et retrouver les accès des administrateurs", '3'],
-    ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année", '4'],
-    ['Enseignant', "Saisir vos notes (par séquence ou par trimestre) et votre progression, valider vos saisies, imprimer vos relevés", '5'],
+    ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année, assiduité et documents administratifs des enseignants", '4'],
+    ['Enseignant', "Saisir vos notes (par séquence ou par trimestre) et votre progression, valider vos saisies, imprimer vos relevés, consulter vos documents administratifs et votre assiduité, répondre à une demande d'explication", '5'],
     ['Responsable disciplinaire', "Saisir absences, retards et sanctions, signaler les incidents, imprimer les fiches", '6']],
     widths=[3.6, 11, 2], font=9.5)
 D.p("Chaque profil dispose de **sa propre interface de connexion**, avec une adresse et des couleurs différentes :")
@@ -41,12 +44,12 @@ D.bullets(["Un ordinateur, une tablette ou un smartphone avec un navigateur réc
            "Une connexion internet (la 3G suffit). En cas de coupure pendant la saisie, vos notes sont conservées sur l'appareil et envoyées dès le retour du réseau.",
            f"L'adresse de l'application : **{URL}**.",
            "Le **lien de votre interface** et vos identifiants, transmis par l'administrateur (fiche imprimée, message WhatsApp ou SMS)."])
-D.h2("1.2 Installer EduGest CM comme une application (recommandé sur smartphone)")
+D.h2("1.2 Installer AI721 SchoolX CM comme une application (recommandé sur smartphone)")
 D.table(['Appareil', 'Procédure'], [
     ['Android (Chrome)', "Ouvrez l'adresse de l'application ▸ menu ⋮ en haut à droite ▸ « Installer l'application » ou « Ajouter à l'écran d'accueil »."],
     ['iPhone / iPad (Safari)', "Ouvrez l'adresse ▸ bouton Partager ▸ « Sur l'écran d'accueil » ▸ Ajouter."],
     ['Ordinateur (Chrome / Edge)', "Cliquez sur l'icône d'installation à droite de la barre d'adresse."]], widths=[4.2, 12.4], font=9.5)
-D.p("L'icône EduGest apparaît alors avec vos autres applications et s'ouvre en plein écran.")
+D.p("L'icône SchoolX apparaît alors avec vos autres applications et s'ouvre en plein écran.")
 
 # =============================================================== 2
 D.h1('2. Premiers pas')
@@ -140,7 +143,8 @@ D.table(['Étape', 'Action', 'Menu'], [
     ['7', "Définir pour chaque classe : matières, coefficients, heures, enseignants", 'Attributions'],
     ['8', "Importer les listes d'élèves par classe", 'Élèves'],
     ['9', "Créer les responsables disciplinaires et leur affecter des classes", 'Resp. disciplinaires'],
-    ['10', "Générer les emplois du temps, puis publier une annonce de lancement", 'Emplois du temps, Annonces']],
+    ['10', "Générer les emplois du temps, puis publier une annonce de lancement", 'Emplois du temps, Annonces'],
+    ['11', "Compléter le dossier administratif des enseignants (grade, prise de service, affectation) et les jours non ouvrés de l'année", 'Assiduité & pointage, dossier enseignant']],
     widths=[1.4, 10.6, 4.6], font=9.5, caption='Check-list de mise en service')
 D.h2('4.2 Tableau de bord')
 D.figure(c('02_admin_tableau_de_bord.png'), "Tableau de bord de l'administrateur", max_h=14)
@@ -292,7 +296,80 @@ D.h2('4.19 Sauvegarde, restauration et nouvelle année')
 D.figure(c('18_admin_sauvegarde.png'), 'Sauvegarde et année scolaire', max_h=9)
 D.bullets([("Sauvegarder : ", "télécharge un fichier contenant toutes les données. Conservez-le hors du serveur (clé USB, Drive). Faites-le chaque semaine et avant chaque clôture. Le serveur réalise en plus une sauvegarde automatique toutes les 6 heures (14 jours conservés)."),
            ("Restaurer : ", "remplace toutes les données par celles d'un fichier de sauvegarde (mot de passe demandé, tous les utilisateurs sont déconnectés)."),
-           ("Nouvelle année scolaire : ", "possible après la clôture de l'année ; efface notes, progressions et discipline, rouvre les 6 séquences avec un nouveau calendrier ; conserve élèves, classes, matières, personnels et emplois du temps. Transférez ensuite les élèves dans leurs nouvelles classes (actions groupées).")])
+           ("Nouvelle année scolaire : ", "possible après la clôture de l'année ; efface notes, progressions, discipline et pointage des enseignants, rouvre les 6 séquences avec un nouveau calendrier ; conserve élèves, classes, matières, personnels, emplois du temps et le registre des documents administratifs. Transférez ensuite les élèves dans leurs nouvelles classes (actions groupées).")])
+
+D.h2('4.20 Assiduité du personnel enseignant et pointage')
+D.p("Le menu **Assiduité & pointage** (groupe Personnel) mesure la **présence effective** des enseignants. Les **heures dues** sont calculées automatiquement à partir de "
+    "l'**emploi du temps** de chaque enseignant, pour chaque jour de classe de la période (hors week-ends, vacances entre les séquences et jours non ouvrés). "
+    "Les absences et retards enregistrés donnent les **heures effectuées** et le **taux d'assiduité**.", align='justify')
+D.h3("Onglet Taux d'assiduité")
+D.figure(c('47_admin_assiduite.png'), "Taux d'assiduité des enseignants (cumul de l'année)", max_h=15)
+D.bullets([("Période : ", "année (cumul à ce jour), trimestre, séquence ou mois."),
+           ("Indicateurs : ", "taux global de l'établissement, heures d'absence non justifiées, retards, nombre d'enseignants sous 80 %."),
+           ("Tableau : ", "pour chaque enseignant, heures dues, effectuées, absences justifiées et non justifiées, retards, taux (barre verte ≥ 90 %, orange ≥ 70 %, rouge en dessous) et documents déjà émis ; cliquez sur un nom pour ouvrir son dossier."),
+           ("État d'assiduité (PDF) : ", "tableau officiel de tous les enseignants pour la période, à transmettre à la hiérarchie.")])
+D.figure(c('pdf_etat_assiduite.png'), "État d'assiduité du personnel enseignant (PDF)", max_w=16, max_h=11)
+D.h3('Onglet Pointage journalier')
+D.p("Chaque jour, ouvrez **Pointage du jour** : la liste des cours prévus à l'emploi du temps s'affiche, regroupée par horaire (classe, matière, enseignant). "
+    "Chaque cours est **présumé assuré** : ne marquez que les exceptions.", align='justify')
+D.numbered(["Choisissez la date (flèches ‹ › ou calendrier ; une date future n'est pas possible).",
+            "Pour un cours non assuré, cliquez sur **Absent** ; pour un retard, cliquez sur **Retard** et indiquez les minutes.",
+            "Cochez **Justifié** si l'absence est couverte par une pièce (certificat médical, convocation…) et précisez le motif.",
+            "Le champ **Filtrer** retrouve rapidement un enseignant ou une classe.",
+            "Cliquez sur **Enregistrer le pointage**."])
+D.figure(c('48_admin_pointage.png'), 'Pointage journalier : une absence et un retard marqués', max_h=12)
+D.h3('Onglets Absences & retards et Jours non ouvrés')
+D.p("Le bouton **Absence / retard** enregistre une absence en dehors du pointage : quelques heures un jour donné, une **journée entière** ou une **période de plusieurs jours** "
+    "(les heures prévues à l'emploi du temps de chaque jour sont alors décomptées), ou un retard. L'onglet **Absences & retards** liste tous les enregistrements de la période : "
+    "l'interrupteur **Justifiée** se modifie directement, le crayon change le motif, la corbeille supprime une saisie erronée.", align='justify')
+D.figure(c('49_admin_absences.png'), 'Absences et retards de la période', max_h=10)
+D.p("L'onglet **Jours non ouvrés** contient les fêtes légales à date fixe, ajoutées automatiquement chaque année. Ajoutez-y les fêtes mobiles (Vendredi saint, Ascension, "
+    "Djouldé Soumaé, Fête du Mouton) et les journées banalisées : ces jours ne sont pas dus.", align='justify')
+D.figure(c('50_admin_jours_non_ouvres.png'), 'Jours non ouvrés', max_h=8)
+
+D.h2("4.21 Dossier administratif d'un enseignant")
+D.p("Ouvrez le dossier depuis le tableau d'assiduité (clic sur le nom) ou depuis **Enseignants** ▸ menu ☰ ▸ **Dossier administratif & assiduité**.", align='justify')
+D.figure(c('51_admin_dossier_enseignant.png'), "Dossier d'un enseignant : situation administrative, assiduité, documents", max_h=15)
+D.bullets([("Situation administrative : ", "bouton **Dossier** pour renseigner matricule, grade (PLEG, PCEG, PLET, PCET, PEPS…), statut, diplôme, fonction, date et lieu de naissance, **date de prise de service** et **acte d'affectation**. Ces informations figurent sur les documents."),
+           ("Assiduité : ", "taux, heures dues et effectuées, absences, retards et détail par séquence pour la période choisie ; bouton **Relevé** pour le relevé d'assiduité PDF."),
+           ("Absences et retards : ", "historique de la période, avec ajout rapide."),
+           ("Documents administratifs : ", "tous les documents émis à son nom, et le bouton **Émettre un document**.")])
+
+D.h2('4.22 Documents administratifs du personnel')
+D.p("Le menu **Documents administratifs** est le **registre** de tous les documents émis pour les enseignants. Cinq documents sont disponibles :", align='justify')
+D.table(['Document', 'Contenu', 'Réf.'], [
+    ['Attestation de présence effective au poste', "Atteste que l'enseignant est présent à son poste, avec le tableau d'assiduité de la période (par séquence), le taux et son appréciation.", 'APE'],
+    ['Certificat de prise de service', "Certifie la date de prise de service, avec le grade, le matricule, l'acte d'affectation et la fonction.", 'CPS'],
+    ["Rappel à l'ordre", "Courrier listant les manquements constatés et invitant l'enseignant à se ressaisir.", 'RO'],
+    ["Lettre d'observation", "Courrier plus sévère, versé au dossier administratif ; peut citer une demande d'explication en référence.", 'LO'],
+    ["Demande d'explication", "Courrier listant les faits reprochés, avec un délai de réponse et un **espace de réponse pour l'intéressé(e)**, puis un cadre « suite réservée ».", 'DE']],
+    widths=[4.6, 10.4, 1.6], font=9.5, caption='Les documents administratifs')
+D.figure(c('52_admin_documents.png'), 'Registre des documents administratifs', max_h=12)
+D.h3('Émettre un document')
+D.numbered(["Cliquez sur **Nouveau document** et choisissez le type (ou, depuis le dossier, **Émettre un document**).",
+            "Choisissez l'enseignant et vérifiez la date du document.",
+            "Attestation de présence : choisissez la **période** ; le taux calculé s'affiche avant l'émission. Certificat de prise de service : la date de prise de service doit être renseignée (bouton **Compléter le dossier**).",
+            "Courriers : précisez l'objet et rédigez les **faits**, un par ligne. Cliquez sur une proposition de la rubrique **Faits constatés dans la plateforme** (absences non justifiées, retards, notes non validées, progression en retard) ou des **Motifs usuels** pour l'ajouter.",
+            "Demande d'explication : choisissez le **délai de réponse** (72 heures par défaut). Lettre d'observation : choisissez éventuellement la demande d'explication **en référence**.",
+            "Vérifiez les **ampliations** (copies), puis cliquez sur **Émettre le document** et **Ouvrir le PDF** pour l'imprimer, le signer et y apposer le cachet."])
+D.figure(c('53_admin_nouveau_document.png'), "Rédaction d'une demande d'explication avec les faits proposés", max_h=12)
+D.figure(c('56_admin_presence_effective.png'), "Attestation de présence effective : aperçu du taux de la période", max_h=12)
+D.p("Chaque document reçoit une **référence** unique, numérotée par type et par année (ex. N° 004/2026-2027/LPEY/P/DE). L'identité de l'enseignant, le signataire et, "
+    "pour l'attestation, les chiffres d'assiduité sont **figés** au moment de l'émission.", align='justify')
+D.figures_row([c('pdf_doc_presence.png'), c('pdf_doc_prise_service.png')], 'Attestation de présence effective et certificat de prise de service', width=8)
+D.figures_row([c('pdf_doc_rappel_ordre.png'), c('pdf_doc_observation.png')], "Rappel à l'ordre et lettre d'observation", width=8)
+D.figures_row([c('pdf_doc_demande_explication_vierge_p1.png'), c('pdf_doc_demande_explication_vierge_p2.png')], "Demande d'explication : courrier et espace de réponse à remplir à la main", width=8)
+D.h3('Suivre un document : remise, réponse, suite')
+D.p("Le bouton **Ouvrir** d'une ligne affiche la fiche du document :", align='justify')
+D.bullets([("Remis en main propre : ", "enregistre la date de remise. Pour une demande d'explication, le **délai de réponse court à partir de cette date** (ou de la lecture par l'enseignant dans son espace)."),
+           ("Modifier : ", "possible tant que le document n'a pas été remis."),
+           ("Réponse de l'intéressé(e) : ", "si l'enseignant a répondu en ligne, sa réponse s'affiche ici et figure dans l'espace de réponse du PDF ; sinon, il répond à la main sur le document imprimé."),
+           ("Suite réservée : ", "votre décision (classement, lettre d'observation…) ; elle clôt le dossier et apparaît sur le PDF et dans l'espace de l'enseignant."),
+           ("Lettre d'observation : ", "émet directement une lettre d'observation en référence à la demande d'explication."),
+           ("Annuler : ", "avec un motif ; le document reste au registre avec la mention « Annulé » et son numéro n'est pas réattribué.")])
+D.figure(c('55_admin_document_fiche.png'), "Fiche d'une demande d'explication : réponse de l'enseignant et suite réservée", max_h=12)
+D.figures_row([c('pdf_doc_demande_explication_p1.png'), c('pdf_doc_demande_explication_p2.png')], "Demande d'explication avec la réponse transmise en ligne et la suite réservée", width=8)
+D.p("Le **tableau de bord** signale les demandes d'explication restées sans réponse dans le délai et les réponses à examiner. Le bouton **Registre (PDF)** imprime le registre annuel.", align='justify')
 
 # =============================================================== 4
 D.h1("5. Guide de l'enseignant")
@@ -336,6 +413,22 @@ D.p("Choisissez la **période** (séquence, trimestre ou année), puis **Relevé
 D.figure(c('pdf_releve.png'), 'Exemple de relevé de notes', max_h=13)
 D.h2('5.5 Mon emploi du temps')
 D.figure(c('27_enseignant_edt.png'), "Emploi du temps de l'enseignant", max_h=9)
+D.h2('5.6 Mes documents administratifs et mon assiduité')
+D.p("Le menu **Mes documents & assiduité** rassemble les documents émis à votre nom par le chef d'établissement (attestations, certificats, courriers) et votre assiduité. "
+    "Un bandeau sur votre tableau de bord signale un document non lu ou une demande d'explication en attente de réponse.", align='justify')
+D.figure(c('57_enseignant_documents.png'), 'Mes documents administratifs et mon assiduité', max_h=12)
+D.bullets([("Lire le document : ", "ouvre le PDF officiel. L'ouverture vaut **accusé de réception**."),
+           ("Accuser réception : ", "confirme que vous avez pris connaissance du document ; pour une demande d'explication, le délai de réponse court à partir de ce moment."),
+           ("Mon assiduité : ", "votre taux d'assiduité, vos heures dues et effectuées, vos absences et retards pour la période choisie, et votre **relevé d'assiduité** PDF. En cas d'erreur, signalez-la à l'administration.")])
+D.h3("Répondre à une demande d'explication")
+D.numbered(["Cliquez sur **Répondre** sous la demande d'explication.",
+            "Rédigez votre réponse (6 000 caractères au plus) ; elle est conservée sur l'appareil si vous fermez la fenêtre avant l'envoi.",
+            "Cliquez sur **Transmettre ma réponse** puis confirmez. **La réponse est définitive** : elle ne peut plus être modifiée.",
+            "Votre réponse apparaît dans l'espace « Réponse de l'intéressé(e) » du document ; la suite réservée par le chef d'établissement s'affichera ensuite sous le document."])
+D.figure(c('58_enseignant_reponse.png'), "Réponse en ligne à une demande d'explication", max_h=11)
+D.note("Vous pouvez aussi répondre **à la main** dans l'espace prévu sur le document imprimé, puis le remettre signé à l'administration. "
+       "Respectez le délai indiqué : une réponse transmise après l'échéance est signalée « hors délai ».", 'info')
+D.figure(c('60_mobile_enseignant_documents.png'), 'Mes documents sur smartphone', max_h=11)
 
 # =============================================================== 5
 D.h1('6. Guide du responsable disciplinaire')
@@ -378,7 +471,13 @@ D.table(['Document', 'Contenu', 'Qui', 'Où'], [
     ['Fiche disciplinaire individuelle', "Synthèse des 6 séquences et incidents d'un élève", 'Responsable, admin', 'Fiches PDF, historique'],
     ['Emploi du temps', "Par classe ou par enseignant", 'Tous', 'Emplois du temps'],
     ['Liste de classe', "Élèves, matricules, naissance, contacts", 'Admin, enseignant', 'Élèves, Relevés'],
-    ["Fiches d'identifiants", "Identifiant et mot de passe provisoire à découper", 'Admin', 'Enseignants, Responsables']],
+    ["Fiches d'identifiants", "Identifiant et mot de passe provisoire à découper", 'Admin', 'Enseignants, Responsables'],
+    ['Attestation de présence effective au poste', "Présence à son poste, tableau d'assiduité de la période, taux et appréciation", 'Admin (enseignant : lecture)', 'Documents administratifs'],
+    ['Certificat de prise de service', "Date de prise de service, grade, matricule, acte d'affectation, fonction", 'Admin (enseignant : lecture)', 'Documents administratifs'],
+    ["Rappel à l'ordre, lettre d'observation", "Courriers numérotés : manquements, formules réglementaires, ampliations", 'Admin (enseignant : lecture)', 'Documents administratifs'],
+    ["Demande d'explication", "Faits reprochés, délai, espace de réponse de l'intéressé(e), suite réservée", 'Admin ; réponse de l\'enseignant', 'Documents administratifs, Mes documents'],
+    ["État et relevé d'assiduité", "Heures dues, effectuées, absences, retards, taux : tous les enseignants ou un seul", 'Admin, enseignant (le sien)', 'Assiduité, dossier, Mes documents'],
+    ['Registre des documents administratifs', "Tous les documents de l'année avec leur statut", 'Admin', 'Documents administratifs']],
     widths=[3.6, 7.4, 2.6, 3], font=9, caption='Documents PDF')
 D.p("Tous les documents portent l'en-tête bilingue « République du Cameroun / Republic of Cameroon », le logo et les références de l'établissement, "
     "la date d'édition et la pagination. Ils s'ouvrent dans un nouvel onglet : utilisez ensuite **Imprimer** ou **Télécharger** de votre navigateur.", align='justify')
@@ -397,7 +496,12 @@ D.table(['Problème', 'Solution'], [
     ["Session expirée", "Après 2 heures d'inactivité, reconnectez-vous ; les saisies non envoyées sont restaurées."],
     ["« Ce compte doit se connecter via… »", "Vous êtes sur l'interface d'un autre rôle : cliquez sur « Ouvrir cette interface » ou utilisez le lien qui vous a été transmis."],
     ["« L'abonnement … a expiré » / « en attente de paiement »", "L'établissement doit renouveler ou régler son abonnement auprès d'AI721 TECH STUFF ; l'accès est rétabli dès l'encaissement."],
-    ["J'ai oublié mon mot de passe", "Enseignants et responsables : l'administrateur le retrouve dans son coffre. Administrateur : contactez AI721 TECH STUFF."]],
+    ["J'ai oublié mon mot de passe", "Enseignants et responsables : l'administrateur le retrouve dans son coffre. Administrateur : contactez AI721 TECH STUFF."],
+    ["Le taux d'assiduité d'un enseignant semble faux", "Vérifiez son emploi du temps (les heures dues en dépendent), les jours non ouvrés et le pointage de la période (onglet Absences & retards)."],
+    ["Aucun cours n'apparaît dans le pointage", "Le jour n'est pas un jour de cours, est un jour non ouvré, ou les emplois du temps ne sont pas encore générés."],
+    ["Je ne peux plus modifier un document administratif", "Il a déjà été remis ou lu par l'enseignant : annulez-le (avec un motif) et émettez-en un nouveau."],
+    ["Le certificat de prise de service est refusé", "Renseignez d'abord la date de prise de service dans le dossier de l'enseignant (bouton Dossier ou Compléter le dossier)."],
+    ["Enseignant : où répondre à une demande d'explication ?", "Menu Mes documents & assiduité ▸ bouton Répondre ; ou à la main sur le document imprimé."]],
     widths=[5.6, 11], font=9.5)
 
 # =============================================================== 8
@@ -406,6 +510,7 @@ D.bullets(["Ne communiquez jamais votre mot de passe, même à un collègue ; l'
            "Déconnectez-vous sur les ordinateurs partagés (salle des professeurs, cybercafé).",
            "Détruisez la fiche d'identifiants papier après avoir choisi votre mot de passe personnel.",
            "Administrateurs : téléchargez une sauvegarde chaque semaine, consultez le journal d'audit, désactivez immédiatement le compte d'un personnel qui quitte l'établissement.",
+           "Les documents administratifs et l'assiduité d'un enseignant sont confidentiels : seuls l'intéressé et l'administration y ont accès ; chaque émission, consultation et réponse est tracée.",
            "Les données des élèves sont personnelles et protégées par la loi n° 2024/017 du 23 décembre 2024 : n'exportez et n'imprimez que ce qui est nécessaire."])
 
 # =============================================================== annexes
@@ -419,13 +524,22 @@ D.table(['Moyenne', 'Appréciation', 'Décision proposée'], [
     ['10 à 11,99', 'Passable', 'Travail acceptable'], ['8 à 9,99', 'Insuffisant', 'Avertissement travail'],
     ['5 à 7,99', 'Faible', 'Blâme travail'], ['< 5', 'Très faible', 'Blâme travail']], widths=[3.5, 4, 9.1], font=9.5)
 D.p("La mention « Blâme conduite » est ajoutée en cas de blâme ou d'exclusion ; « Avertissement conduite » en cas d'avertissement ou d'au moins 10 heures d'absences non justifiées.")
-D.h1('Annexe B — Comptes du mode démonstration')
-D.p("L'instance de démonstration contient un établissement **fictif** (« Lycée Pilote EduGest de Yaoundé ») avec 6 classes, 181 élèves, 12 enseignants et "
+D.h1("Annexe B — Calcul de l'assiduité et références des documents")
+D.bullets(["**Heures dues :** pour chaque jour de classe de la période (jour de cours, compris dans une séquence, hors jour non ouvré, jusqu'à aujourd'hui), nombre de cours prévus ce jour-là à l'emploi du temps de l'enseignant (un créneau = une heure).",
+           "**Heures effectuées :** heures dues moins les heures d'absence, justifiées ou non.",
+           "**Taux d'assiduité :** heures effectuées ÷ heures dues × 100. Le taux « hors absences justifiées » est aussi indiqué. Les retards sont comptés à part."])
+D.table(["Taux d'assiduité", 'Appréciation'], [['≥ 98 %', 'Excellente'], ['95 à 97,9 %', 'Très bonne'], ['90 à 94,9 %', 'Bonne'], ['80 à 89,9 %', 'Assez bonne'], ['70 à 79,9 %', 'Passable'], ['< 70 %', 'Insuffisante']], widths=[6, 10.6], font=9.5)
+D.p("**Références :** N° numéro/année scolaire/sigle/P/code — APE (présence effective), CPS (prise de service), RO (rappel à l'ordre), LO (lettre d'observation), DE (demande d'explication). "
+    "La numérotation repart à 001 chaque année pour chaque type ; un numéro annulé n'est jamais réutilisé. Le paramètre « ref_documents » permet de remplacer « sigle/P » par la référence administrative complète de l'établissement.", align='justify')
+D.h1('Annexe C — Comptes du mode démonstration')
+D.p("L'instance de démonstration contient un établissement **fictif** (« Lycée Pilote SchoolX de Yaoundé ») avec 6 classes, 181 élèves, 12 enseignants et "
     "2 responsables. Elle est réinitialisée régulièrement : ne l'utilisez pas pour de vraies données.", align='justify')
 D.table(['Profil', 'Interface', 'Identifiant', 'Mot de passe'], [['Super administrateur', '/console', 'AI721', 'Ai721@2026'],
     ['Administrateur', '/e/lpey/admin', 'admin', 'Admin@2026'], ['Enseignant (mathématiques)', '/e/lpey/enseignant', 'mbargajp', 'Prof@2026'],
     ['Responsable disciplinaire', '/e/lpey/discipline', 'sg.nguemap', 'Disc@2026']], widths=[4.6, 4.4, 3.4, 4.2], font=9.5)
+D.p("Les enseignants de démonstration ont un dossier administratif, un pointage depuis la rentrée et plusieurs documents (prise de service, présence effective, rappel à l'ordre, "
+    "demandes d'explication avec et sans réponse, lettre d'observation). L'enseignant de démonstration a une demande d'explication à laquelle répondre.", align='justify')
 D.p("La console de démonstration contient aussi trois autres établissements fictifs illustrant les situations d'abonnement : actif (lbdouala), expiré (cetbafoussam) et en attente de paiement (cesgaroua).", align='justify')
 
-out = os.path.join(ROOT, 'docs', 'Manuel_utilisation_EduGest_CM.docx')
+out = os.path.join(ROOT, 'docs', 'Manuel_utilisation_AI721_SchoolX_CM.docx')
 D.save(out); print('OK', out)

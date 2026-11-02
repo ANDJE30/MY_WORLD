@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy, periodPlan } from '../db.js';
+import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy, periodPlan, HR_FIELDS } from '../db.js';
 import { seal, unseal } from '../vault.js';
 import { inPlatform, pdb, TENANTS_DIR } from '../platform.js';
 import { renderPdfBuffer, statsReport } from '../pdf.js';
@@ -36,6 +36,10 @@ r.get('/dashboard', (_req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   if (p.status === 'open' && p.end_date && p.end_date < today)
     alerts.push({ level: 'danger', text: `La séquence ${seq} est terminée depuis le ${p.end_date} : pensez à la clôturer`, link: '#/calendrier' });
+  const deLate = count("SELECT COUNT(*) c FROM staff_documents WHERE type = 'demande_explication' AND status = 'emis' AND echeance < unixepoch()");
+  if (deLate) alerts.push({ level: 'danger', text: `${deLate} demande(s) d'explication sans réponse dans le délai imparti`, link: '#/documents-rh' });
+  const deAns = count("SELECT COUNT(*) c FROM staff_documents WHERE type = 'demande_explication' AND status = 'repondu'");
+  if (deAns) alerts.push({ level: 'info', text: `${deAns} réponse(s) à une demande d'explication à examiner`, link: '#/documents-rh' });
   const locked = count('SELECT COUNT(*) c FROM users WHERE locked_until > unixepoch()');
   if (locked) alerts.push({ level: 'danger', text: `${locked} compte(s) verrouillé(s) suite à des échecs de connexion`, link: '#/enseignants' });
   res.json({
@@ -59,7 +63,7 @@ r.get('/settings', (_req, res) => res.json(getSettings()));
 r.put('/settings', (req, res) => {
   const b = req.body || {}; const out = {};
   for (const k of Object.keys(DEFAULT_SETTINGS)) {
-    if (!(k in b) || k === 'annee_cloturee') continue;
+    if (!(k in b) || k === 'annee_cloturee' || k === 'feries_annee') continue;
     const def = DEFAULT_SETTINGS[k];
     if (k === 'logo') {
       if (b.logo && !/^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/.test(b.logo)) throw bad('Logo : PNG ou JPEG uniquement');
@@ -391,7 +395,7 @@ function normDate(v) {
 /* ============ Personnels : enseignants & responsables disciplinaires ============ */
 r.get('/users', (req, res) => {
   const role = oneOf(req.query.role, ['teacher', 'discipline', 'admin'], 'Rôle');
-  const users = db.prepare(`SELECT id, role, username, full_name, sexe, phone, email, matricule, specialite, active, must_change, last_login,
+  const users = db.prepare(`SELECT id, role, username, full_name, sexe, phone, email, matricule, specialite, ${HR_FIELDS.join(', ')}, active, must_change, last_login,
       locked_until > unixepoch() locked, created_at, pw_enc IS NOT NULL has_pw, pw_set_at, pw_user_changed_at
     FROM users WHERE role = ? ORDER BY full_name COLLATE NOCASE`).all(role);
   for (const u of users) {
@@ -404,6 +408,16 @@ r.get('/users', (req, res) => {
 const userBody = (b) => ({ full_name: str(b.full_name, { max: 120, required: true, label: 'Nom complet' }),
   sexe: b.sexe ? oneOf(String(b.sexe).toUpperCase().slice(0, 1), ['M', 'F'], 'Sexe') : null, phone: str(b.phone, { max: 30 }),
   email: str(b.email, { max: 120 }), matricule: str(b.matricule, { max: 30 }), specialite: str(b.specialite, { max: 80 }) });
+/** Données administratives (grade, statut, prise de service…) transmises avec la fiche d'un enseignant. */
+function applyHr(uid, b) {
+  const sets = [], vals = [];
+  for (const f of HR_FIELDS) {
+    if (!(f in b)) continue;
+    sets.push(`${f} = ?`);
+    vals.push(f.startsWith('date_') ? date(b[f] || null, f === 'date_naissance' ? 'Date de naissance' : 'Date de prise de service') : str(b[f], { max: f === 'acte_affectation' ? 250 : 120, label: f }));
+  }
+  if (sets.length) db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...vals, uid);
+}
 function createUser(req, role, b, classIds) {
   const u = userBody(b);
   const username = b.username ? str(b.username, { max: 40 }).toLowerCase().replace(/[^a-z0-9._-]/g, '') : genUsername(u.full_name, role);
@@ -413,6 +427,7 @@ function createUser(req, role, b, classIds) {
   const info = db.prepare(`INSERT INTO users(role, username, pass_hash, full_name, sexe, phone, email, matricule, specialite, must_change, pw_enc, pw_set_at)
     VALUES(?,?,?,?,?,?,?,?,?,0,?,unixepoch())`).run(role, username, hashPassword(password), u.full_name, u.sexe, u.phone, u.email, u.matricule, u.specialite, seal(password));
   const uid = Number(info.lastInsertRowid);
+  if (role === 'teacher') applyHr(uid, b);
   if (role === 'discipline' && classIds?.length) setOfficerClasses(uid, classIds);
   audit(req, 'COMPTE_CREE', `${role} ${username}`);
   return { id: uid, role, full_name: u.full_name, username, password, link: portalLink(req, role) };
@@ -442,6 +457,7 @@ r.put('/users/:id', (req, res) => {
   const target = db.prepare('SELECT role FROM users WHERE id = ?').get(uid);
   if (!target) throw new HttpError(404, 'Utilisateur introuvable');
   db.prepare('UPDATE users SET full_name=?, sexe=?, phone=?, email=?, matricule=?, specialite=? WHERE id=?').run(u.full_name, u.sexe, u.phone, u.email, u.matricule, u.specialite, uid);
+  if (target.role === 'teacher') applyHr(uid, req.body);
   if (target.role === 'discipline' && Array.isArray(req.body.class_ids)) tx(() => setOfficerClasses(uid, req.body.class_ids));
   audit(req, 'COMPTE_MODIFIE', u.full_name);
   res.json({ ok: true });
@@ -652,22 +668,24 @@ r.get('/audit', (req, res) => {
 
 /* ============ Sauvegarde / restauration / nouvelle année ============ */
 const TABLES = ['settings', 'users', 'classes', 'subject_groups', 'subject_types', 'subjects', 'class_subjects', 'students', 'officer_classes', 'periods', 'notes', 'note_validations',
-  'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'timetable', 'announcements', 'year_archives'];
+  'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'timetable', 'announcements', 'year_archives',
+  'days_off', 'staff_attendance', 'staff_documents'];
 function buildDump() {
-  const dump = { app: 'EduGest CM', version: 2, created_at: new Date().toISOString(), tables: {} };
+  const dump = { app: 'AI721 SchoolX CM', version: 3, created_at: new Date().toISOString(), tables: {} };
   for (const t of TABLES) dump.tables[t] = db.prepare(`SELECT * FROM ${t}`).all();
   return dump;
 }
 r.get('/backup', (req, res) => {
   const dump = buildDump();
   audit(req, 'SAUVEGARDE');
-  res.setHeader('Content-Disposition', `attachment; filename="edugest-sauvegarde-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.setHeader('Content-Disposition', `attachment; filename="schoolx-sauvegarde-${new Date().toISOString().slice(0, 10)}.json"`);
   res.json(dump);
 });
 r.post('/restore', (req, res) => {
   confirmPassword(req);
   const dump = req.body.dump;
-  if (!dump || dump.app !== 'EduGest CM' || typeof dump.tables !== 'object') throw bad('Fichier de sauvegarde invalide');
+  // les sauvegardes antérieures au changement de nom (EduGest CM) restent acceptées
+  if (!dump || !['AI721 SchoolX CM', 'EduGest CM'].includes(dump.app) || typeof dump.tables !== 'object') throw bad('Fichier de sauvegarde invalide');
   if (!dump.tables.users?.some((u) => u.role === 'admin')) throw bad('La sauvegarde ne contient aucun administrateur');
   tx(() => {
     db.exec('PRAGMA defer_foreign_keys = ON');
@@ -703,7 +721,8 @@ r.post('/new-year', (req, res) => {
   if (s.annee_cloturee !== s.annee_scolaire && !bool(req.body.force))
     throw new HttpError(409, `Clôturez d'abord l'année ${s.annee_scolaire} (statistiques annuelles et sauvegarde), ou forcez le passage.`);
   tx(() => {
-    for (const t of ['notes', 'note_validations', 'progressions', 'discipline_records', 'incidents', 'discipline_validations']) db.exec(`DELETE FROM ${t}`);
+    // les documents administratifs émis restent au registre (numérotation par année) ; le pointage repart à zéro
+    for (const t of ['notes', 'note_validations', 'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'staff_attendance']) db.exec(`DELETE FROM ${t}`);
     db.exec("UPDATE periods SET status = 'open', closed_at = NULL, closed_by = NULL, forced = 0");
     periodPlan(+annee.slice(0, 4)).forEach((p, i) => db.prepare('UPDATE periods SET start_date = ?, end_date = ? WHERE seq = ?').run(p[0], p[1], i + 1));
     saveSettings({ annee_scolaire: annee });

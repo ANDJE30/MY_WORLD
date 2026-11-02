@@ -2,7 +2,7 @@ sequenceDiagram
   autonumber
   actor U as Utilisateur
   participant N as Navigateur (SPA)
-  participant API as API EduGest
+  participant API as API SchoolX
   participant DB as Base SQLite
   U->>N: Ouvre l'interface de son rôle (/e/code/enseignant…) et saisit ses identifiants
   N->>API: POST /e/code/api/auth/login {portal} (en-tête anti-CSRF)

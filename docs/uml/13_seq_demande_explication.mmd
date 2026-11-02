@@ -1,0 +1,29 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrateur
+  participant API as API SchoolX (/e/code/api)
+  participant DB as Base de l'établissement
+  actor E as Enseignant
+  A->>API: GET /rh/documents/faits?teacher_id&period
+  API->>DB: absences non justifiées, retards, notes non validées, progression
+  API-->>A: faits constatés proposés
+  A->>API: POST /rh/documents {type: demande_explication, faits, délai 72 h}
+  API->>DB: numéro suivant (type, année) + agent et signataire figés
+  API-->>A: 201 N° 004/2026-2027/LPEY/P/DE
+  A->>API: GET /pdf/document/:id (impression, signature, cachet)
+  alt remise en main propre
+    A->>API: POST /rh/documents/:id/remise {date}
+  else lecture dans l'espace enseignant
+    E->>API: POST /mes-documents/:id/accuse
+  end
+  API->>DB: ack_at, échéance = réception + délai
+  E->>API: PUT /mes-documents/:id/reponse {texte}
+  API->>DB: réponse unique et définitive, statut « repondu »
+  API-->>E: 200 (réponse hors délai signalée le cas échéant)
+  A->>API: GET /rh/documents/:id (lecture de la réponse)
+  alt explications satisfaisantes
+    A->>API: POST /rh/documents/:id/suite {classé sans suite}
+  else explications insuffisantes
+    A->>API: POST /rh/documents/:id/suite + POST /rh/documents {type: observation, ref_doc_id}
+  end
+  API->>DB: statut « clos », journal d'audit

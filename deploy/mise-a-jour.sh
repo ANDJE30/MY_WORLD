@@ -12,7 +12,7 @@ docker compose -f deploy/docker-compose.yml exec -T app sh -c 'mkdir -p /data/ba
 git fetch origin "$BRANCH" && git checkout "$BRANCH" && git pull --ff-only origin "$BRANCH"
 cd deploy && docker compose up -d --build
 for i in $(seq 1 30); do
-  if docker compose exec -T app wget -qO- http://127.0.0.1:3000/healthz >/dev/null 2>&1; then echo "Mise à jour terminée : EduGest CM est en ligne."; exit 0; fi
+  if docker compose exec -T app wget -qO- http://127.0.0.1:3000/healthz >/dev/null 2>&1; then echo "Mise à jour terminée : AI721 SchoolX CM est en ligne."; exit 0; fi
   sleep 2
 done
 echo "L'application ne répond pas : consultez « docker compose logs app »." >&2; exit 1

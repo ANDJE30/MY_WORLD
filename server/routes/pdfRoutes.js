@@ -8,6 +8,10 @@ import { unseal } from '../vault.js';
 import { computeStats } from './admin.js';
 import * as P from '../pdf.js';
 import { timetableGrid } from './admin.js';
+import * as PS from '../pdfStaff.js';
+import { getSettings } from '../db.js';
+import { DOC_TYPES, attendanceRange, attendanceSummary, schoolDays, agentSnapshot } from '../staff.js';
+import { dossier, acknowledge } from './staff.js';
 
 const r = Router();
 r.use(requireAuth);
@@ -159,6 +163,55 @@ r.get('/stats', requireRole('admin'), (req, res) => {
   const doc = P.createDoc(res, { title: 'Statistiques', filename: `statistiques_${st.period}` });
   P.statsReport(doc, st, { annual: st.period === 'A' });
   audit(req, 'PDF_STATISTIQUES', st.period);
+  P.finalize(doc);
+});
+
+/* ---------- Dossier administratif des enseignants ---------- */
+// Document administratif (administration : tous ; enseignant : les siens — l'ouverture vaut accusé de réception)
+r.get('/document/:id', requireRole('admin', 'teacher'), (req, res) => {
+  let d = db.prepare('SELECT * FROM staff_documents WHERE id = ?').get(id(req.params.id));
+  if (!d || (req.user.role === 'teacher' && (d.user_id !== req.user.id || d.status === 'annule'))) throw new HttpError(404, 'Document introuvable');
+  if (req.user.role === 'teacher' && !d.ack_at) { acknowledge(d, Math.floor(Date.now() / 1000)); d = db.prepare('SELECT * FROM staff_documents WHERE id = ?').get(d.id); }
+  d.data = JSON.parse(d.data || '{}');
+  const refDoc = d.ref_doc_id ? db.prepare('SELECT * FROM staff_documents WHERE id = ?').get(d.ref_doc_id) : null;
+  // signataire figé à la date d'émission
+  const sig = Object.fromEntries(Object.entries(d.data.signataire || {}).filter(([, v]) => v));
+  const doc = P.createDoc(res, { title: DOC_TYPES[d.type].titre, filename: `${DOC_TYPES[d.type].code}_${String(d.num).padStart(3, '0')}_${d.data.agent?.full_name || ''}`, settings: { ...getSettings(), ...sig } });
+  PS.adminDocument(doc, d, refDoc);
+  audit(req, 'PDF_DOCUMENT_ADMIN', d.reference);
+  P.finalize(doc);
+});
+
+// État d'assiduité de tous les enseignants (administration)
+r.get('/assiduite', requireRole('admin'), (req, res) => {
+  const range = attendanceRange(req.query);
+  const days = schoolDays(range.from, range.to);
+  const rows = db.prepare("SELECT id, full_name, matricule, grade, specialite FROM users WHERE role = 'teacher' ORDER BY full_name COLLATE NOCASE").all()
+    .map((u) => ({ ...u, ...attendanceSummary(u.id, range, days), records: undefined }));
+  const doc = P.createDoc(res, { title: "État d'assiduité", filename: `assiduite_${range.code}`, landscape: true });
+  PS.assiduiteEtat(doc, { range, rows });
+  audit(req, 'PDF_ASSIDUITE', range.code);
+  P.finalize(doc);
+});
+
+// Relevé d'assiduité individuel (administration ou enseignant concerné)
+r.get('/assiduite-enseignant', requireRole('admin', 'teacher'), (req, res) => {
+  const tid = req.user.role === 'admin' ? id(req.query.teacher_id) : req.user.id;
+  const agent = agentSnapshot(tid);
+  if (!agent) throw new HttpError(404, 'Enseignant introuvable');
+  const { summary, parSequence } = dossier(tid, req.query);
+  const doc = P.createDoc(res, { title: "Relevé d'assiduité", filename: `assiduite_${agent.full_name}` });
+  PS.assiduiteEnseignant(doc, { agent, summary, parSequence });
+  P.finalize(doc);
+});
+
+// Registre des documents administratifs (administration)
+r.get('/registre-documents', requireRole('admin'), (req, res) => {
+  const annee = str(req.query.annee, { max: 9 }) || getSettings().annee_scolaire;
+  const rows = db.prepare(`SELECT d.*, COALESCE(u.full_name, json_extract(d.data, '$.agent.full_name')) agent FROM staff_documents d LEFT JOIN users u ON u.id = d.user_id
+    WHERE d.annee = ? ORDER BY d.date_doc, d.id`).all(annee);
+  const doc = P.createDoc(res, { title: 'Registre des documents administratifs', filename: `registre_documents_${annee}`, landscape: true });
+  PS.registreDocuments(doc, { annee, rows });
   P.finalize(doc);
 });
 

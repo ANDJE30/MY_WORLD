@@ -4,21 +4,24 @@ import { get } from './api.js';
 
 export async function renderLanding(root) {
   const p = await get('/auth/public').catch(() => ({ societe: 'AI721 TECH STUFF' }));
-  document.title = `EduGest CM — ${p.societe}`;
+  document.title = `AI721 SchoolX CM — ${p.societe}`;
   const feats = [['edit', 'Notes par séquence et par trimestre', 'Saisie rapide sur smartphone, collage depuis Excel, enregistrement automatique et brouillon hors ligne.'],
     ['shield', 'Discipline', 'Absences, retards, consignes, avertissements, blâmes, exclusions et registre des incidents.'],
     ['calendar', 'Emplois du temps', 'Génération automatique sans conflit d’enseignant ni de salle.'],
     ['lock', 'Clôtures', 'Séquences, trimestres et année scolaire, avec rapport statistique et sauvegarde archivés.'],
     ['pdf', 'Documents officiels', 'Bulletins, procès-verbaux, relevés, fiches disciplinaires et statistiques en PDF.'],
-    ['key', 'Accès sécurisés', 'Quatre interfaces distinctes, coffre des accès chiffré, journal d’audit, sauvegardes automatiques.']];
-  const roles = [['shield', 'Console AI721', 'Abonnements, paiements, comptes des établissements'], ['building', 'Administration', 'Paramètres, personnel, clôtures, bulletins'],
-    ['teacher', 'Enseignants', 'Notes, progression, relevés PDF'], ['flag', 'Vie scolaire', 'Discipline, incidents, fiches PDF']];
+    ['key', 'Accès sécurisés', 'Quatre interfaces distinctes, coffre des accès chiffré, journal d’audit, sauvegardes automatiques.'],
+    ['clock', 'Assiduité du personnel', 'Pointage journalier d’après l’emploi du temps, absences et retards des enseignants, taux d’assiduité par séquence, trimestre ou mois.'],
+    ['file', 'Documents administratifs', 'Attestation de présence effective, certificat de prise de service, rappel à l’ordre, lettre d’observation, demande d’explication avec réponse en ligne.'],
+    ['teacher', 'Sur tous les écrans', 'Ordinateur, tablette et smartphone ; application installable, utilisable même avec une connexion instable.']];
+  const roles = [['shield', 'Console AI721', 'Abonnements, paiements, comptes des établissements'], ['building', 'Administration', 'Paramètres, personnel, assiduité, bulletins'],
+    ['teacher', 'Enseignants', 'Notes, progression, documents, PDF'], ['flag', 'Vie scolaire', 'Discipline, incidents, fiches PDF']];
   mount(root, h`<div class="landing">
     <nav class="lp-nav"><div class="logo co">AI</div><b>${p.societe}</b><div class="sp"></div><a href="#acces">Accéder à mon établissement</a></nav>
     <header class="lp-hero">
-      <div class="portal-badge">${icon('school', 'sm')} EduGest CM</div>
-      <h1>La gestion scolaire des lycées et collèges du Cameroun, en ligne.</h1>
-      <p>Notes, discipline, emplois du temps, bulletins et statistiques pour l'enseignement secondaire général et technique : 6 séquences, 3 trimestres, documents officiels en un clic. Abonnement annuel de septembre à août.</p>
+      <div class="portal-badge">${icon('school', 'sm')} AI721 SchoolX CM</div>
+      <h1><span style="color:#fcd34d">AI721 SchoolX CM</span><br>La gestion scolaire des lycées et collèges du Cameroun, en ligne.</h1>
+      <p>Notes, discipline, emplois du temps, bulletins, statistiques, assiduité et documents administratifs du personnel pour l'enseignement secondaire général et technique : 6 séquences, 3 trimestres, documents officiels en un clic. Abonnement annuel de septembre à août.</p>
       <form class="lp-access" id="acces"><input class="input" name="code" placeholder="Code de votre établissement (ex. lpey)" autocapitalize="none" spellcheck="false" aria-label="Code de l'établissement">
         <button class="btn btn-gold" type="submit">${icon('arrowRight')} Accéder</button></form>
       <div class="small" style="color:#a5b4fc;margin-top:8px" data-err></div>
@@ -34,7 +37,7 @@ export async function renderLanding(root) {
         <a class="portal-card" data-p="discipline" href="/e/lpey/discipline"><div class="pc-ico">${icon('shield', 'lg')}</div><div><b>Vie scolaire</b><div class="small muted">sg.nguemap / Disc@2026</div></div>${icon('arrowRight')}</a></div>
         <div><a class="portal-card" href="/console" style="border-color:#4338ca"><div class="pc-ico" style="background:linear-gradient(135deg,#4f46e5,#1e1b4b)">${icon('key', 'lg')}</div>
           <div><b>Console AI721 (super administrateur)</b><div class="small muted">${p.demo.superadmin.u} / ${p.demo.superadmin.p}</div></div>${icon('arrowRight')}</a></div></div></section>` : ''}
-    <footer class="lp-foot"><b style="color:#fff">${p.societe}</b> — ${p.slogan || ''}<br>${[p.adresse, p.tel, p.email].filter(Boolean).join(' • ')}<br><span style="opacity:.7">EduGest CM © ${new Date().getFullYear()}</span></footer>
+    <footer class="lp-foot"><b style="color:#fff">${p.societe}</b> — ${p.slogan || ''}<br>${[p.adresse, p.tel, p.email].filter(Boolean).join(' • ')}<br><span style="opacity:.7">AI721 SchoolX CM © ${new Date().getFullYear()}</span></footer>
   </div>`);
   $('#acces').onsubmit = (e) => {
     e.preventDefault();

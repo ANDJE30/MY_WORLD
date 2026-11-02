@@ -36,13 +36,13 @@ export const PORTALS = {
     feats: [['building', 'Établissements', 'Création, suspension, renouvellement'], ['database', 'Abonnements', 'Septembre → août, reçus PDF'],
       ['key', "Coffre des accès", 'Identifiants et liens des administrateurs'], ['chart', 'Tableau de bord', 'Recettes, élèves gérés, échéances']] },
   admin: { name: 'Administration', role: "Administrateur de l'établissement", icon: 'building', h1: 'Pilotez votre établissement en toute simplicité.',
-    p: 'Paramètres, comptes du personnel, emplois du temps, clôtures par séquence et par trimestre, bulletins et statistiques.',
-    feats: [['users', 'Personnel & élèves', 'Comptes, coffre des accès, imports'], ['lock', 'Clôtures', 'Séquences, trimestres, année'],
-      ['trophy', 'Bulletins & PV', 'Documents officiels en un clic'], ['chart', 'Statistiques', 'Exportables en PDF']] },
+    p: 'Paramètres, comptes du personnel, emplois du temps, clôtures par séquence et par trimestre, bulletins, statistiques, assiduité et documents administratifs des enseignants.',
+    feats: [['users', 'Personnel & élèves', 'Comptes, coffre des accès, imports'], ['file', 'Dossier du personnel', 'Assiduité, attestations, courriers'],
+      ['trophy', 'Bulletins & PV', 'Clôtures et documents officiels'], ['chart', 'Statistiques', 'Exportables en PDF']] },
   teacher: { name: 'Espace Enseignants', role: 'Enseignant', icon: 'teacher', h1: 'Vos notes, où que vous soyez.',
     p: 'Saisie des notes par séquence ou par trimestre, progression annuelle et relevés PDF, sur ordinateur, tablette ou smartphone.',
     feats: [['edit', 'Saisie rapide', 'Clavier, collage Excel, hors ligne'], ['layers', 'Par trimestre', 'Deux séquences côte à côte'],
-      ['target', 'Progression', 'Leçons prévues et faites'], ['pdf', 'Relevés PDF', 'Prêts à imprimer']] },
+      ['target', 'Progression', 'Leçons prévues et faites'], ['file', 'Mes documents', 'Assiduité, courriers, réponses en ligne']] },
   discipline: { name: 'Vie scolaire', role: 'Responsable disciplinaire', icon: 'shield', h1: 'Le suivi disciplinaire en temps réel.',
     p: 'Absences, retards, consignes, sanctions et registre des incidents de vos classes, avec fiches PDF officielles.',
     feats: [['clock', 'Absences & retards', 'Par séquence et par trimestre'], ['flag', 'Incidents', 'Registre et historique'],
@@ -77,17 +77,17 @@ async function boot() {
 export const companyLogo = (cls = '') => h`<div class="logo co ${cls}">AI</div>`;
 export const schoolLogo = (cls = '') => (ctx.kind === 'console' ? companyLogo(cls) : state.school?.logo
   ? h`<div class="logo ${cls}"><img src="${state.school.logo}" alt="Logo"></div>`
-  : h`<div class="logo ${cls}">${initials(state.school?.nom_court || state.school?.nom || 'EG')}</div>`);
+  : h`<div class="logo ${cls}">${initials(state.school?.nom_court || state.school?.nom || 'SX')}</div>`);
 
 function renderUnknown(msg) {
   mount(root, h`<div class="splash"><div class="card" style="max-width:460px;margin:16px"><div class="empty">${icon('alert')}<h4>Établissement introuvable</h4>
-    <div class="small">${msg}</div><div class="mt"><a class="btn btn-primary" href="/">${icon('home')} Accueil EduGest CM</a></div></div></div></div>`);
+    <div class="small">${msg}</div><div class="mt"><a class="btn btn-primary" href="/">${icon('home')} Accueil AI721 SchoolX CM</a></div></div></div></div>`);
 }
 
 /* ---------- Choix de l'espace d'un établissement ---------- */
 function renderChooser() {
   const s = state.school, sub = s.subscription || {};
-  document.title = `${s.nom_court || s.nom} — EduGest CM`;
+  document.title = `${s.nom_court || s.nom} — AI721 SchoolX CM`;
   const card = (slug, role) => { const P = PORTALS[role]; return h`<a class="portal-card" data-p="${role}" href="/e/${s.code}/${slug}">
     <div class="pc-ico">${icon(P.icon, 'lg')}</div><div><b>${P.name}</b><div class="small muted">${P.role}</div></div>${icon('arrowRight')}</a>`; };
   mount(root, h`<div class="chooser">
@@ -96,7 +96,7 @@ function renderChooser() {
       ${!sub.valid ? h`<div class="alert danger mt">${icon('lock')}<div>${sub.message}</div></div>` : ''}
       <p class="muted mt">Choisissez votre espace de connexion :</p>
       <div class="stack">${card('admin', 'admin')}${card('enseignant', 'teacher')}${card('discipline', 'discipline')}</div>
-      <p class="small muted mt" style="text-align:center">EduGest CM — une solution ${s.societe || 'AI721 TECH STUFF'}</p>
+      <p class="small muted mt" style="text-align:center">AI721 SchoolX CM — une solution ${s.societe || 'AI721 TECH STUFF'}</p>
     </div></div>`);
 }
 
@@ -107,8 +107,8 @@ function renderLogin(notice) {
   const demo = s.demo?.[ctx.portal];
   mount(root, h`<div class="login">
     <section class="login-hero">
-      <div class="brand">${isConsole ? companyLogo() : h`<div class="logo">${icon('school')}</div>`}<div><div>${isConsole ? s.societe || 'AI721 TECH STUFF' : 'EduGest CM'}</div>
-        <div class="small" style="opacity:.75;font-weight:400">${isConsole ? 'Éditeur de la plateforme EduGest CM' : `Une solution ${s.societe || 'AI721 TECH STUFF'}`}</div></div></div>
+      <div class="brand">${isConsole ? companyLogo() : h`<div class="logo">${icon('school')}</div>`}<div><div>${isConsole ? s.societe || 'AI721 TECH STUFF' : 'AI721 SchoolX CM'}</div>
+        <div class="small" style="opacity:.75;font-weight:400">${isConsole ? 'Éditeur de la plateforme AI721 SchoolX CM' : `Une solution ${s.societe || 'AI721 TECH STUFF'}`}</div></div></div>
       <div>
         <div class="portal-badge">${icon(P.icon, 'sm')} ${P.name}</div>
         <h1>${P.h1}</h1>
@@ -248,13 +248,13 @@ function renderShell() {
       <nav class="sb-nav">${groups.map((g) => h`${g ? h`<div class="sb-group">${g}</div>` : ''}${routes.filter((r) => r.nav !== false && (r.group || '') === g)
         .map((r) => h`<a class="sb-link" href="#/${r.path}" data-path="${r.path}" title="${r.title}">${icon(r.icon)}<span>${r.title}</span></a>`)}`)}</nav>
       <div class="sb-foot"><div class="sb-user"><div class="avatar gold">${initials(u.full_name)}</div><div class="meta" style="min-width:0"><div class="n">${u.full_name}</div><div class="r">${ROLE_LABEL[u.role]}</div></div></div>
-        ${!isConsole ? h`<div class="sb-powered">EduGest CM • ${s.societe || 'AI721 TECH STUFF'}</div>` : ''}</div>
+        ${!isConsole ? h`<div class="sb-powered">AI721 SchoolX CM • ${s.societe || 'AI721 TECH STUFF'}</div>` : ''}</div>
     </aside>
     <div class="scrim" data-scrim></div>
     <div class="main">
       <header class="topbar">
         <button class="btn btn-ghost btn-icon menu-btn" data-menu aria-label="Menu">${icon('menu')}</button>
-        <div class="title"><div class="crumb" data-crumb></div><h1 data-title>EduGest CM</h1></div>
+        <div class="title"><div class="crumb" data-crumb></div><h1 data-title>AI721 SchoolX CM</h1></div>
         <div class="spacer"></div>
         ${u.role === 'admin' ? h`<div class="search-box hide-mobile"><div class="input-icon">${icon('search', 'sm')}<input class="input" style="min-height:38px" placeholder="Rechercher élève, enseignant, classe…" data-search aria-label="Recherche globale"></div><div class="search-results hidden" data-results></div></div>` : ''}
         ${!isConsole ? h`<div class="seq-ribbon" data-ribbon title="Calendrier des séquences"></div>` : ''}

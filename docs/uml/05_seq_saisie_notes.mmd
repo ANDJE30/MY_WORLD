@@ -3,7 +3,7 @@ sequenceDiagram
   actor E as Enseignant
   participant N as Navigateur (SPA)
   participant L as Stockage local
-  participant API as API EduGest
+  participant API as API SchoolX
   participant DB as Base SQLite
   E->>N: Ouvre « Saisie des notes » (classe, séquence)
   N->>API: GET /api/notes/grid?cs&seq

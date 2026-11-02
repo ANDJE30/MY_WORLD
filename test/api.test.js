@@ -415,6 +415,154 @@ test('saisie et suivi par trimestre (notes et discipline)', async () => {
   assert.equal(pdf.ct, 'application/pdf');
 });
 
+const isPdf = (r) => r.status === 200 && r.ct === 'application/pdf' && Buffer.from(r.data).subarray(0, 4).toString() === '%PDF';
+
+test('nom de la plateforme : AI721 SchoolX CM', async () => {
+  const html = await (await fetch(base + '/e/lpey/admin')).text();
+  assert.match(html, /<title>AI721 SchoolX CM<\/title>/);
+  const mf = await (await fetch(base + '/manifest.webmanifest?p=/e/lpey/admin')).json();
+  assert.match(mf.name, /AI721 SchoolX CM/);
+  const a = await admin();
+  assert.equal((await a.get('/admin/backup')).data.app, 'AI721 SchoolX CM');
+});
+
+test('assiduité des enseignants : dossier, absences, retards, pointage et taux', async () => {
+  const a = await admin();
+  const tid = 3; // EKOTO Solange
+  const r0 = await a.put(`/rh/enseignants/${tid}`, { grade: 'PLEG', statut_agent: 'Fonctionnaire', date_prise_service: '2015-09-07', acte_affectation: 'la décision n° 0001/MINESEC/CAB du 01/08/2015' });
+  assert.equal(r0.status, 200);
+  assert.equal(r0.data.grade, 'PLEG');
+  assert.equal((await a.put(`/rh/enseignants/${tid}`, { date_prise_service: '07/09/2015' })).status, 400);
+  // période de calcul : la séquence 1 (terminée)
+  const s1 = (await a.get('/periods')).data.periods[0];
+  const q = `from=${s1.start_date}&to=${s1.end_date}`;
+  const base0 = (await a.get(`/rh/enseignants/${tid}?${q}`)).data;
+  assert.ok(base0.summary.dues > 0, 'heures dues calculées depuis l\'emploi du temps');
+  assert.equal(base0.summary.taux, Math.round((base0.summary.faites / base0.summary.dues) * 1000) / 10);
+  // un jour de classe sans absence ni retard enregistré, où l'enseignant a cours
+  const taken = new Set(base0.summary.records.map((x) => x.date));
+  let day = null;
+  for (let t = Date.parse(s1.start_date + 'T00:00:00Z'); t <= Date.parse(s1.end_date + 'T00:00:00Z'); t += 86400000) {
+    const iso = new Date(t).toISOString().slice(0, 10), wd = new Date(t).getUTCDay() || 7;
+    if (base0.load.byDay[wd] > 0 && wd <= 5 && !taken.has(iso)) { day = iso; break; }
+  }
+  assert.ok(day);
+  const wd = new Date(day + 'T00:00:00Z').getUTCDay() || 7;
+  const add = await a.post('/rh/absences', { teacher_id: tid, kind: 'absence', date: day, motif: 'Test' });
+  assert.equal(add.status, 201);
+  let s = (await a.get(`/rh/enseignants/${tid}?${q}`)).data.summary;
+  assert.equal(s.abs_nj, Math.round((base0.summary.abs_nj + base0.load.byDay[wd]) * 10) / 10);
+  assert.equal(s.faites, Math.round((base0.summary.dues - s.abs_j - s.abs_nj) * 10) / 10);
+  const rec = s.records.find((x) => x.date === day && x.kind === 'absence');
+  assert.equal((await a.put(`/rh/absences/${rec.id}`, { justified: true, motif: 'Certificat médical' })).status, 200);
+  s = (await a.get(`/rh/enseignants/${tid}?${q}`)).data.summary;
+  assert.equal(s.abs_nj, base0.summary.abs_nj);
+  assert.ok(s.taux_hors_justifiees >= s.taux);
+  assert.equal((await a.post('/rh/absences', { teacher_id: tid, kind: 'retard', date: day, minutes: 15 })).status, 201);
+  assert.equal((await a.get(`/rh/enseignants/${tid}?${q}`)).data.summary.retards, base0.summary.retards + 1);
+  assert.equal((await a.post('/rh/absences', { teacher_id: tid, kind: 'retard', date: day })).status, 400); // durée obligatoire
+  assert.equal((await a.post('/rh/absences', { teacher_id: tid, kind: 'absence', date: '2099-01-05' })).status, 400); // date future
+  assert.equal((await a.post('/rh/absences', { teacher_id: tid, kind: 'absence', date: day, date_fin: s1.start_date })).status, day === s1.start_date ? 201 : 400);
+  for (const x of (await a.get(`/rh/absences?${q}&teacher_id=${tid}`)).data.rows.filter((x) => x.date === day)) assert.equal((await a.del(`/rh/absences/${x.id}`)).status, 200);
+  assert.deepEqual((await a.get(`/rh/enseignants/${tid}?${q}`)).data.summary.taux, base0.summary.taux);
+  // pointage journalier d'après l'emploi du temps
+  const pt = (await a.get(`/rh/pointage?date=${day}`)).data;
+  const row = pt.rows.find((x) => x.teacher_id === tid);
+  assert.ok(row && row.status === 'present');
+  assert.equal((await a.put('/rh/pointage', { date: day, entries: [{ teacher_id: tid, slot: row.slot, status: 'absence', motif: 'Non venu' }] })).status, 200);
+  assert.equal((await a.get(`/rh/pointage?date=${day}`)).data.rows.find((x) => x.teacher_id === tid && x.slot === row.slot).status, 'absence');
+  assert.equal((await a.get(`/rh/enseignants/${tid}?${q}`)).data.summary.abs_nj, base0.summary.abs_nj + 1);
+  assert.equal((await a.put('/rh/pointage', { date: day, entries: [{ teacher_id: tid, slot: 2, status: 'absence' }] })).status, 400); // pas de cours sur ce créneau
+  assert.equal((await a.put('/rh/pointage', { date: '2099-01-05', entries: [] })).status, 400);
+  assert.equal((await a.put('/rh/pointage', { date: day, entries: [{ teacher_id: tid, slot: row.slot, status: 'present' }] })).status, 200);
+  assert.equal((await a.get(`/rh/enseignants/${tid}?${q}`)).data.summary.abs_nj, base0.summary.abs_nj);
+  // jours non ouvrés : un jour férié n'est plus dû
+  assert.equal((await a.post('/rh/jours-feries', { date: day, label: 'Journée pédagogique' })).status, 201);
+  assert.equal((await a.get(`/rh/enseignants/${tid}?${q}`)).data.summary.dues, Math.round((base0.summary.dues - base0.load.byDay[wd]) * 10) / 10);
+  assert.equal((await a.del(`/rh/jours-feries/${day}`)).status, 200);
+  // tableau d'ensemble et cloisonnement
+  const all = (await a.get('/rh/enseignants?period=A')).data;
+  assert.ok(all.rows.length >= 12 && all.rows.every((x) => 'taux' in x.assiduite));
+  const t = client(); await t.login('mbargajp', 'Prof@2026');
+  assert.equal((await t.get('/rh/enseignants')).status, 403);
+  assert.equal((await t.post('/rh/absences', { teacher_id: 2, kind: 'retard', date: day, minutes: 5 })).status, 403);
+  const mine = await t.get('/mon-assiduite?period=A');
+  assert.equal(mine.status, 200);
+  assert.equal(mine.data.agent.id, 2);
+});
+
+test('documents administratifs : émission, numérotation, réponse, suite, annulation et accès', async () => {
+  const a = await admin();
+  const DOC = (b) => a.post('/rh/documents', b);
+  // certificat de prise de service : la date de prise de service est requise
+  await a.put('/rh/enseignants/2', { date_prise_service: '' });
+  assert.equal((await DOC({ teacher_id: 2, type: 'prise_service' })).status, 400);
+  await a.put('/rh/enseignants/2', { date_prise_service: '2018-09-03' });
+  const cps = await DOC({ teacher_id: 2, type: 'prise_service' });
+  assert.equal(cps.status, 201);
+  assert.match(cps.data.reference, /^N° \d{3}\/\d{4}-\d{4}\/LPEY\/P\/CPS$/);
+  // attestation de présence effective : taux d'assiduité figé dans le document
+  const ape = await DOC({ teacher_id: 2, type: 'presence', period: 'S1' });
+  assert.equal(ape.status, 201);
+  const apeDoc = (await a.get(`/rh/documents/${ape.data.id}`)).data;
+  assert.equal(typeof apeDoc.data.assiduite.taux, 'number');
+  assert.equal(apeDoc.data.agent.full_name, 'MBARGA Jean-Paul');
+  // courriers : faits obligatoires ; numérotation propre à chaque type
+  assert.equal((await DOC({ teacher_id: 2, type: 'rappel_ordre', faits: 'court' })).status, 400);
+  const nDE = (await a.get('/rh/documents?type=demande_explication')).data.rows.length;
+  const de = await DOC({ teacher_id: 2, type: 'demande_explication', faits: 'Absence non justifiée au conseil de classe de la 3e A.', delai_heures: 48 });
+  assert.equal(de.status, 201);
+  assert.match(de.data.reference, new RegExp(`^N° ${String(nDE + 1).padStart(3, '0')}/`));
+  const ro = await DOC({ teacher_id: 2, type: 'rappel_ordre', faits: 'Retards répétés aux premières heures de cours.' });
+  assert.equal(ro.status, 201);
+  // l'enseignant concerné : lecture, accusé de réception, réponse unique
+  const t = client(); await t.login('mbargajp', 'Prof@2026');
+  const list = (await t.get('/mes-documents')).data;
+  assert.ok(list.rows.some((x) => x.id === de.data.id) && list.a_repondre >= 1);
+  assert.equal((await t.get('/rh/documents')).status, 403);
+  assert.equal((await t.put(`/mes-documents/${de.data.id}/reponse`, { reponse: 'trop court' })).status, 400);
+  assert.equal((await t.put(`/mes-documents/${ro.data.id}/reponse`, { reponse: 'Une réponse suffisamment longue pour être acceptée.' })).status, 400);
+  const ack = await t.post(`/mes-documents/${de.data.id}/accuse`);
+  assert.equal(ack.data.echeance, ack.data.ack_at + 48 * 3600);
+  assert.equal((await a.put(`/rh/documents/${de.data.id}`, { faits: 'Modification après remise du document.' })).status, 400);
+  const rep = await t.put(`/mes-documents/${de.data.id}/reponse`, { reponse: "Monsieur le Proviseur, j'étais convoqué à un examen officiel. Veuillez trouver ci-joint la convocation." });
+  assert.equal(rep.status, 200);
+  assert.equal(rep.data.status, 'repondu');
+  assert.equal((await t.put(`/mes-documents/${de.data.id}/reponse`, { reponse: 'Seconde réponse, qui doit être refusée par le serveur.' })).status, 400);
+  assert.ok(isPdf(await t.get(`/pdf/document/${de.data.id}`)));
+  assert.ok(isPdf(await t.get('/pdf/assiduite-enseignant?period=A')));
+  // un autre enseignant n'y a pas accès
+  const pw = (await a.post('/admin/users/3/reveal')).data;
+  const o = client(); assert.equal((await o.login(pw.username, pw.password)).status, 200);
+  assert.equal((await o.get(`/pdf/document/${de.data.id}`)).status, 404);
+  assert.equal((await o.post(`/mes-documents/${de.data.id}/accuse`)).status, 404);
+  const sg = client(); await sg.login('sg.nguemap', 'Disc@2026');
+  assert.equal((await sg.get('/mes-documents')).status, 403);
+  // suite réservée, lettre d'observation en référence, annulation
+  assert.equal((await a.post(`/rh/documents/${de.data.id}/suite`, { suite: 'Explications non satisfaisantes.' })).status, 200);
+  assert.equal((await a.get(`/rh/documents/${de.data.id}`)).data.status, 'clos');
+  const lo = await DOC({ teacher_id: 2, type: 'observation', faits: 'Absence non justifiée au conseil de classe de la 3e A.', ref_doc_id: de.data.id });
+  assert.equal(lo.status, 201);
+  const other = (await a.get('/rh/documents?teacher_id=13')).data.rows[0];
+  assert.equal((await DOC({ teacher_id: 2, type: 'observation', faits: 'Référence à un document d’un autre enseignant.', ref_doc_id: other.id })).status, 400);
+  assert.equal((await a.post(`/rh/documents/${ro.data.id}/remise`, { date: '2099-01-01' })).status, 400);
+  assert.equal((await a.post(`/rh/documents/${ro.data.id}/remise`, {})).status, 200);
+  assert.equal((await a.post(`/rh/documents/${ro.data.id}/remise`, {})).status, 400); // déjà remis
+  assert.equal((await a.post(`/rh/documents/${ro.data.id}/annuler`, { motif: 'Erreur de destinataire' })).status, 200);
+  assert.ok(!(await t.get('/mes-documents')).data.rows.some((x) => x.id === ro.data.id));
+  assert.equal((await t.get(`/pdf/document/${ro.data.id}`)).status, 404);
+  for (const d of [cps, ape, de, lo, ro]) assert.ok(isPdf(await a.get(`/pdf/document/${d.data.id}`)));
+  for (const p of ['/pdf/assiduite?period=A', '/pdf/assiduite?period=T1', '/pdf/assiduite-enseignant?teacher_id=13&period=S1', '/pdf/registre-documents']) assert.ok(isPdf(await a.get(p)), p);
+  assert.ok((await a.get('/rh/documents?type=demande_explication')).data.rows.every((x) => x.type === 'demande_explication'));
+  // les documents font partie de la sauvegarde ; une sauvegarde « EduGest CM » reste restaurable
+  const dump = (await a.get('/admin/backup')).data;
+  assert.ok(dump.tables.staff_documents.length >= 10 && dump.tables.staff_attendance.length > 0);
+  dump.app = 'EduGest CM';
+  assert.equal((await a.post('/admin/restore', { dump, password: 'Admin@2026' })).status, 200);
+  adminClient = null;
+  assert.equal((await (await admin()).get('/rh/documents')).data.rows.length, dump.tables.staff_documents.filter((x) => x.annee === dump.tables.staff_documents.at(-1).annee).length);
+});
+
 test('fin d\'année : clôture avec statistiques annuelles et sauvegarde archivées, puis nouvelle année', async () => {
   const a = await admin();
   const annee = (await a.get('/admin/settings')).data.annee_scolaire;

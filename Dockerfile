@@ -1,4 +1,4 @@
-# EduGest CM — image de production (multi-architecture : amd64 et arm64)
+# AI721 SchoolX CM — image de production (multi-architecture : amd64 et arm64)
 FROM node:22-alpine
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/data NODE_OPTIONS=--no-warnings
 WORKDIR /app

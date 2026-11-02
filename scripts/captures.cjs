@@ -8,7 +8,9 @@ async function ctxFor(browser, vp) {
   const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: vp.width < 500 ? 2 : 1, isMobile: vp.width < 500, hasTouch: vp.width < 500, locale: 'fr-FR' });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
-  page.on('console', (m) => { if (m.type() === 'error' && !/402/.test(m.text())) errs.push('console: ' + m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' && !/40[23]/.test(m.text())) errs.push('console: ' + m.text()); });
+  // erreurs HTTP inattendues (le refus volontaire d'un compte sur une autre interface est attendu)
+  page.on('response', (r) => { if (r.status() >= 400 && r.status() !== 402 && !/\/auth\/login$/.test(r.url())) errs.push(`HTTP ${r.status()} ${r.url()}`); });
   return { ctx, page };
 }
 async function login(page, portal, u, p) {
@@ -80,6 +82,28 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.goto(`${BASE}/e/lpey/admin#/calendrier`); await page.waitForSelector('[data-close="2"]'); await page.click('[data-close="2"]'); await page.waitForSelector('.modal'); await shot(page, '20_admin_cloture'); await page.click('.modal [data-close]');
   await page.click('[data-close-year]'); await page.waitForSelector('.modal'); await shot(page, '20b_admin_cloture_annee'); await page.click('.modal [data-close]');
   await page.goto(`${BASE}/e/lpey/admin#/edt?class=1`); await page.waitForTimeout(500); await page.click('td.cell.editable >> nth=3'); await page.waitForSelector('.modal'); await shot(page, '21_admin_edt_case'); await page.click('.modal [data-close]');
+  // ---- Dossier administratif des enseignants (v3.0)
+  await visit(page, '/e/lpey/admin', 'assiduite', '47_admin_assiduite', true);
+  const yest = await page.evaluate(() => { const d = new Date(); do { d.setDate(d.getDate() - 1); } while ([0, 6].includes(d.getDay())); return d.toISOString().slice(0, 10); });
+  await page.goto(`${BASE}/e/lpey/admin#/assiduite?tab=pointage&date=${yest}`); await page.waitForSelector('[data-save]'); await page.waitForTimeout(300);
+  if (await page.locator('[data-st$=":absence"]').count()) {
+    await page.locator('[data-st$=":absence"]').nth(2).click(); await page.locator('[data-st$=":retard"]').nth(4).click();
+    await page.fill('[data-motif] >> nth=0', 'Absent sans préavis'); await page.click('[data-save]'); await page.waitForTimeout(500);
+  }
+  await shot(page, '48_admin_pointage');
+  await visit(page, '/e/lpey/admin', 'assiduite?tab=absences', '49_admin_absences');
+  await visit(page, '/e/lpey/admin', 'assiduite?tab=feries', '50_admin_jours_non_ouvres');
+  await visit(page, '/e/lpey/admin', 'dossier?id=13', '51_admin_dossier_enseignant', true);
+  await visit(page, '/e/lpey/admin', 'documents-rh', '52_admin_documents', true);
+  await page.click('[data-new]'); await page.click('.doc-menu [data-t=demande_explication]'); await page.waitForSelector('.modal [data-teacher]');
+  await page.selectOption('.modal [data-teacher]', '13'); await page.waitForSelector('.modal [data-fact]'); await page.click('.modal [data-fact] >> nth=0'); await page.click('.modal [data-motif] >> nth=7');
+  await shot(page, '53_admin_nouveau_document');
+  await page.click('.modal [data-submit]'); await page.waitForSelector('.modal [data-open]'); await shot(page, '54_admin_document_emis'); await page.click('.modal [data-close]');
+  await page.goto(`${BASE}/e/lpey/admin#/documents-rh?type=demande_explication&status=clos`); await page.waitForSelector('[data-view]'); await page.click('[data-view] >> nth=0');
+  await page.waitForSelector('.modal [data-act=pdf]'); await shot(page, '55_admin_document_fiche'); await page.click('.modal [data-close]');
+  await page.goto(`${BASE}/e/lpey/admin#/documents-rh`); await page.waitForSelector('[data-new]'); await page.click('[data-new]'); await page.click('.doc-menu [data-t=presence]');
+  await page.waitForSelector('.modal [name=period]'); await page.selectOption('.modal [data-teacher]', '3'); await page.waitForTimeout(500);
+  await page.selectOption('.modal [name=period]', 'T1'); await page.waitForTimeout(700); await shot(page, '56_admin_presence_effective'); await page.click('.modal [data-close]');
   await ctx.close();
   ({ ctx, page } = await ctxFor(browser, T)); await login(page, '/e/lpey/admin', 'admin', 'Admin@2026'); await page.waitForTimeout(600); await shot(page, '22_tablette_admin'); await ctx.close();
   // ---- Enseignant
@@ -95,11 +119,18 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await visit(page, '/e/lpey/enseignant', 'progression', '25_enseignant_progression');
   await visit(page, '/e/lpey/enseignant', 'releves', '26_enseignant_releves');
   await visit(page, '/e/lpey/enseignant', 'edt', '27_enseignant_edt');
+  await visit(page, '/e/lpey/enseignant', 'documents', '57_enseignant_documents', true);
+  await page.click('[data-rep] >> nth=0'); await page.waitForSelector('#rep');
+  await page.fill('#rep', "Monsieur le Proviseur,\nJ'ai l'honneur de vous informer que j'étais retenu, à la date indiquée, par la correction des épreuves du BEPC blanc régional, sur convocation de l'Inspection pédagogique (copie jointe). Je n'ai pas pu prévenir le conseil d'enseignement à temps et vous prie de bien vouloir m'en excuser.\nVeuillez agréer, Monsieur le Proviseur, l'expression de ma haute considération.");
+  await shot(page, '58_enseignant_reponse'); await page.click('.modal [data-close]');
   await ctx.close();
   ({ ctx, page } = await ctxFor(browser, M)); await login(page, '/e/lpey/enseignant', 'mbargajp', 'Prof@2026'); await page.waitForTimeout(600); await shot(page, '28_mobile_enseignant_accueil');
   await page.goto(`${BASE}/e/lpey/enseignant#/saisie?period=S2`); await page.waitForSelector('.note-input'); await shot(page, '29_mobile_saisie_notes');
   await page.click('.bottombar [data-menu]'); await page.waitForTimeout(400); await shot(page, '30_mobile_menu');
+  await page.goto(`${BASE}/e/lpey/enseignant#/documents`); await page.waitForSelector('[data-pdf]'); await page.waitForTimeout(400); await shot(page, '60_mobile_enseignant_documents');
   await ctx.close();
+  ({ ctx, page } = await ctxFor(browser, M)); await login(page, '/e/lpey/admin', 'admin', 'Admin@2026');
+  await page.goto(`${BASE}/e/lpey/admin#/assiduite?tab=pointage`); await page.waitForSelector('[data-save]'); await page.waitForTimeout(400); await shot(page, '59_mobile_pointage'); await ctx.close();
   // ---- Responsable disciplinaire
   ({ ctx, page } = await ctxFor(browser, D)); await login(page, '/e/lpey/discipline', 'sg.nguemap', 'Disc@2026'); await page.waitForTimeout(600); await shot(page, '31_discipline_accueil');
   await page.goto(`${BASE}/e/lpey/discipline#/saisie?period=S2`); await page.waitForSelector('[data-k=abs_nj]');

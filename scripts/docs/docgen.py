@@ -1,4 +1,4 @@
-"""Petite bibliothèque de mise en forme Word (python-docx) aux couleurs d'EduGest CM."""
+"""Petite bibliothèque de mise en forme Word (python-docx) aux couleurs d'AI721 SchoolX CM."""
 from docx import Document
 from docx.shared import Pt, Cm, RGBColor, Emu
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
@@ -89,7 +89,7 @@ class Doc:
     def _footer(self):
         sec = self.d.sections[0]
         hp = sec.header.paragraphs[0]; hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        r = hp.add_run(f'EduGest CM  •  {self.short}'); r.font.size = Pt(8.5); r.font.color.rgb = MUTED
+        r = hp.add_run(f'AI721 SchoolX CM  •  {self.short}'); r.font.size = Pt(8.5); r.font.color.rgb = MUTED
         fp = sec.footer.paragraphs[0]; fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for txt, instr in (('Page ', 'PAGE'), (' / ', 'NUMPAGES')):
             rr = fp.add_run(txt); rr.font.size = Pt(8.5); rr.font.color.rgb = MUTED
@@ -239,5 +239,5 @@ class Doc:
     def save(self, path):
         settings = self.d.settings.element
         upd = OxmlElement('w:updateFields'); upd.set(qn('w:val'), 'true'); settings.append(upd)
-        self.d.core_properties.title = self.title; self.d.core_properties.author = 'EduGest CM'; self.d.core_properties.language = 'fr-FR'
+        self.d.core_properties.title = self.title; self.d.core_properties.author = 'AI721 TECH STUFF'; self.d.core_properties.language = 'fr-FR'
         self.d.save(path)

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Installation automatique sur une VM Ubuntu 22.04/24.04 (Oracle Cloud Always Free, amd64 ou arm64).
-# Usage : sudo DOMAIN=edugest.ai721.cm SUPERADMIN_PASSWORD='MotDePasseFort!2026' bash oracle-cloud-init.sh
+# Usage : sudo DOMAIN=schoolx.ai721.cm SUPERADMIN_PASSWORD='MotDePasseFort!2026' bash oracle-cloud-init.sh
 set -euo pipefail
 : "${DOMAIN:?Définissez DOMAIN (nom de domaine pointant vers l’adresse IP publique du serveur)}"
 apt-get update && apt-get install -y ca-certificates curl git iptables-persistent
@@ -14,4 +14,4 @@ cd /opt/edugest/deploy
 # clé du coffre des accès : générée une fois et conservée dans /opt/edugest/deploy/.env
 [ -f .env ] || echo "VAULT_KEY=$(openssl rand -hex 32)" > .env && chmod 600 .env
 DOMAIN="$DOMAIN" SUPERADMIN_PASSWORD="${SUPERADMIN_PASSWORD:-}" docker compose up -d --build
-echo "EduGest CM est en ligne : console https://$DOMAIN/console (identifiant AI721)"
+echo "AI721 SchoolX CM est en ligne : console https://$DOMAIN/console (identifiant AI721)"

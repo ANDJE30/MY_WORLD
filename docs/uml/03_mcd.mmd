@@ -40,6 +40,9 @@ erDiagram
   STUDENTS ||--o{ DISCIPLINE_RECORDS : "rattache"
   STUDENTS ||--o{ INCIDENTS : "commet"
   PERIODS ||--o{ NOTES : "séquence"
+  USERS ||--o{ STAFF_ATTENDANCE : "pointé"
+  USERS ||--o{ STAFF_DOCUMENTS : "destinataire"
+  STAFF_DOCUMENTS |o--o{ STAFF_DOCUMENTS : "en référence à"
   USERS {
     int id PK
     text role
@@ -50,6 +53,10 @@ erDiagram
     int must_change
     int locked_until
     text pw_enc
+    text grade
+    text statut_agent
+    text date_prise_service
+    text acte_affectation
   }
   CLASSES {
     int id PK
@@ -152,4 +159,34 @@ erDiagram
     text token_hash PK
     int user_id FK
     int expires_at
+  }
+  STAFF_ATTENDANCE {
+    int id PK
+    int user_id FK
+    text date
+    text kind "absence | retard"
+    real hours
+    int minutes
+    int slot
+    int justified
+    text motif
+  }
+  STAFF_DOCUMENTS {
+    int id PK
+    int user_id FK
+    text type
+    text annee UK
+    int num UK
+    text reference
+    text faits
+    text data "agent et assiduité figés (JSON)"
+    int ref_doc_id FK
+    int echeance
+    text status
+    text reponse
+    text suite
+  }
+  DAYS_OFF {
+    text date PK
+    text label
   }

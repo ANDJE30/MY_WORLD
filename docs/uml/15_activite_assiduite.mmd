@@ -1,0 +1,24 @@
+flowchart TB
+  S([Période choisie : séquence, trimestre, mois ou année]) --> B[Bornes de la période<br/>limitées à aujourd'hui]
+  B --> J{Pour chaque jour}
+  J -->|week-end, vacances entre séquences,<br/>jour non ouvré| X[Jour non décompté]
+  J -->|jour de classe| L[Heures prévues ce jour-là<br/>à l'emploi du temps de l'enseignant]
+  L --> HD[(Heures dues)]
+  X --> J
+  P[Pointage journalier<br/>et saisies d'absences] --> AJ[(Absences justifiées)]
+  P --> ANJ[(Absences non justifiées)]
+  P --> R[(Retards : nombre et minutes)]
+  HD --> HE[Heures effectuées =<br/>dues − absences justifiées − non justifiées]
+  AJ --> HE
+  ANJ --> HE
+  HE --> T[Taux d'assiduité = effectuées / dues × 100]
+  T --> AP{Appréciation}
+  AP -->|≥ 98 %| E1[Excellente]
+  AP -->|≥ 95 %| E2[Très bonne]
+  AP -->|≥ 90 %| E3[Bonne]
+  AP -->|≥ 80 %| E4[Assez bonne]
+  AP -->|≥ 70 %| E5[Passable]
+  AP -->|< 70 %| E6[Insuffisante]
+  T --> DOC[Attestation de présence effective<br/>état d'assiduité, relevé individuel]
+  classDef data fill:#fbf1db,stroke:#a97a1d,color:#3b2a06
+  class HD,AJ,ANJ,R data

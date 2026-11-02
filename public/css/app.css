@@ -1,5 +1,5 @@
 /* =========================================================================
-   EduGest CM — Design system
+   AI721 SchoolX CM — Design system
    Identité : vert émeraude profond + or (inspiré du drapeau, en version sobre)
    ========================================================================= */
 :root {
@@ -186,7 +186,9 @@ svg.i.lg { width: 26px; height: 26px; }
 
 .grid { display: grid; gap: 18px; }
 .g-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .g-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.g-auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.g-auto { grid-template-columns: repeat(auto-fill, minmax(var(--min, 280px), 1fr)); }
+button.card { font: inherit; color: inherit; }
+.t tr.muted td { opacity: .55; }
 .span-2 { grid-column: span 2; }
 @media (max-width: 1100px) { .g-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 767px) { .g-2, .g-3 { grid-template-columns: 1fr; } .span-2 { grid-column: auto; } .page-head h2 { font-size: 20px; } .grid { gap: 12px; } }
@@ -237,7 +239,7 @@ svg.i.lg { width: 26px; height: 26px; }
 .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; user-select: none; }
 .check input { width: 18px; height: 18px; accent-color: var(--primary); }
-.switch { position: relative; width: 42px; height: 24px; flex: none; }
+.switch { position: relative; display: inline-block; vertical-align: middle; width: 42px; height: 24px; flex: none; }
 .switch input { opacity: 0; width: 100%; height: 100%; position: absolute; margin: 0; cursor: pointer; z-index: 1; }
 .switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--border-strong); transition: .2s; }
 .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: .2s; box-shadow: var(--shadow-sm); }
@@ -497,3 +499,18 @@ body[data-portal="discipline"] .login-hero::after { background-image: repeating-
 .note-input.abs { color: var(--amber-600); font-size: 14px; letter-spacing: .04em; }
 .tri-avg { font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; }
 .secret { font-family: var(--mono); letter-spacing: .02em; }
+
+/* Dossier administratif des enseignants */
+.doc-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--primary-soft); color: var(--primary); }
+.doc-ico.amber { background: var(--amber-100); color: var(--amber-600); } .doc-ico.red { background: var(--red-100); color: var(--red-600); } .doc-ico.blue { background: var(--blue-100); color: var(--blue-600); }
+.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pointage .seg { flex-wrap: nowrap; } .pointage .seg button { padding: 6px 10px; }
+.t tr.slot-h td { background: var(--surface-2); font-weight: 700; font-size: 13px; color: var(--text-2); padding: 8px 14px; }
+@media (max-width: 767px) {
+  .rt tr.slot-h { padding: 0; } .rt tr.slot-h td { justify-content: flex-start; text-align: left; padding: 8px 14px; } .rt tr.slot-h td::before { display: none; }
+  .pointage tr:not(.slot-h) { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .pointage td { padding: 0; } .pointage td.primary-cell { grid-column: 1 / -1; order: -1; }
+  .pointage td[data-label="Présence"], .pointage td[data-label="Motif"], .pointage td[data-label="Classe"] { grid-column: 1 / -1; }
+  .pointage td[data-label="Classe"] { display: flex; justify-content: flex-start; gap: 8px; align-items: baseline; } .pointage td[data-label="Classe"]::before { display: none; }
+  .pointage tr:not(.sel) td.opt { display: none; }
+}
