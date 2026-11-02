@@ -153,9 +153,14 @@ export function fieldHtml(f, v) {
   else if (f.type === 'multiselect') {
     const set = new Set((val || []).map(String));
     input = h`<div class="chips" style="gap:8px">${(f.options || []).map(([ov, ol]) => h`<label class="check chip" style="padding:6px 10px"><input type="checkbox" name="${f.name}" value="${ov}" ${set.has(String(ov)) ? raw('checked') : ''}> ${ol}</label>`)}</div>`;
-  } else input = h`<input class="input" type="${f.type || 'text'}" ${common} value="${val}" ${f.min != null ? raw(`min="${esc(f.min)}"`) : ''} ${f.max != null && f.type === 'number' ? raw(`max="${esc(f.max)}"`) : ''} ${f.step ? raw(`step="${esc(f.step)}"`) : ''} ${f.type !== 'number' && f.type !== 'date' ? raw(`maxlength="${f.maxlength || 200}"`) : ''} placeholder="${f.placeholder || ''}" autocomplete="${f.autocomplete || 'off'}">`;
-  return h`<div class="field ${f.full ? 'full' : ''}"><label for="f_${f.name}">${f.label}${f.required ? ' *' : ''}</label>${input}${f.hint ? h`<span class="hint">${f.hint}</span>` : ''}</div>`;
+  } else input = h`<input class="input" type="${f.type || 'text'}" ${common} ${f.suggestions?.length ? raw(`list="dl_${esc(f.name)}"`) : ''} value="${val}" ${f.min != null ? raw(`min="${esc(f.min)}"`) : ''} ${f.max != null && f.type === 'number' ? raw(`max="${esc(f.max)}"`) : ''} ${f.step ? raw(`step="${esc(f.step)}"`) : ''} ${f.type !== 'number' && f.type !== 'date' ? raw(`maxlength="${f.maxlength || 200}"`) : ''} placeholder="${f.placeholder || ''}" autocomplete="${f.autocomplete || 'off'}">`;
+  const dl = f.suggestions?.length ? h`<datalist id="dl_${f.name}">${f.suggestions.map((x) => h`<option value="${x}"></option>`)}</datalist>` : '';
+  return h`<div class="field ${f.full ? 'full' : ''}"><label for="f_${f.name}">${f.label}${f.required ? ' *' : ''}</label>${input}${dl}${f.hint ? h`<span class="hint">${f.hint}</span>` : ''}</div>`;
 }
+/** Appellations des fonctions choisies par l'établissement (Paramètres ▸ Fonctions). */
+export const fonctionsOf = (school) => ({ chef_titre: 'Le Proviseur', censeur_titre: 'Censeur', sg_titre: 'Surveillant Général', ap_titre: 'Animateur Pédagogique', ...(school?.fonctions || {}) });
+/** « Le Proviseur » → « Proviseur ». */
+export const sansArticle = (t) => String(t || '').replace(/^(Le|La|L'|L’|The)\s*/i, '');
 export function readForm(root, fields) {
   const out = {};
   for (const f of fields) {

@@ -10,7 +10,7 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre é
 D = Doc("Manuel d'utilisation — AI721 SchoolX CM", "Manuel d'utilisation")
 D.cover("Manuel d'utilisation", 'AI721 SchoolX CM',
         "Guide pas à pas pour le super administrateur AI721, les administrateurs d'établissement, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.0 (anciennement EduGest CM)'), ('Date', today),
+        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.1 (anciennement EduGest CM)'), ('Date', today),
          ('Public', 'Super administrateur AI721 TECH STUFF, administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Éditeur', 'AI721 TECH STUFF'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -26,6 +26,9 @@ D.p("AI721 SchoolX CM est la plateforme en ligne de votre établissement pour g�
 D.note("**Nouveau en version 3.0 :** la plateforme s'appelle désormais **AI721 SchoolX CM** (vos adresses, identifiants et données ne changent pas). "
        "Elle gère aussi l'**assiduité des enseignants** (pointage, taux d'assiduité) et leurs **documents administratifs** : attestation de présence effective au poste, "
        "certificat de prise de service, rappel à l'ordre, lettre d'observation et demande d'explication, à laquelle l'enseignant peut répondre en ligne.", 'ok')
+D.note("**Nouveau en version 3.1 :** dans **Établissement ▸ Fonctions**, l'administrateur choisit les **appellations des fonctions** de son établissement "
+       "(Proviseur, Directeur ou Principal ; Censeur, Préfet ou Préfet Adjoint ; Surveillant Général ou Surveillant Général Adjoint ; Animateur Pédagogique ou Coordonnateur). "
+       "Elles apparaissent sur les signatures de tous les documents (section 4.3).", 'ok')
 D.table(['Votre profil', 'Ce que vous pouvez faire', 'Chapitre'], [
     ['Super administrateur (AI721)', "Créer les établissements abonnés, enregistrer abonnements et paiements, transmettre et retrouver les accès des administrateurs", '3'],
     ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année, assiduité et documents administratifs des enseignants", '4'],
@@ -135,7 +138,7 @@ D.h2('4.1 Mise en service en 10 étapes')
 D.p("Pour démarrer l'année, suivez cet ordre. Chaque étape est détaillée dans les sections suivantes.")
 D.table(['Étape', 'Action', 'Menu'], [
     ['1', "Ouvrir le lien « Administration » reçu d'AI721 TECH STUFF (fiche d'accès) et se connecter", 'Connexion'],
-    ['2', "Renseigner l'identité, l'en-tête officiel, le logo, l'année et les horaires", 'Établissement'],
+    ['2', "Renseigner l'identité, l'en-tête officiel, les fonctions (appellations et noms des responsables), le logo, l'année et les horaires", 'Établissement'],
     ['3', "Vérifier les dates des 6 séquences", 'Calendrier & clôtures'],
     ['4', "Vérifier les groupes et types de matière, puis ajouter les matières (bouton « programme officiel »)", 'Matières'],
     ['5', "Créer les classes (copie des matières pour les classes parallèles)", 'Classes'],
@@ -158,11 +161,29 @@ D.p("Menu **Établissement**. Les informations sont réparties en onglets ; cliq
 D.figure(c('03_admin_etablissement.png'), "Paramètres de l'établissement — onglet Identité", max_h=10)
 D.table(['Onglet', 'Contenu'], [
     ['Identité', "Nom, sigle, matricule, type (lycée général, technique, bilingue, CES, CETIC, collège privé…), statut, sous-système, devise, acte de création, contacts."],
-    ['En-tête officiel', "Région, département, ville, délégations régionale et départementale, intitulés du ministère en français et en anglais, titre et nom du chef d'établissement, censeur, surveillant général. Ces éléments composent l'en-tête de tous les PDF."],
+    ['En-tête officiel', "Région, département, ville, délégations régionale et départementale, intitulés du ministère en français et en anglais, référence des documents administratifs du personnel. Ces éléments composent l'en-tête de tous les PDF."],
+    ['Fonctions', "Appellations des fonctions (chef d'établissement, adjoint, vie scolaire, animation pédagogique) et noms des titulaires, repris sur les zones de signature (voir ci-dessous)."],
     ['Logo', "Cliquez sur la zone ou déposez-y votre logo (PNG ou JPEG, 500 Ko maximum), vérifiez l'aperçu puis enregistrez."],
     ['Pédagogie', "Année scolaire, moyenne de réussite (10 par défaut), respect strict du calendrier (la saisie d'une séquence n'ouvre qu'à sa date de début)."],
     ['Horaires & jours', "Jours de cours (lundi à samedi) et créneaux horaires ; cochez « Pause » pour une récréation ou la pause déjeuner."]], widths=[3.2, 13.4], font=9.5)
 D.figure(c('04_admin_horaires.png'), 'Onglet Horaires & jours', max_h=9)
+D.h3('Onglet Fonctions : appellations des fonctions')
+D.p("Chaque établissement emploie ses propres appellations. Dans l'onglet **Fonctions**, choisissez dans chaque liste l'appellation en usage chez vous, "
+    "puis renseignez le nom de la personne qui occupe la fonction :", align='justify')
+D.table(['Fonction', 'Appellations au choix', 'Où elle apparaît'], [
+    ["Chef d'établissement", 'Proviseur • Directeur • Principal', "Bulletins, procès-verbaux, fiches disciplinaires de classe, statistiques, emplois du temps, attestations et courriers du personnel"],
+    ["Adjoint du chef d'établissement", 'Censeur • Préfet • Préfet Adjoint', 'Relevés de notes, fiches de progression, procès-verbaux, statistiques, emplois du temps'],
+    ['Vie scolaire', 'Surveillant Général • Surveillant Général Adjoint', 'Fiches disciplinaires de classe et individuelles'],
+    ['Animation pédagogique', 'Animateur Pédagogique • Coordonnateur', "Fiches de progression ; fonction des enseignants responsables d'une discipline"]],
+    widths=[3.8, 5, 7.8], font=9.5, caption='Appellations des fonctions')
+D.figure(c('03b_admin_fonctions.png'), "Onglet Fonctions : appellations, noms et aperçu des signatures", max_h=13)
+D.numbered(["Menu **Établissement** ▸ onglet **Fonctions**.",
+            "Choisissez l'appellation de chaque fonction et saisissez le nom du titulaire (ex. Préfet : M. FOUDA Bernard).",
+            "Vérifiez l'**aperçu des signatures** : il se met à jour à chaque changement.",
+            "Cliquez sur **Enregistrer**. Les documents produits ensuite portent les nouvelles appellations, avec le nom du signataire sous la zone de signature."])
+D.note("En passant d'« Animateur Pédagogique » à « Coordonnateur » (ou l'inverse), la fonction des enseignants concernés suit automatiquement "
+       "(ex. « Animateur Pédagogique de Mathématiques » devient « Coordonnateur de Mathématiques »). Les documents administratifs déjà émis ne changent pas : "
+       "ils conservent le signataire de leur date d'émission.", 'info')
 D.h2('4.4 Calendrier et clôture des séquences')
 D.figure(c('05_admin_calendrier.png'), 'Calendrier des séquences, regroupées par trimestre', max_h=10)
 D.p("**Modifier les dates :** bouton **Dates** de la séquence. Les séquences ne doivent pas se chevaucher.", align='justify')
@@ -330,7 +351,7 @@ D.figure(c('50_admin_jours_non_ouvres.png'), 'Jours non ouvrés', max_h=8)
 D.h2("4.21 Dossier administratif d'un enseignant")
 D.p("Ouvrez le dossier depuis le tableau d'assiduité (clic sur le nom) ou depuis **Enseignants** ▸ menu ☰ ▸ **Dossier administratif & assiduité**.", align='justify')
 D.figure(c('51_admin_dossier_enseignant.png'), "Dossier d'un enseignant : situation administrative, assiduité, documents", max_h=15)
-D.bullets([("Situation administrative : ", "bouton **Dossier** pour renseigner matricule, grade (PLEG, PCEG, PLET, PCET, PEPS…), statut, diplôme, fonction, date et lieu de naissance, **date de prise de service** et **acte d'affectation**. Ces informations figurent sur les documents."),
+D.bullets([("Situation administrative : ", "bouton **Dossier** pour renseigner matricule, grade (PLEG, PCEG, PLET, PCET, PEPS…), statut, diplôme, fonction (des propositions reprennent les appellations choisies, ex. « Coordonnateur de Mathématiques », « Préfet »), date et lieu de naissance, **date de prise de service** et **acte d'affectation**. Ces informations figurent sur les documents."),
            ("Assiduité : ", "taux, heures dues et effectuées, absences, retards et détail par séquence pour la période choisie ; bouton **Relevé** pour le relevé d'assiduité PDF."),
            ("Absences et retards : ", "historique de la période, avec ajout rapide."),
            ("Documents administratifs : ", "tous les documents émis à son nom, et le bouton **Émettre un document**.")])

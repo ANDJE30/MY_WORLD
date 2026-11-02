@@ -11,8 +11,8 @@ D = Doc('Cahier des charges — AI721 SchoolX CM', 'Cahier des charges')
 D.cover('Cahier des charges fonctionnel et technique', 'AI721 SchoolX CM',
         "Plateforme web responsive (SaaS) de gestion des notes, des faits disciplinaires et des emplois du temps des établissements d'enseignement secondaire général et technique du Cameroun — proposée par AI721 TECH STUFF",
         [('Projet', 'AI721 SchoolX CM — plateforme de gestion scolaire multi-établissements'), ('Éditeur', 'AI721 TECH STUFF (super administrateur : AI721)'), ('Document', 'Cahier des charges (spécifications fonctionnelles, techniques et conception UML)'),
-         ('Version', '3.0'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
-         ('Historique', "1.0 : version initiale.  1.1 : groupe et type de matière dissociés.  2.0 : plateforme multi-établissements AI721 (abonnements annuels, console super admin, quatre interfaces de connexion, coffre des accès), saisie et statistiques par trimestre, statistiques PDF, clôture annuelle.  3.0 : nouveau nom « AI721 SchoolX CM » ; dossier administratif des enseignants (pointage, taux d'assiduité, attestation de présence effective, certificat de prise de service, rappel à l'ordre, lettre d'observation, demande d'explication avec réponse en ligne)"),
+         ('Version', '3.1'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
+         ('Historique', "1.0 : version initiale.  1.1 : groupe et type de matière dissociés.  2.0 : plateforme multi-établissements AI721 (abonnements annuels, console super admin, quatre interfaces de connexion, coffre des accès), saisie et statistiques par trimestre, statistiques PDF, clôture annuelle.  3.0 : nouveau nom « AI721 SchoolX CM » ; dossier administratif des enseignants (pointage, taux d'assiduité, attestation de présence effective, certificat de prise de service, rappel à l'ordre, lettre d'observation, demande d'explication avec réponse en ligne).  3.1 : appellations des fonctions paramétrables (chef d'établissement, adjoint, vie scolaire, animation pédagogique)."),
 
          ('Destinataires', "Chefs d'établissement, censeurs, surveillants généraux, enseignants, promoteurs d'établissements privés, équipe technique"),
          ('Rédaction', 'Équipe de développement full stack AI721 SchoolX CM')], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -114,10 +114,11 @@ EF = [
    ('EF-07', 'Thème', "Thème clair / sombre mémorisé ; respect de la préférence du système.", 'C')]),
  ('3.2 Administrateur — paramétrage', [
    ('EF-10', "Identité de l'établissement", "Nom, sigle, matricule/code, type (lycée général, technique, bilingue, CES, CETIC, collège privé…), statut (public, privé laïc, confessionnel), sous-système, devise, acte de création, BP, téléphone, e-mail, site.", 'M'),
-   ('EF-11', 'En-tête officiel', "Région, département, ville, délégations régionale et départementale, intitulés du ministère (FR/EN), titre et nom du chef d'établissement, censeur, surveillant général — repris sur tous les PDF.", 'M'),
+   ('EF-11', 'En-tête officiel', "Région, département, ville, délégations régionale et départementale, intitulés du ministère (FR/EN), référence des documents administratifs — repris sur tous les PDF.", 'M'),
    ('EF-12', 'Logo', "Téléversement du logo (PNG/JPEG ≤ 500 Ko, glisser-déposer), aperçu, suppression ; affiché dans l'application et sur les documents.", 'M'),
    ('EF-13', 'Paramètres pédagogiques', "Année scolaire, moyenne de réussite (par défaut 10/20), respect strict du calendrier.", 'M'),
-   ('EF-14', 'Horaires', "Jours de cours (lundi à samedi) et créneaux horaires, y compris récréations et pauses.", 'M')]),
+   ('EF-14', 'Horaires', "Jours de cours (lundi à samedi) et créneaux horaires, y compris récréations et pauses.", 'M'),
+   ('EF-15', 'Appellations des fonctions', "Onglet « Fonctions » : choix, dans des listes, de l'appellation de chaque fonction — chef d'établissement (**Proviseur, Directeur, Principal**), adjoint (**Censeur, Préfet, Préfet Adjoint**), vie scolaire (**Surveillant Général, Surveillant Général Adjoint**), animation pédagogique (**Animateur Pédagogique, Coordonnateur**) — et nom des titulaires ; aperçu en direct des zones de signature. Les appellations et les noms sont repris sur les signatures de tous les documents et proposés pour la fonction des personnels.", 'M')]),
  ('3.3 Administrateur — calendrier et clôtures', [
    ('EF-20', 'Calendrier', "Dates de début et de fin des 6 séquences, regroupées en 3 trimestres ; contrôle de cohérence (pas de chevauchement).", 'M'),
    ('EF-21', 'État des saisies', "Pour une séquence : matières complètes et validées, fiches disciplinaires validées, pourcentage global.", 'M'),
@@ -234,8 +235,16 @@ D.table(['Réf.', 'Règle'], [
   ['RG-29', "À l'émission, l'identité de l'agent (grade, matricule, fonction…), le signataire et, pour l'attestation de présence, les chiffres d'assiduité sont **figés** dans le document : une modification ultérieure du dossier ne change pas un document émis."],
   ['RG-30', "Un document n'est modifiable que tant qu'il n'a pas été remis. Le délai de réponse d'une demande d'explication court à partir de la remise en main propre ou de l'accusé de réception en ligne (l'ouverture du PDF par l'enseignant vaut accusé de réception) ; la réponse est unique et définitive ; une réponse postérieure à l'échéance est signalée « hors délai »."],
   ['RG-31', "Un enseignant n'accède qu'à ses propres documents non annulés et à sa propre assiduité ; seul l'administrateur émet, modifie, clôt ou annule un document."],
+  ['RG-32', "Chaque appellation de fonction est choisie dans sa liste (contrôle côté serveur) ; l'article est ajouté automatiquement sur les documents (Le Censeur, L'Animateur Pédagogique). Le nom du titulaire, s'il est renseigné, figure sous la zone de signature. Un changement d'appellation s'applique aux documents produits ensuite ; les documents administratifs déjà émis conservent le signataire figé à leur émission."],
+  ['RG-33', "Les appellations « Animateur Pédagogique » et « Coordonnateur » étant synonymes, en changer met à jour la fonction des enseignants qui la reprennent (ex. « Animateur Pédagogique de SVT » → « Coordonnateur de SVT »). Les autres appellations ne modifient pas les fonctions des personnels, car un préfet et un préfet adjoint, ou un surveillant général et son adjoint, peuvent coexister."],
   ['RG-19', "Chaque matière a exactement un groupe et un type, choisis indépendamment. Sur le bulletin, les matières sont regroupées et sous-totalisées par groupe, dans l'ordre des positions. Un groupe ou un type utilisé par une matière ne peut être supprimé ; il en reste toujours au moins un de chaque. Les libellés sont uniques (sans distinction de casse)."]],
   widths=[1.6, 15], caption='Règles de gestion', font=9.5)
+D.table(['Fonction', 'Appellations proposées', 'Par défaut', 'Signataire des documents'], [
+  ["Chef d'établissement", 'Proviseur, Directeur, Principal', 'Proviseur', "Bulletins, procès-verbaux, fiches disciplinaires de classe, statistiques, emplois du temps, documents administratifs du personnel"],
+  ["Adjoint du chef d'établissement", 'Censeur, Préfet, Préfet Adjoint', 'Censeur', "Relevés de notes, fiches de progression, procès-verbaux, statistiques, emplois du temps"],
+  ['Vie scolaire', 'Surveillant Général, Surveillant Général Adjoint', 'Surveillant Général', 'Fiches disciplinaires (classe et individuelle)'],
+  ['Animation pédagogique', 'Animateur Pédagogique, Coordonnateur', 'Animateur Pédagogique', "Fiches de progression ; fonction des enseignants responsables d'une discipline"]],
+  widths=[3.6, 4.4, 2.8, 5.8], caption='Appellations des fonctions (paramètres ▸ Fonctions)', font=9)
 
 # ------------------------------------------------------------------ 5
 D.h1('5. Exigences non fonctionnelles')
@@ -350,7 +359,7 @@ D.table(['Table', 'Rôle', 'Champs principaux'], [
   ['platform.db : subscriptions', 'Abonnements annuels', "tenant_id, annee, valid_from (01/09), valid_to (31/08), montant, paid, paid_at, mode, reference"],
   ['platform.db : users, sessions, audit_log, settings', "Super admin, sessions, journal, paramètres de l'entreprise", "même structure que dans un établissement"],
   ['year_archives', 'Années clôturées', "annee, closed_at, closed_by, stats_json, report_file, backup_file"],
-  ['settings', "Paramètres de l'établissement (clé/valeur JSON)", "nom, sigle, type, délégations, logo, année, seuil, horaires…"],
+  ['settings', "Paramètres de l'établissement (clé/valeur JSON)", "nom, sigle, type, délégations, logo, année, seuil, horaires, appellations des fonctions (chef_titre, censeur_titre, sg_titre, ap_titre) et noms (chef_nom, censeur_nom, surveillant_general)…"],
   ['users', 'Comptes (3 rôles)', "role, username, pass_hash, full_name, active, failed_attempts, locked_until, pw_enc (mot de passe généré chiffré), pw_set_at, pw_user_changed_at ; dossier : matricule, grade, statut_agent, fonction, diplome, date_naissance, lieu_naissance, date_prise_service, acte_affectation"],
   ['sessions', 'Sessions actives', "token_hash, user_id, expires_at, last_seen, ip"],
   ['classes', 'Classes', "name, level, serie, cycle, room, titulaire_id"],
@@ -417,7 +426,7 @@ D.bullets([("Démonstration (Render) : ", "connecter le dépôt GitHub à Render
 
 # ------------------------------------------------------------------ 11
 D.h1('11. Recette et assurance qualité')
-D.p("La qualité est assurée par une suite de tests d'intégration automatisés (28 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
+D.p("La qualité est assurée par une suite de tests d'intégration automatisés (29 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
     "dans un navigateur réel (Playwright) qui visite toutes les pages des quatre profils sur ordinateur, tablette et smartphone sans aucune erreur.", align='justify')
 D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Connexion correcte / incorrecte', "200 / 401, cookie HttpOnly", 'Réussi'], ['Requête sans en-tête anti-CSRF ou d\'origine étrangère', '403', 'Réussi'],
@@ -444,6 +453,7 @@ D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ["Clôture de l'année puis nouvelle année", 'Nouvelle année refusée avant clôture ; rapport et sauvegarde archivés', 'Réussi'],
   ['Limitation de débit : échecs seulement', '10 échecs → blocage ; 12 connexions réussies → jamais bloquées', 'Réussi'],
   ['Nouveau nom AI721 SchoolX CM', 'Titre des pages, manifeste et sauvegardes au nouveau nom', 'Réussi'],
+  ['Appellations des fonctions : listes, refus hors liste, signatures, fonction des enseignants', "400 hors liste ; PDF générés avec Principal / Préfet Adjoint / Surveillant Général Adjoint / Coordonnateur ; « Animateur Pédagogique de Mathématiques » ↔ « Coordonnateur de Mathématiques »", 'Réussi'],
   ["Assiduité : dossier, absence d'une journée, justification, retard, pointage, jour non ouvré", "Heures dues, effectuées et taux exacts ; date future et créneau sans cours refusés (400) ; enseignant refusé (403)", 'Réussi'],
   ["Documents administratifs : 5 types, numérotation, accusé, réponse unique, suite, référence, annulation", "Prise de service sans date refusée ; échéance = remise + délai ; 2e réponse refusée ; autre enseignant 404 ; PDF valides ; sauvegarde « EduGest CM » restaurable", 'Réussi']],
   widths=[7.2, 7.4, 2], caption='Plan de tests automatisés', font=9)
@@ -486,6 +496,8 @@ D.h1('14. Glossaire')
 D.table(['Terme', 'Définition'], [
   ['Séquence / situation', "Période d'évaluation ; l'année en compte six."], ['Trimestre', "Regroupement de deux séquences, sanctionné par un bulletin trimestriel."],
   ['Coefficient', "Poids d'une matière dans le calcul de la moyenne générale."],
+  ['Proviseur / Directeur / Principal', "Appellations du chef d'établissement (lycée ; collège, CES ou CETIC selon l'usage)."], ['Censeur / Préfet', "Adjoint du chef d'établissement chargé notamment des études ; le préfet adjoint le seconde."],
+  ['Animateur pédagogique / coordonnateur', "Enseignant responsable de l'animation d'une discipline (progressions, réunions du conseil d'enseignement)."],
   ['Abonnement', "Droit d'utilisation annuel d'un établissement, du 1er septembre au 31 août."], ['Coffre des accès', "Liste chiffrée des identifiants et mots de passe générés, consultable par AI721 (administrateurs) et par l'administrateur (personnel)."],
   ['Interface (portail)', "Page de connexion propre à un rôle : console, administration, enseignants, vie scolaire."], ['Super administrateur', "Compte AI721 de l'éditeur, qui gère les établissements abonnés."], ['Conseil de classe', "Réunion qui arrête les résultats et décisions de fin de période."],
   ['Consigne', "Retenue de l'élève (en heures) à titre de sanction."], ['Avertissement / blâme', "Sanctions de conduite (ou de travail) mentionnées au bulletin."],

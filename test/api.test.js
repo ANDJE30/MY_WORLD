@@ -426,6 +426,35 @@ test('nom de la plateforme : AI721 SchoolX CM', async () => {
   assert.equal((await a.get('/admin/backup')).data.app, 'AI721 SchoolX CM');
 });
 
+test('appellations des fonctions : choix dans les paramètres, signatures et fonctions des enseignants', async () => {
+  const a = await admin();
+  const st = (await a.get('/admin/settings')).data;
+  assert.deepEqual(st._fonctions.chef_titre.options, ['Le Proviseur', 'Le Directeur', 'Le Principal']);
+  assert.deepEqual(st._fonctions.censeur_titre.options, ['Censeur', 'Préfet', 'Préfet Adjoint']);
+  assert.deepEqual(st._fonctions.sg_titre.options, ['Surveillant Général', 'Surveillant Général Adjoint']);
+  assert.deepEqual(st._fonctions.ap_titre.options, ['Animateur Pédagogique', 'Coordonnateur']);
+  assert.equal(st.censeur_titre, 'Censeur');
+  assert.equal((await a.put('/admin/settings', { censeur_titre: 'Directeur des études' })).status, 400);
+  assert.equal((await a.put('/admin/settings', { ap_titre: 'Chef de département' })).status, 400);
+  const r = await a.put('/admin/settings', { chef_titre: 'Le Principal', censeur_titre: 'Préfet Adjoint', sg_titre: 'Surveillant Général Adjoint', ap_titre: 'Coordonnateur' });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.censeur_titre, 'Préfet Adjoint');
+  assert.ok(r.data._renamed >= 1);
+  // la fonction « Animateur Pédagogique de Mathématiques » suit l'appellation
+  assert.equal((await a.get('/rh/enseignants/2')).data.agent.fonction, 'Coordonnateur de Mathématiques');
+  const pub = (await client().get('/auth/public')).data;
+  assert.deepEqual(pub.fonctions, { chef_titre: 'Le Principal', censeur_titre: 'Préfet Adjoint', sg_titre: 'Surveillant Général Adjoint', ap_titre: 'Coordonnateur' });
+  // les documents portant les signatures se génèrent avec les nouvelles appellations
+  for (const p of ['/pdf/releve?cs=1&period=S1', '/pdf/progression?teacher_id=2', '/pdf/discipline?class_id=1&period=S1', '/pdf/bulletins?class_id=1&period=S1', '/pdf/pv?class_id=1&period=S1', '/pdf/stats?period=S1'])
+    assert.ok(isPdf(await a.get(p)), p);
+  // retour aux appellations d'origine
+  const back = await a.put('/admin/settings', { chef_titre: 'Le Proviseur', censeur_titre: 'Censeur', sg_titre: 'Surveillant Général', ap_titre: 'Animateur Pédagogique' });
+  assert.equal(back.status, 200);
+  assert.equal((await a.get('/rh/enseignants/2')).data.agent.fonction, 'Animateur Pédagogique de Mathématiques');
+  // le responsable adjoint garde sa propre fonction
+  assert.ok((await a.get('/admin/users?role=discipline')).data.some((u) => u.specialite === 'Surveillant Général Adjoint'));
+});
+
 test('assiduité des enseignants : dossier, absences, retards, pointage et taux', async () => {
   const a = await admin();
   const tid = 3; // EKOTO Solange

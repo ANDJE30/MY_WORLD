@@ -29,6 +29,7 @@ export function seedDemo() {
       delegation_regionale: 'du Centre', delegation_departementale: 'du Mfoundi', region: 'Centre', departement: 'Mfoundi', ville: 'Yaoundé',
       bp: '1234 Yaoundé', tel: '+237 6 99 00 00 00', email: 'contact@lpey.cm', immatriculation: 'LPEY-CE-0001', arrete_creation: 'Arrêté n° 000/A/MINESEC (fictif)',
       devise: 'Discipline – Travail – Excellence', chef_titre: 'Le Proviseur', chef_nom: 'Dr. ATANGANA Marie-Claire', censeur_nom: 'M. FOUDA Bernard',
+      censeur_titre: 'Censeur', sg_titre: 'Surveillant Général', ap_titre: 'Animateur Pédagogique',
       surveillant_general: 'M. NGUEMA Paul', annee_scolaire: `${y}-${y + 1}`, jours_actifs: [1, 2, 3, 4, 5] });
 
     // Calendrier : la séquence 1 est terminée, la séquence 2 est en cours
@@ -54,7 +55,7 @@ export function seedDemo() {
     const T = {};
     teachers.forEach(([u, n, s, sp], i) => { T[u] = Number(insU.run('teacher', u, u === 'mbargajp' ? 'Prof@2026' : genPassword(), n, s, `+237 6 9${i} 11 22 3${i % 10}`, sp, `MAT-${1000 + i}`).lastInsertRowid); });
     const sg1 = Number(insU.run('discipline', 'sg.nguemap', 'Disc@2026', 'NGUEMA Paul', 'M', '+237 6 55 44 33 22', 'Surveillant Général', 'SG-01').lastInsertRowid);
-    const sg2 = Number(insU.run('discipline', 'sg.essomba', genPassword(), 'ESSOMBA Clarisse', 'F', '+237 6 55 44 33 23', 'Surveillante Générale adjointe', 'SG-02').lastInsertRowid);
+    const sg2 = Number(insU.run('discipline', 'sg.essomba', genPassword(), 'ESSOMBA Clarisse', 'F', '+237 6 55 44 33 23', 'Surveillant Général Adjoint', 'SG-02').lastInsertRowid);
 
     const subjects = [['Français', 'FRA', 1], ['Anglais', 'ANG', 1], ['Histoire-Géographie', 'HG', 1], ['Éducation à la citoyenneté', 'ECM', 1],
       ['Langues et cultures nationales', 'LCN', 1], ['Espagnol', 'ESP', 1], ['Philosophie', 'PHI', 1], ['Mathématiques', 'MATH', 2],
@@ -177,7 +178,7 @@ function seedStaff(y) {
   const rand = rng(7212026);
   const T = Object.fromEntries(db.prepare("SELECT username, id FROM users WHERE role = 'teacher'").all().map((u) => [u.username, u.id]));
   const hr = {
-    mbargajp: ['PLEG', 'Fonctionnaire', 'Animateur pédagogique de Mathématiques', 'DIPES II', '1984-03-14', 'Mbalmayo', '2018-09-03'],
+    mbargajp: ['PLEG', 'Fonctionnaire', 'Animateur Pédagogique de Mathématiques', 'DIPES II', '1984-03-14', 'Mbalmayo', '2018-09-03'],
     ekotos: ['PLEG', 'Fonctionnaire', '', 'DIPES II', '1987-07-22', 'Ebolowa', '2016-09-05'],
     tabiwa: ['PCEG', 'Fonctionnaire', '', 'DIPES I', '1990-01-09', 'Bamenda', '2019-09-02'],
     nkoulouc: ['PLEG', 'Fonctionnaire', '', 'DIPES II', '1985-11-30', 'Yaoundé', '2015-09-07'],

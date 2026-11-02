@@ -52,7 +52,7 @@ Les autres établissements de démonstration illustrent les situations d'abonnem
 Pour une installation réelle, lancez `npm start` sur un dossier de données vide. Le compte `AI721` est créé au premier démarrage avec le mot de passe `SUPERADMIN_PASSWORD`, ou un mot de passe affiché une seule fois dans la console. Une installation 1.x existante (`data/edugest.db`) est **convertie automatiquement** en premier établissement de la plateforme.
 
 ```bash
-npm test                  # 28 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, PDF, migrations)
+npm test                  # 29 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, PDF, migrations)
 ```
 
 ## Déploiement
@@ -108,6 +108,8 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
 
 ## Historique des versions
+
+- **3.1** : appellations des fonctions paramétrables (onglet *Établissement ▸ Fonctions*) — chef d'établissement (Proviseur, Directeur, Principal), adjoint (Censeur, Préfet, Préfet Adjoint), vie scolaire (Surveillant Général, Surveillant Général Adjoint), animation pédagogique (Animateur Pédagogique, Coordonnateur) — reprises avec le nom des titulaires sur les signatures de tous les documents.
 
 - **3.0** :
   - nouveau nom : **AI721 SchoolX CM** (adresses, comptes et données inchangés ; les sauvegardes « EduGest CM » restent restaurables) ;

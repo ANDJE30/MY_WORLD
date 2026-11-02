@@ -252,7 +252,8 @@ export const DEFAULT_SETTINGS = {
   delegation_regionale: '', delegation_departementale: '',
   region: '', departement: '', ville: '', bp: '', tel: '', email: '', site: '',
   immatriculation: '', arrete_creation: '', devise: 'Discipline – Travail – Réussite',
-  chef_titre: 'Le Proviseur', chef_nom: '', censeur_nom: '', surveillant_general: '',
+  chef_titre: 'Le Proviseur', chef_nom: '', censeur_titre: 'Censeur', censeur_nom: '', sg_titre: 'Surveillant Général', surveillant_general: '',
+  ap_titre: 'Animateur Pédagogique',
   annee_scolaire: '', annee_cloturee: '', feries_annee: '', ref_documents: '', note_max: 20, seuil_reussite: 10, strict_calendar: true,
   logo: '',
   jours_actifs: [1, 2, 3, 4, 5],
@@ -265,6 +266,25 @@ export const DEFAULT_SETTINGS = {
     { start: '13:30', end: '14:20', break: false }, { start: '14:20', end: '15:10', break: false }
   ]
 };
+
+/* ---------- Appellations des fonctions (paramétrables par l'établissement) ---------- */
+export const FONCTIONS = {
+  chef_titre: { label: "Chef d'établissement", options: ['Le Proviseur', 'Le Directeur', 'Le Principal'], nom: 'chef_nom' },
+  censeur_titre: { label: "Adjoint du chef d'établissement", options: ['Censeur', 'Préfet', 'Préfet Adjoint'], nom: 'censeur_nom' },
+  sg_titre: { label: 'Vie scolaire', options: ['Surveillant Général', 'Surveillant Général Adjoint'], nom: 'surveillant_general' },
+  ap_titre: { label: 'Animation pédagogique', options: ['Animateur Pédagogique', 'Coordonnateur'] }
+};
+/** « Censeur » → « Le Censeur » ; « Animateur Pédagogique » → « L'Animateur Pédagogique » (un titre déjà précédé d'un article est conservé). */
+export const withArticle = (t) => (/^(le |la |les |l'|l’|the )/i.test(t) ? t : /^[aeiouyéèêâîôh]/i.test(t) ? `L'${t}` : `Le ${t}`);
+/** Appellations avec article et noms des titulaires, pour les signatures et les courriers. */
+export function titres(s = getSettings()) {
+  return {
+    chef: s.chef_titre || "Le Chef d'établissement", chefNom: s.chef_nom || '',
+    adjoint: withArticle(s.censeur_titre || 'Censeur'), adjointNom: s.censeur_nom || '',
+    sg: withArticle(s.sg_titre || 'Surveillant Général'), sgNom: s.surveillant_general || '',
+    ap: withArticle(s.ap_titre || 'Animateur Pédagogique')
+  };
+}
 
 export function getSettings() {
   const out = { ...DEFAULT_SETTINGS };
