@@ -1,0 +1,29 @@
+{
+ "name": "AI721 ASTRA LUZ 2.0 · Secrétariat des évaluations",
+ "short_name": "ASTRA LUZ",
+ "description": "Suivi des évaluations du second cycle avec anonymat par code-barres",
+ "lang": "fr",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#0B1633",
+ "theme_color": "#0B1633",
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "icons/icon-maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}

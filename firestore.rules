@@ -1,0 +1,61 @@
+rules_version = '2';
+// AI721_ASTRA_LUZ_2.0 : règles de sécurité de la base Firestore
+// Rôles : coordination, prefet, secretariat, lecture, attente, desactive
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function profilePath() { return /databases/$(db)/documents/users/$(request.auth.uid); }
+    function role() { return signedIn() && exists(profilePath()) ? get(profilePath()).data.role : 'aucun'; }
+    function isCoord() { return role() == 'coordination'; }
+    function canRead() { return role() in ['coordination', 'prefet', 'secretariat', 'lecture']; }
+    function canWrite() { return role() in ['coordination', 'prefet', 'secretariat']; }
+    function noOwner() { return !exists(/databases/$(db)/documents/cfg/owner); }
+
+    // Comptes : chacun crée son profil « attente » ; le tout premier compte devient la coordination
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isCoord());
+      allow create: if signedIn() && request.auth.uid == uid && (
+        request.resource.data.role == 'attente' ||
+        (request.resource.data.role == 'coordination' && noOwner()));
+      allow update: if isCoord() || (signedIn() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.get('levels', []) == resource.data.get('levels', []));
+      allow delete: if isCoord();
+    }
+
+    // Propriétaire de la base : écrit une seule fois, jamais modifié
+    match /cfg/owner {
+      allow read: if signedIn();
+      allow create: if signedIn() && noOwner() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+    // Paramètres : coordination et préfets ; référentiels : tout rôle d'écriture
+    match /cfg/{doc} {
+      allow read: if canRead();
+      allow write: if doc == 'owner' ? false
+        : (doc == 'settings' ? (isCoord() || role() == 'prefet')
+        : (doc == 'security' ? isCoord() : canWrite()));
+    }
+    match /classes/{id} {
+      allow read: if canRead();
+      allow write: if canWrite();
+    }
+    // Épreuves : seule la coordination lève l'anonymat, modifie une note après levée ou touche une épreuve clôturée
+    match /evals/{id} {
+      allow read: if canRead();
+      allow create: if canWrite();
+      allow delete: if isCoord() || (canWrite() && resource.data.get('marks', {}).size() == 0);
+      allow update: if isCoord() || (canWrite()
+        && resource.data.get('status', '') != 'cloturee'
+        && request.resource.data.get('anon', {}) == resource.data.get('anon', {})
+        && (resource.data.get('anon', {}).get('lifted', false) == false
+            || request.resource.data.get('marks', {}) == resource.data.get('marks', {})));
+    }
+    // Journal d'audit : ajout par tout rôle d'écriture, effacement par la coordination
+    match /logs/{day} {
+      allow read: if canRead();
+      allow create, update: if canWrite();
+      allow delete: if isCoord();
+    }
+  }
+}
