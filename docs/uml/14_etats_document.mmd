@@ -1,0 +1,20 @@
+stateDiagram-v2
+  [*] --> Emis : émission (numéro attribué)
+  Emis --> Emis : modification (avant remise)
+  Emis --> Remis : remise en main propre / accusé de réception
+  Remis --> Repondu : réponse de l'enseignant (demande d'explication)
+  Remis --> EnRetard : échéance dépassée sans réponse
+  EnRetard --> Repondu : réponse hors délai
+  Remis --> Clos : suite réservée
+  EnRetard --> Clos : suite réservée
+  Repondu --> Clos : suite réservée (classement ou lettre d'observation)
+  Emis --> Annule : annulation motivée
+  Remis --> Annule : annulation motivée
+  Repondu --> Annule : annulation motivée
+  Clos --> [*]
+  Annule --> [*]
+  state "Émis" as Emis
+  state "Remis / lu" as Remis
+  state "Délai dépassé" as EnRetard
+  state "Réponse reçue" as Repondu
+  state "Annulé (reste au registre)" as Annule

@@ -3,19 +3,21 @@ import { h, raw, mount, $, $$, icon, toast, fmtNum, kpi, progressBar, empty, seq
 import { get, put, openPdf } from './api.js';
 import { state, go, setLeaveGuard } from './app.js';
 import { notesEditor, timetablePage, timetableHtml, announcementsWidget, periodLabel, periodParam } from './shared.js';
+import { mesDocuments, teacherDocsBanner } from './rh.js';
 
 export const routes = [
   { path: 'accueil', title: 'Tableau de bord', short: 'Accueil', icon: 'home', group: 'Mon espace', mobile: true, render: home },
   { path: 'saisie', title: 'Saisie des notes', short: 'Notes', icon: 'edit', group: 'Mon espace', mobile: true, render: saisie },
   { path: 'progression', title: 'Progression annuelle', short: 'Progression', icon: 'target', group: 'Mon espace', mobile: true, render: progression },
   { path: 'releves', title: 'Relevés & exports PDF', short: 'PDF', icon: 'pdf', group: 'Mon espace', render: releves },
+  { path: 'documents', title: 'Mes documents & assiduité', short: 'Documents', icon: 'file', group: 'Mon espace', render: mesDocuments },
   { path: 'edt', title: 'Mon emploi du temps', short: 'EDT', icon: 'calendar', group: 'Mon espace', mobile: true, render: (v) => timetablePage(v, { kind: 'teacher', id: state.user.id, title: 'Mon emploi du temps' }) }
 ];
 
 const loadAssignments = () => get('/teacher/assignments');
 
 async function home(view) {
-  const [{ assignments, seq }, ann, tt] = await Promise.all([loadAssignments(), get('/announcements'), get(`/timetable/teacher/${state.user.id}`)]);
+  const [{ assignments, seq }, ann, tt, banner] = await Promise.all([loadAssignments(), get('/announcements'), get(`/timetable/teacher/${state.user.id}`), teacherDocsBanner()]);
   const eleves = assignments.reduce((a, x) => a + x.effectif, 0);
   const done = assignments.reduce((a, x) => a + Math.min(x.effectif, x.saisies[seq] || 0), 0);
   const validated = assignments.filter((a) => a.validated.includes(seq)).length;
@@ -26,6 +28,7 @@ async function home(view) {
   mount(view, h`<div class="page-head"><div><h2>${hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'}, ${state.user.full_name.split(' ').slice(-1)[0]} 👋</h2>
     <p>Séquence ${seq} ${periodLabel(seq)} — voici l'état de vos saisies.</p></div>
     <div class="actions"><button class="btn btn-primary" data-go-saisie>${icon('edit')} Saisir des notes</button></div></div>
+  ${banner}
   <div class="grid g-4">
     ${kpi('layers', assignments.length, 'Classes / matières', `${eleves} élèves au total`)}
     ${kpi('edit', `${eleves ? Math.round((done / eleves) * 100) : 0} %`, `Notes saisies — S${seq}`, `${done} / ${eleves} notes`, 'gold')}

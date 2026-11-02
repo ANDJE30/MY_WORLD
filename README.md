@@ -1,6 +1,8 @@
-# EduGest CM — une plateforme AI721 TECH STUFF
+# AI721 SchoolX CM — une plateforme AI721 TECH STUFF
 
-**Plateforme web responsive (SaaS, multi-établissements) de gestion des notes, des faits disciplinaires et des emplois du temps des établissements d'enseignement secondaire général et technique du Cameroun.**
+*Anciennement « EduGest CM » (versions 1.x et 2.x).*
+
+**Plateforme web responsive (SaaS, multi-établissements) de gestion des notes, des faits disciplinaires, des emplois du temps, de l'assiduité et des documents administratifs du personnel des établissements d'enseignement secondaire général et technique du Cameroun.**
 
 Elle suit l'organisation scolaire camerounaise : 6 séquences en 3 trimestres, notes sur 20, coefficients, rangs ex æquo, conseils de classe et bulletins officiels bilingues. Elle fonctionne sur ordinateur, tablette et smartphone, et s'installe comme une application (PWA).
 
@@ -9,8 +11,8 @@ L'éditeur, **AI721 TECH STUFF**, commercialise la plateforme sur **abonnement a
 | Profil | Interface | Fonctions principales |
 |---|---|---|
 | **Super administrateur AI721** | `/console` | Établissements abonnés (une base de données dédiée par établissement), abonnements et paiements (reçus PDF), coffre des accès des administrateurs, liens et fiches d'accès (PDF, WhatsApp), suspension et renouvellement, tableau de bord commercial |
-| **Administrateur d'établissement** | `/e/<code>/admin` | Paramétrage, comptes du personnel avec **coffre des accès** (mots de passe générés et liens, envoi par WhatsApp), classes, matières (groupe et type), élèves, attributions, emplois du temps, clôtures par séquence et par trimestre, **clôture de l'année** (statistiques annuelles et sauvegarde archivées), bulletins, PV, **statistiques exportables en PDF** |
-| **Enseignant** | `/e/<code>/enseignant` | Saisie des notes **par séquence ou par trimestre**, progression annuelle, validation, relevés PDF, emploi du temps |
+| **Administrateur d'établissement** | `/e/<code>/admin` | Paramétrage, comptes du personnel avec **coffre des accès** (mots de passe générés et liens, envoi par WhatsApp), classes, matières (groupe et type), élèves, attributions, emplois du temps, clôtures par séquence et par trimestre, **clôture de l'année** (statistiques annuelles et sauvegarde archivées), bulletins, PV, **statistiques exportables en PDF**, **assiduité des enseignants** (pointage journalier, taux d'assiduité) et **documents administratifs** (présence effective au poste, prise de service, rappel à l'ordre, lettre d'observation, demande d'explication) |
+| **Enseignant** | `/e/<code>/enseignant` | Saisie des notes **par séquence ou par trimestre**, progression annuelle, validation, relevés PDF, emploi du temps, **mes documents administratifs** (accusé de réception, **réponse en ligne aux demandes d'explication**) et mon assiduité |
 | **Responsable disciplinaire** | `/e/<code>/discipline` | Absences, retards, consignes, sanctions, incidents, récapitulatif trimestriel, fiches PDF |
 
 Les quatre interfaces de connexion sont distinctes : chacune a son adresse, ses couleurs et sa page, et n'accepte que son propre rôle.
@@ -19,8 +21,8 @@ Les quatre interfaces de connexion sont distinctes : chacune a son adresse, ses 
 
 | Livrable | Fichiers |
 |---|---|
-| Cahier des charges (avec diagrammes UML) | [`docs/Cahier_des_charges_EduGest_CM.docx`](docs/Cahier_des_charges_EduGest_CM.docx) · [`.pdf`](docs/Cahier_des_charges_EduGest_CM.pdf) |
-| Manuel d'utilisation | [`docs/Manuel_utilisation_EduGest_CM.docx`](docs/Manuel_utilisation_EduGest_CM.docx) · [`.pdf`](docs/Manuel_utilisation_EduGest_CM.pdf) |
+| Cahier des charges (avec diagrammes UML) | [`docs/Cahier_des_charges_AI721_SchoolX_CM.docx`](docs/Cahier_des_charges_AI721_SchoolX_CM.docx) · [`.pdf`](docs/Cahier_des_charges_AI721_SchoolX_CM.pdf) |
+| Manuel d'utilisation | [`docs/Manuel_utilisation_AI721_SchoolX_CM.docx`](docs/Manuel_utilisation_AI721_SchoolX_CM.docx) · [`.pdf`](docs/Manuel_utilisation_AI721_SchoolX_CM.pdf) |
 | Diagrammes UML (sources Mermaid + PNG) | [`docs/uml/`](docs/uml) |
 | Captures d'écran | [`docs/captures/`](docs/captures) |
 
@@ -50,7 +52,7 @@ Les autres établissements de démonstration illustrent les situations d'abonnem
 Pour une installation réelle, lancez `npm start` sur un dossier de données vide. Le compte `AI721` est créé au premier démarrage avec le mot de passe `SUPERADMIN_PASSWORD`, ou un mot de passe affiché une seule fois dans la console. Une installation 1.x existante (`data/edugest.db`) est **convertie automatiquement** en premier établissement de la plateforme.
 
 ```bash
-npm test                  # 25 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, PDF, migrations)
+npm test                  # 28 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, PDF, migrations)
 ```
 
 ## Déploiement
@@ -58,7 +60,7 @@ npm test                  # 25 tests d'intégration (plateforme, abonnements, is
 | Usage | Hébergeur | Procédure |
 |---|---|---|
 | **Démonstration** (gratuit, en un clic) | Render (offre Free) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/andje30/my_world) — le fichier `render.yaml` configure tout. Le disque gratuit est éphémère : la base de démonstration se recrée à chaque redémarrage. |
-| **Production gratuite** | Oracle Cloud *Always Free* (VM ARM, 200 Go persistants) | Créez une VM Ubuntu, pointez un domaine vers son IP, puis exécutez `sudo DOMAIN=edugest.ai721.cm SUPERADMIN_PASSWORD='…' bash deploy/oracle-cloud-init.sh` (Docker + Caddy, HTTPS automatique, clé du coffre générée). |
+| **Production gratuite** | Oracle Cloud *Always Free* (VM ARM, 200 Go persistants) | Créez une VM Ubuntu, pointez un domaine vers son IP, puis exécutez `sudo DOMAIN=schoolx.ai721.cm SUPERADMIN_PASSWORD='…' bash deploy/oracle-cloud-init.sh` (Docker + Caddy, HTTPS automatique, clé du coffre générée). |
 | Production sur un serveur existant | Tout VPS | `cd deploy && DOMAIN=… SUPERADMIN_PASSWORD=… VAULT_KEY=$(openssl rand -hex 32) docker compose up -d --build` |
 
 **Mettre à jour le site** :
@@ -106,6 +108,15 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
 
 ## Historique des versions
+
+- **3.0** :
+  - nouveau nom : **AI721 SchoolX CM** (adresses, comptes et données inchangés ; les sauvegardes « EduGest CM » restent restaurables) ;
+  - dossier administratif des enseignants : grade, statut, diplôme, fonction, prise de service, acte d'affectation ;
+  - assiduité : heures dues calculées depuis l'emploi du temps, pointage journalier des cours, absences (heures, journée, période) et retards, jours non ouvrés, taux d'assiduité par séquence, trimestre, mois ou année, état et relevé PDF ;
+  - documents administratifs numérotés : attestation de présence effective au poste (avec taux d'assiduité), certificat de prise de service, rappel à l'ordre, lettre d'observation, demande d'explication avec espace de réponse pour l'intéressé ;
+  - faits proposés automatiquement (absences, retards, notes non validées, progression en retard), remise, suite réservée, annulation, registre PDF, alertes ;
+  - espace enseignant « Mes documents & assiduité » : lecture, accusé de réception, réponse en ligne ;
+  - correction : le service worker ne met plus en cache les réponses des API d'établissement.
 
 - **2.0** :
   - plateforme multi-établissements AI721 TECH STUFF : console super admin, abonnements annuels (septembre → août), paiements et reçus, suspension, coffre des accès des administrateurs ;

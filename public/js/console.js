@@ -26,7 +26,7 @@ const TYPES = ["Lycée d'enseignement général", 'Lycée technique', 'Lycée bi
 async function showAccess(t, creds) {
   const c = creds || await post(`/tenants/${t.id}/reveal`);
   const L = c.links;
-  const msg = `Bonjour${t.contact_nom ? ' ' + t.contact_nom : ''},\nVoici vos accès à la plateforme EduGest CM pour « ${t.name} »${t.annee ? ` (abonnement ${t.annee}, valable jusqu'au ${fmtDate(t.valid_to)})` : ''} :\n`
+  const msg = `Bonjour${t.contact_nom ? ' ' + t.contact_nom : ''},\nVoici vos accès à la plateforme AI721 SchoolX CM pour « ${t.name} »${t.annee ? ` (abonnement ${t.annee}, valable jusqu'au ${fmtDate(t.valid_to)})` : ''} :\n`
     + `• Adresse administrateur : ${L.admin}\n• Identifiant : ${c.username}\n• Mot de passe : ${c.password || '(à régénérer)'}\n\nLiens à transmettre à votre personnel :\n• Enseignants : ${L.teacher}\n• Vie scolaire : ${L.discipline}\n\n${state.school.societe}${state.school.tel ? ' — ' + state.school.tel : ''}`;
   const phone = String(t.contact_tel || '').replace(/\D/g, '');
   const wa = `https://wa.me/${phone.length === 9 ? '237' + phone : phone}?text=${encodeURIComponent(msg)}`;
@@ -113,7 +113,7 @@ async function editSub(sub) {
 async function dashboard(view) {
   const d = await get('/dashboard'); const k = d.kpis;
   const urgent = d.tenants.filter((t) => ['expire_bientot', 'expire', 'impaye', 'suspendu'].includes(t.status_code));
-  mount(view, h`<div class="page-head"><div><h2>Tableau de bord</h2><p>Plateforme EduGest CM — année scolaire ${d.year}.</p></div>
+  mount(view, h`<div class="page-head"><div><h2>Tableau de bord</h2><p>Plateforme AI721 SchoolX CM — année scolaire ${d.year}.</p></div>
     <div class="actions"><button class="btn btn-outline" data-pdf>${icon('pdf')} Liste PDF</button><button class="btn btn-primary" data-new>${icon('plus')} Nouvel établissement</button></div></div>
   <div class="grid g-4">
     ${kpi('building', k.total, 'Établissements abonnés', `${k.actifs} actif(s) • ${k.inactifs} inactif(s)`)}

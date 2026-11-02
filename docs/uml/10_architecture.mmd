@@ -5,6 +5,7 @@ flowchart TB
     F1["app.js<br/>détection de l'interface, thèmes, connexion, routeur"]
     F2["console.js<br/>super admin"]
     F3["admin.js / teacher.js / discipline.js"]
+    F5["rh.js<br/>assiduité, pointage, documents administratifs"]
     F4["shared.js / ui.js<br/>notes (séquence/trimestre), discipline, EDT"]
   end
   subgraph BACK["Backend — Node.js 22 / Express 5"]
@@ -13,7 +14,8 @@ flowchart TB
     PL["platform.js<br/>registre, abonnements, création, migration"]
     CX["context.js<br/>AsyncLocalStorage : base de la requête"]
     RC["routes/platform<br/>(console)"]
-    RT["routes/auth, admin, work, pdf, common<br/>(établissement)"]
+    RT["routes/auth, admin, work, staff, pdf, common<br/>(établissement)"]
+    ST["staff.js / pdfStaff.js<br/>assiduité, numérotation, courriers officiels"]
     AC["access.js<br/>rôles, ressources, liens"]
     V["vault.js<br/>coffre AES-256-GCM"]
     C["calc.js / pdf.js"]
@@ -26,7 +28,7 @@ flowchart TB
   M --> RC & CX
   CX --> RT
   RC --> PL & V
-  RT --> AC & C & V
+  RT --> AC & C & V & ST
   PL --> PDB
   D --> TDB
   RT --> D

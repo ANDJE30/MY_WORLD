@@ -1,5 +1,6 @@
 // Jeu de données de démonstration (établissement FICTIF). Usage : npm run seed  (réinitialise la base)
-import { db, tx, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, periodPlan } from './db.js';
+import { db, tx, saveSettings, getSettings, DEFAULT_SETTINGS, ensureTaxonomy, periodPlan } from './db.js';
+import { DOC_TYPES, DEFAULT_AMPLIATIONS, schoolDays, weeklyLoad, agentSnapshot, nextReference, attendanceRange, attendanceSummary, attendanceBySeq, suggestFacts } from './staff.js';
 import { hashPassword, genPassword } from './security.js';
 import { seal } from './vault.js';
 import { generateTimetable } from './routes/admin.js';
@@ -19,12 +20,12 @@ export function seedDemo() {
   const today = new Date();
   const y = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
   tx(() => {
-    for (const t of ['timetable', 'incidents', 'discipline_records', 'discipline_validations', 'progressions', 'note_validations', 'notes',
+    for (const t of ['staff_documents', 'staff_attendance', 'days_off', 'timetable', 'incidents', 'discipline_records', 'discipline_validations', 'progressions', 'note_validations', 'notes',
       'officer_classes', 'students', 'class_subjects', 'subjects', 'subject_groups', 'subject_types', 'classes', 'announcements', 'audit_log', 'sessions', 'users', 'settings', 'periods', 'year_archives']) db.exec(`DELETE FROM ${t}`);
     db.exec("DELETE FROM sqlite_sequence");
 
     saveSettings({ ...DEFAULT_SETTINGS,
-      nom: 'Lycée Pilote EduGest de Yaoundé', nom_court: 'LPEY', type: "Lycée d'enseignement général", statut: 'Public', sous_systeme: 'Francophone',
+      nom: 'Lycée Pilote SchoolX de Yaoundé', nom_court: 'LPEY', type: "Lycée d'enseignement général", statut: 'Public', sous_systeme: 'Francophone',
       delegation_regionale: 'du Centre', delegation_departementale: 'du Mfoundi', region: 'Centre', departement: 'Mfoundi', ville: 'Yaoundé',
       bp: '1234 Yaoundé', tel: '+237 6 99 00 00 00', email: 'contact@lpey.cm', immatriculation: 'LPEY-CE-0001', arrete_creation: 'Arrêté n° 000/A/MINESEC (fictif)',
       devise: 'Discipline – Travail – Excellence', chef_titre: 'Le Proviseur', chef_nom: 'Dr. ATANGANA Marie-Claire', censeur_nom: 'M. FOUDA Bernard',
@@ -167,7 +168,91 @@ export function seedDemo() {
   });
   // Emplois du temps générés automatiquement
   for (const c of db.prepare('SELECT id FROM classes ORDER BY id').all()) generateTimetable(c.id);
+  seedStaff(y);
   return DEMO_ACCOUNTS;
+}
+
+/** Dossier administratif des enseignants : données de carrière, pointage depuis la rentrée, documents administratifs (fictifs). */
+function seedStaff(y) {
+  const rand = rng(7212026);
+  const T = Object.fromEntries(db.prepare("SELECT username, id FROM users WHERE role = 'teacher'").all().map((u) => [u.username, u.id]));
+  const hr = {
+    mbargajp: ['PLEG', 'Fonctionnaire', 'Animateur pédagogique de Mathématiques', 'DIPES II', '1984-03-14', 'Mbalmayo', '2018-09-03'],
+    ekotos: ['PLEG', 'Fonctionnaire', '', 'DIPES II', '1987-07-22', 'Ebolowa', '2016-09-05'],
+    tabiwa: ['PCEG', 'Fonctionnaire', '', 'DIPES I', '1990-01-09', 'Bamenda', '2019-09-02'],
+    nkoulouc: ['PLEG', 'Fonctionnaire', '', 'DIPES II', '1985-11-30', 'Yaoundé', '2015-09-07'],
+    fotsoh: ['PLEG', 'Fonctionnaire', '', 'DIPES II', '1983-05-18', 'Bafoussam', '2014-09-08'],
+    bellol: ['PCEG', 'Fonctionnaire', '', 'DIPES I', '1989-02-02', 'Garoua', '2020-09-07'],
+    ndongm: ['PCEG', 'Contractuel(le)', '', 'DIPES I', '1992-08-12', 'Sangmélima', '2021-09-06'],
+    kamgaf: ['PLET', 'Fonctionnaire', '', 'DIPET II', '1988-12-25', 'Dschang', '2017-09-04'],
+    abenaj: ['PEPS', 'Fonctionnaire', '', 'DIPEPS II', '1986-04-04', 'Obala', '2016-09-05'],
+    manga: ['PLEG', 'Fonctionnaire', '', 'DIPES II', '1982-10-10', 'Kribi', '2013-09-02'],
+    ngoar: ['PLEG', 'Fonctionnaire', '', 'DIPES II', '1995-06-21', 'Édéa', `${y}-09-03`],
+    djomop: ['PCEG', 'Contractuel(le)', '', 'DIPES I', '1991-09-15', 'Nkongsamba', '2022-09-05']
+  };
+  const upd = db.prepare(`UPDATE users SET grade = ?, statut_agent = ?, fonction = ?, diplome = ?, date_naissance = ?, lieu_naissance = ?, date_prise_service = ?, acte_affectation = ? WHERE id = ?`);
+  Object.entries(hr).forEach(([u, v], i) => upd.run(v[0], v[1], v[2] || null, v[3], v[4], v[5], v[6],
+    `la décision n° ${String(210 + i * 7).padStart(4, '0')}/MINESEC/CAB du ${v[6].slice(8, 10)}/08/${v[6].slice(0, 4)} (fictive)`, T[u]));
+
+  // Pointage depuis la rentrée : profils d'assiduité contrastés
+  const S1 = db.prepare('SELECT start_date FROM periods WHERE seq = 1').get().start_date;
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const days = schoolDays(S1, yesterday);
+  const prof = { djomop: [0.12, 0.06], kamgaf: [0.015, 0.14], abenaj: [0.05, 0.02], mbargajp: [0, 0] };
+  const tt = db.prepare(`SELECT t.day, t.slot, t.class_id FROM timetable t JOIN class_subjects cs ON cs.id = t.class_subject_id WHERE cs.teacher_id = ?`);
+  const ins = db.prepare('INSERT INTO staff_attendance(user_id, date, kind, hours, minutes, slot, class_id, justified, motif, recorded_by) VALUES(?,?,?,?,?,?,?,?,?,1)');
+  const motifsJ = ['Maladie (certificat médical)', 'Convocation à un examen officiel', 'Décès dans la famille', 'Séminaire pédagogique'];
+  tx(() => {
+    for (const [u, uid] of Object.entries(T)) {
+      const [pa, pr] = prof[u] || [0.008, 0.008];
+      const slots = tt.all(uid);
+      for (const d of days) {
+        const wd = new Date(d + 'T00:00:00Z').getUTCDay() || 7;
+        for (const sl of slots.filter((x) => x.day === wd)) {
+          const x = rand();
+          if (x < pa) { const j = u !== 'djomop' && rand() < 0.5; ins.run(uid, d, 'absence', 1, 0, sl.slot, sl.class_id, j ? 1 : 0, j ? motifsJ[Math.floor(rand() * motifsJ.length)] : null); }
+          else if (x < pa + pr) ins.run(uid, d, 'retard', 0, 5 + Math.floor(rand() * 26), sl.slot, sl.class_id, 0, null);
+        }
+      }
+    }
+    // l'enseignant de démonstration : une journée d'absence justifiée et un retard
+    const load = weeklyLoad(T.mbargajp);
+    const dSick = days.find((d) => load.byDay[new Date(d + 'T00:00:00Z').getUTCDay() || 7] >= 3) || days[0];
+    if (dSick) ins.run(T.mbargajp, dSick, 'absence', load.byDay[new Date(dSick + 'T00:00:00Z').getUTCDay() || 7] || 2, 0, null, null, 1, 'Maladie (certificat médical)');
+    const sl = tt.all(T.mbargajp)[0];
+    const dLate = days.slice(-15).find((d) => (new Date(d + 'T00:00:00Z').getUTCDay() || 7) === sl?.day);
+    if (dLate) ins.run(T.mbargajp, dLate, 'retard', 0, 10, sl.slot, sl.class_id, 0, 'Embouteillage');
+  });
+
+  // Documents administratifs émis par le chef d'établissement
+  const st = getSettings();
+  const ts = (n) => Math.floor(Date.now() / 1000) - n * 86400;
+  const isoAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const issue = (u, type, ago, f = {}) => {
+    const uid = T[u]; const agent = agentSnapshot(uid);
+    const data = { agent, signataire: { chef_titre: st.chef_titre, chef_nom: st.chef_nom } };
+    if (type === 'presence') { const rg = attendanceRange({ period: f.period }); data.assiduite = { ...attendanceSummary(uid, rg), records: undefined }; data.parSequence = attendanceBySeq(uid, rg); }
+    const { num, reference } = nextReference(type, st.annee_scolaire);
+    const info = db.prepare(`INSERT INTO staff_documents(user_id, type, annee, num, reference, date_doc, objet, faits, ampliations, data, ref_doc_id, delai_heures,
+        ack_at, echeance, status, reponse, reponse_at, suite, suite_at, created_by, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)`).run(
+      uid, type, st.annee_scolaire, num, reference, isoAgo(ago), f.objet ?? (DOC_TYPES[type].lettre ? DOC_TYPES[type].titre : null), f.faits || null,
+      DEFAULT_AMPLIATIONS[type].join('\n'), JSON.stringify(data), f.ref ?? null, type === 'demande_explication' ? 72 : null,
+      f.ack ?? null, f.ack && type === 'demande_explication' ? f.ack + 72 * 3600 : null, f.status || 'emis', f.reponse || null, f.reponse_at || null, f.suite || null, f.suite ? ts(Math.max(0, ago - 3)) : null, ts(ago));
+    return Number(info.lastInsertRowid);
+  };
+  const s1 = attendanceRange({ period: 'S1' });
+  tx(() => {
+    issue('ngoar', 'prise_service', 55, { ack: ts(55) });
+    issue('mbargajp', 'presence', 6, { period: 'S1', ack: ts(5) });
+    const factsDjomo = suggestFacts(T.djomop, s1).facts.map((x) => x.text);
+    const de = issue('djomop', 'demande_explication', 12, { faits: [...factsDjomo, "Absence non justifiée à la réunion du conseil d'enseignement de Physique-Chimie."].join('\n'),
+      ack: ts(11), status: 'clos', reponse_at: ts(10), suite: "Explications jugées non satisfaisantes : lettre d'observation adressée à l'intéressé.",
+      reponse: "Monsieur le Proviseur,\nJ'accuse réception de votre demande d'explication. Mes absences sont dues à des difficultés de transport depuis mon domicile de Soa, aggravées par la saison des pluies. Je reconnais ne pas avoir prévenu l'administration à temps et je m'engage à rattraper les heures perdues avec mes élèves de 4e A et de 2nde C.\nVeuillez agréer, Monsieur le Proviseur, l'expression de mon profond respect." });
+    issue('djomop', 'observation', 8, { ref: de, faits: factsDjomo.join('\n'), ack: ts(7) });
+    issue('kamgaf', 'rappel_ordre', 5, { faits: suggestFacts(T.kamgaf, s1).facts.filter((x) => x.cat === 'Ponctualité').map((x) => x.text).join('\n') || 'Retards répétés aux premières heures de cours.', ack: ts(4) });
+    issue('abenaj', 'demande_explication', 7, { faits: "Abandon de poste le vendredi après-midi : les élèves de 3e A n'ont pas eu cours d'EPS sans qu'aucune information ne soit donnée à l'administration.\nAbsences répétées non justifiées aux séances d'EPS de la séquence 1.", ack: ts(6) });
+    issue('mbargajp', 'demande_explication', 1, { faits: `Absence non justifiée à la réunion du conseil d'enseignement de Mathématiques du ${isoAgo(3).split('-').reverse().join('/')}, convoquée par note de service.` });
+  });
 }
 
 /** Établissement de démonstration léger : classes, élèves et quelques enseignants (pour le tableau de bord AI721). */
@@ -198,7 +283,7 @@ export function seedPlatformDemo() {
       VALUES(?,?,?,?,?,?,?,?,?,'AI721')`).run(t.id, annee, from, to, montant, paid ? 1 : 0, paid ? from : null, mode, ref);
   };
   // 1. Établissement complet (données de démonstration riches)
-  const lpey = createTenant({ code: 'lpey', name: 'Lycée Pilote EduGest de Yaoundé', sigle: 'LPEY', type: "Lycée d'enseignement général", statut: 'Public',
+  const lpey = createTenant({ code: 'lpey', name: 'Lycée Pilote SchoolX de Yaoundé', sigle: 'LPEY', type: "Lycée d'enseignement général", statut: 'Public',
     region: 'Centre', ville: 'Yaoundé', contact_nom: 'Dr. ATANGANA Marie-Claire', contact_tel: '+237 6 77 00 00 01', contact_email: 'contact@lpey.cm',
     annee: cur, montant: 150000, paid: true, mode: 'Mobile Money', reference: 'MOMO-458712' });
   inTenant(lpey.tenant, () => seedDemo());

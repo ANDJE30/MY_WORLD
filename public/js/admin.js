@@ -4,6 +4,7 @@ import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, 
 import { get, post, put, del, openPdf, postPdf, apiUrl } from './api.js';
 import { state, go, refreshPeriods, setParams, rerender } from './app.js';
 import { notesEditor, disciplineEditor, incidentsPage, timetableHtml, periodLabel, studentHistory, entryPeriodOptions, periodParam } from './shared.js';
+import { assiduite, documentsRh, dossier, newDocument } from './rh.js';
 
 export const routes = [
   { path: 'dashboard', title: 'Tableau de bord', short: 'Accueil', icon: 'home', group: 'Pilotage', mobile: true, render: dashboard },
@@ -19,6 +20,9 @@ export const routes = [
   { path: 'enseignants', title: 'Enseignants', icon: 'teacher', group: 'Personnel', render: (v, p) => staff(v, p, 'teacher') },
   { path: 'responsables', title: 'Resp. disciplinaires', icon: 'shield', group: 'Personnel', render: (v, p) => staff(v, p, 'discipline') },
   { path: 'acces', title: 'Coffre des accès', short: 'Accès', icon: 'key', group: 'Personnel', render: acces },
+  { path: 'assiduite', title: 'Assiduité & pointage', short: 'Assiduité', icon: 'clock', group: 'Personnel', render: assiduite },
+  { path: 'documents-rh', title: 'Documents administratifs', short: 'Documents', icon: 'file', group: 'Personnel', render: documentsRh },
+  { path: 'dossier', title: 'Dossier enseignant', icon: 'user', group: 'Personnel', nav: false, render: dossier },
   { path: 'discipline', title: 'Discipline', icon: 'flag', group: 'Vie scolaire', render: disciplineAdmin },
   { path: 'incidents', title: 'Registre des incidents', icon: 'clipboard', group: 'Vie scolaire', render: async (v, p) => incidentsPage(v, p, await get('/classes/mine')) },
   { path: 'annonces', title: 'Annonces', icon: 'megaphone', group: 'Communication', render: annonces },
@@ -95,7 +99,8 @@ async function etablissement(view, params) {
       { name: 'delegation_departementale', label: 'Délégation départementale (suffixe)', placeholder: 'ex. du Mfoundi' },
       { name: 'ministere', label: 'Ministère (français)', full: true }, { name: 'ministere_en', label: 'Ministère (anglais)', full: true },
       { name: 'chef_titre', label: 'Titre du chef d’établissement', type: 'select', placeholder: false, options: [['Le Proviseur', 'Le Proviseur'], ['Le Directeur', 'Le Directeur'], ['Le Principal', 'Le Principal'], ['The Principal', 'The Principal']] },
-      { name: 'chef_nom', label: "Nom du chef d'établissement" }, { name: 'censeur_nom', label: 'Censeur' }, { name: 'surveillant_general', label: 'Surveillant général' }],
+      { name: 'chef_nom', label: "Nom du chef d'établissement" }, { name: 'censeur_nom', label: 'Censeur' }, { name: 'surveillant_general', label: 'Surveillant général' },
+      { name: 'ref_documents', label: 'Référence des documents administratifs du personnel', full: true, placeholder: 'ex. MINESEC/DRES-CE/DDES-MFI/LPEY/P', hint: 'Insérée dans le numéro des attestations et courriers (N° 001/2026-2027/…/DE). Par défaut : sigle/P.' }],
     pedagogie: [
       { name: 'annee_scolaire', label: 'Année scolaire', required: true, placeholder: '2026-2027' },
       { name: 'seuil_reussite', label: 'Moyenne de réussite (/20)', type: 'number', min: 0, max: 20, step: 0.5 },
@@ -726,7 +731,7 @@ const bindModeSeg = (view) => $$('[data-mode]', view).forEach((b) => (b.onclick 
 /* ========================= Personnel (enseignants / responsables) ========================= */
 const sessionCreds = []; // identifiants générés pendant la session
 /** Message prêt à envoyer (WhatsApp, SMS, e-mail) avec le lien de l'interface et les identifiants. */
-const accessMessage = (c) => `Bonjour ${c.full_name},\nVoici vos accès à la plateforme EduGest CM — ${state.school.nom} :\n• Adresse (${ROLE_LABEL[c.role].toLowerCase()}) : ${c.link}\n`
+const accessMessage = (c) => `Bonjour ${c.full_name},\nVoici vos accès à la plateforme AI721 SchoolX CM — ${state.school.nom} :\n• Adresse (${ROLE_LABEL[c.role].toLowerCase()}) : ${c.link}\n`
   + `• Identifiant : ${c.username}\n• Mot de passe : ${c.password || '(demandez-le à l’administration)'}\nConservez-les précieusement et ne les partagez pas.\n${state.user.full_name}`;
 const waLink = (phone, text) => { let d = String(phone || '').replace(/\D/g, ''); if (d.length === 9) d = '237' + d; return `https://wa.me/${d}?text=${encodeURIComponent(text)}`; };
 async function showCredentials(items, { record = true } = {}) {
@@ -853,7 +858,8 @@ async function staff(view, params, role) {
     const menu = document.createElement('div'); menu.className = 'menu staff-menu';
     mount(menu, h`<button data-a="edit">${icon('edit')} Modifier</button><button data-a="access">${icon('eye')} Voir les accès & envoyer</button><button data-a="reset">${icon('key')} Réinitialiser le mot de passe</button>
       <button data-a="toggle">${icon(u.active ? 'lock' : 'unlock')} ${u.active ? 'Désactiver' : 'Réactiver'}${u.locked ? ' / déverrouiller' : ''}</button>
-      ${T ? h`<button data-a="edt">${icon('calendar')} Emploi du temps</button><button data-a="prog">${icon('target')} Fiche de progression</button>` : ''}<hr>
+      ${T ? h`<button data-a="dossier">${icon('user')} Dossier administratif & assiduité</button><button data-a="doc">${icon('file')} Émettre un document</button>
+        <button data-a="edt">${icon('calendar')} Emploi du temps</button><button data-a="prog">${icon('target')} Fiche de progression</button>` : ''}<hr>
       <button data-a="del" style="color:var(--red-600)">${icon('trash')} Supprimer</button>`);
     m.parentElement.append(menu);
     const off = (ev) => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', off); } };
@@ -865,6 +871,8 @@ async function staff(view, params, role) {
         if (a === 'access') await showCredentials([{ ...(await post(`/admin/users/${u.id}/reveal`)), phone: u.phone }], { record: false });
         if (a === 'reset' && await confirmDialog({ title: 'Réinitialiser le mot de passe ?', message: `Un nouveau mot de passe sera généré pour ${u.full_name}. Ses sessions ouvertes seront fermées.`, okLabel: 'Réinitialiser' })) { await showCredentials([await post(`/admin/users/${u.id}/reset`)]); rerender(); }
         if (a === 'toggle') { await post(`/admin/users/${u.id}/toggle`); toast(u.active ? 'Compte désactivé' : 'Compte réactivé'); rerender(); }
+        if (a === 'dossier') go('dossier', { id: u.id });
+        if (a === 'doc') await newDocument({ teacherId: u.id });
         if (a === 'edt') go('edt', { mode: 'teacher', teacher: u.id });
         if (a === 'prog') openPdf(`/progression?teacher_id=${u.id}`);
         if (a === 'del' && await confirmDialog({ title: 'Supprimer ce compte ?', message: `${u.full_name} ne pourra plus se connecter. ${T ? 'Ses attributions deviendront « non attribuées » ; les notes saisies sont conservées.' : ''}`, danger: true, okLabel: 'Supprimer' })) { await del(`/admin/users/${u.id}`); toast('Compte supprimé'); rerender(); }

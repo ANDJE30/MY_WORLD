@@ -184,6 +184,39 @@ CREATE TABLE IF NOT EXISTS audit_log (
   user_id INTEGER, username TEXT, action TEXT NOT NULL, detail TEXT, ip TEXT
 );
 
+-- Dossier administratif des enseignants : jours non ouvrés, assiduité et documents administratifs
+CREATE TABLE IF NOT EXISTS days_off (date TEXT PRIMARY KEY, label TEXT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS staff_attendance (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('absence','retard')),
+  hours REAL NOT NULL DEFAULT 0 CHECK (hours >= 0 AND hours <= 16),
+  minutes INTEGER NOT NULL DEFAULT 0 CHECK (minutes >= 0 AND minutes <= 600),
+  slot INTEGER, class_id INTEGER REFERENCES classes(id) ON DELETE SET NULL,
+  justified INTEGER NOT NULL DEFAULT 0, motif TEXT,
+  recorded_by INTEGER, created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS idx_staff_att_user ON staff_attendance(user_id, date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_att_slot ON staff_attendance(user_id, date, slot) WHERE slot IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS staff_documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  type TEXT NOT NULL CHECK (type IN ('presence','prise_service','rappel_ordre','observation','demande_explication')),
+  annee TEXT NOT NULL, num INTEGER NOT NULL, reference TEXT NOT NULL,
+  date_doc TEXT NOT NULL, objet TEXT, faits TEXT, ampliations TEXT,
+  data TEXT NOT NULL DEFAULT '{}',
+  ref_doc_id INTEGER REFERENCES staff_documents(id) ON DELETE SET NULL,
+  delai_heures INTEGER, echeance INTEGER,
+  status TEXT NOT NULL DEFAULT 'emis' CHECK (status IN ('emis','repondu','clos','annule')),
+  ack_at INTEGER, reponse TEXT, reponse_at INTEGER, suite TEXT, suite_at INTEGER,
+  created_by INTEGER, created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE (type, annee, num)
+);
+CREATE INDEX IF NOT EXISTS idx_staff_docs_user ON staff_documents(user_id, status);
+
 CREATE TABLE IF NOT EXISTS year_archives (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   annee TEXT NOT NULL UNIQUE, closed_at INTEGER NOT NULL, closed_by TEXT,
@@ -220,7 +253,7 @@ export const DEFAULT_SETTINGS = {
   region: '', departement: '', ville: '', bp: '', tel: '', email: '', site: '',
   immatriculation: '', arrete_creation: '', devise: 'Discipline – Travail – Réussite',
   chef_titre: 'Le Proviseur', chef_nom: '', censeur_nom: '', surveillant_general: '',
-  annee_scolaire: '', annee_cloturee: '', note_max: 20, seuil_reussite: 10, strict_calendar: true,
+  annee_scolaire: '', annee_cloturee: '', feries_annee: '', ref_documents: '', note_max: 20, seuil_reussite: 10, strict_calendar: true,
   logo: '',
   jours_actifs: [1, 2, 3, 4, 5],
   time_slots: [
@@ -315,11 +348,18 @@ function ensureVaultColumns() {
   if (!cols.includes('pw_user_changed_at')) db.exec('ALTER TABLE users ADD COLUMN pw_user_changed_at INTEGER');
 }
 
+/** Données administratives des enseignants (grade, statut, prise de service…) — ajoutées aux bases existantes. */
+export const HR_FIELDS = ['grade', 'statut_agent', 'fonction', 'diplome', 'date_naissance', 'lieu_naissance', 'date_prise_service', 'acte_affectation'];
+function ensureStaffColumns() {
+  const cols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  for (const f of HR_FIELDS) if (!cols.includes(f)) db.exec(`ALTER TABLE users ADD COLUMN ${f} TEXT`);
+}
+
 /** Ouvre (ou crée) la base d'un établissement et applique schéma et migrations. */
 export function openTenantDb(file) {
   const h = openSqlite(file);
   h.exec(TENANT_SCHEMA);
-  withDb(h, () => { ensurePeriods(); ensureTaxonomy(); ensureVaultColumns(); });
+  withDb(h, () => { ensurePeriods(); ensureTaxonomy(); ensureVaultColumns(); ensureStaffColumns(); });
   return h;
 }
 

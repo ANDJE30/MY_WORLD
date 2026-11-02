@@ -1,4 +1,4 @@
-// EduGest CM — plateforme SaaS AI721 TECH STUFF (Express 5).
+// AI721 SchoolX CM — plateforme SaaS AI721 TECH STUFF (Express 5).
 //   /                       site de présentation
 //   /console                console du super administrateur (AI721)            API : /console/api
 //   /e/<code>/admin         interface de connexion de l'administrateur          API : /e/<code>/api
@@ -18,6 +18,7 @@ import adminRoutes from './routes/admin.js';
 import workRoutes from './routes/work.js';
 import commonRoutes from './routes/common.js';
 import pdfRoutes from './routes/pdfRoutes.js';
+import staffRoutes from './routes/staff.js';
 import platformRoutes from './routes/platform.js';
 import { HttpError } from './util.js';
 
@@ -61,9 +62,9 @@ app.get('/manifest.webmanifest', (req, res) => {
   const start = m ? p : '/';
   const t = m?.[1] ? getTenantByCode(m[1]) : null;
   const role = { admin: 'Administration', enseignant: 'Enseignant', discipline: 'Discipline' }[m?.[2]];
-  const name = p.startsWith('/console') ? `Console ${COMPANY}` : t ? `${t.sigle || t.name}${role ? ' — ' + role : ''}` : 'EduGest CM';
+  const name = p.startsWith('/console') ? `Console ${COMPANY}` : t ? `${t.sigle || t.name}${role ? ' — ' + role : ''}` : 'AI721 SchoolX CM';
   res.type('application/manifest+json').json({
-    name: `${name} · EduGest CM`, short_name: (t?.sigle || 'EduGest').slice(0, 12), lang: 'fr', start_url: start, scope: '/', display: 'standalone',
+    name: `${name} · AI721 SchoolX CM`, short_name: (t?.sigle || 'SchoolX').slice(0, 12), lang: 'fr', start_url: start, scope: '/', display: 'standalone',
     background_color: '#f3f6f5', theme_color: '#0b5d4b',
     icons: [{ src: '/img/icon.svg', sizes: 'any', type: 'image/svg+xml' }, { src: '/img/icon-192.png', sizes: '192x192', type: 'image/png' },
       { src: '/img/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]
@@ -118,6 +119,7 @@ tenantApi.use('/admin', adminRoutes);
 tenantApi.use('/pdf', pdfRoutes);
 tenantApi.use('/', commonRoutes);
 tenantApi.use('/', workRoutes);
+tenantApi.use('/', staffRoutes);
 tenantApi.use(notFound);
 app.use('/e/:code/api', (req, _res, next) => {
   const t = getTenantByCode(req.params.code);
@@ -177,5 +179,5 @@ autoBackup();
 setInterval(autoBackup, 6 * 3600_000).unref();
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  app.listen(PORT, () => console.log(`EduGest CM (${COMPANY}) démarré sur http://localhost:${PORT}`));
+  app.listen(PORT, () => console.log(`AI721 SchoolX CM (${COMPANY}) démarré sur http://localhost:${PORT}`));
 }
