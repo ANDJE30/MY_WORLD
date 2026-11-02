@@ -263,11 +263,27 @@ async function parametres(view) {
     { name: 'adresse', label: 'Adresse' }, { name: 'tel', label: 'Téléphone', type: 'tel' }, { name: 'email', label: 'E-mail', type: 'email' }, { name: 'site', label: 'Site web' },
     { name: 'rccm', label: 'RCCM' }, { name: 'niu', label: 'NIU (numéro contribuable)' },
     { name: 'tarif', label: 'Tarif annuel par défaut', type: 'number', min: 0, step: 500 }, { name: 'devise', label: 'Devise' }];
+  const G = [{ name: 'sms_provider', label: 'Fournisseur', type: 'select', placeholder: false, full: true, options: Object.entries(s.sms_providers).map(([k, l]) => [k, l]) },
+    { name: 'sms_user', label: 'Identifiant du compte', hint: "Africa's Talking : nom d'utilisateur • Twilio : Account SID • Orange : Client ID" },
+    { name: 'sms_secret', label: 'Clé secrète', type: 'password', placeholder: s.sms_secret_set ? '•••••••• (enregistrée — laisser vide pour la conserver)' : '', hint: "Africa's Talking : API key • Twilio : Auth Token • Orange : Client secret. Conservée chiffrée." },
+    { name: 'sms_sender', label: "Nom d'expéditeur", placeholder: 'ex. AI721', hint: '11 caractères au plus, s’il est autorisé par le fournisseur.' },
+    { name: 'sms_from', label: "Numéro d'expéditeur", placeholder: 'ex. +237600000000', hint: 'Twilio : numéro « From » • Orange : numéro du compte de développeur.' }];
   mount(view, h`<div class="page-head"><div><h2>Paramètres de l'entreprise</h2><p>Ces informations figurent sur les fiches d'accès, les reçus et les pages de connexion.</p></div></div>
     <div class="card"><div class="card-b"><form class="form-grid" data-form>${F.map((f) => fieldHtml(f, s[f.name]))}</form>
-    <div class="row mt" style="justify-content:flex-end"><button class="btn btn-primary" data-save>${icon('save')} Enregistrer</button></div></div></div>`);
+    <div class="row mt" style="justify-content:flex-end"><button class="btn btn-primary" data-save>${icon('save')} Enregistrer</button></div></div></div>
+    <div class="card mt"><div class="card-h"><h3>${icon('send', 'sm')} Passerelle SMS des messages aux parents</h3></div><div class="card-b">
+      <p class="small muted" style="margin-top:0">Les établissements envoient par cette passerelle les SMS aux parents (remise des bulletins, réunions…). Sans passerelle, ils envoient leurs messages un par un par WhatsApp ou SMS depuis leur téléphone, ou par export CSV.</p>
+      <form class="form-grid" data-gw>${G.map((f) => fieldHtml(f, f.name === 'sms_secret' ? '' : s[f.name]))}</form>
+      <div class="row mt" style="gap:8px;flex-wrap:wrap"><input class="input" style="max-width:220px" data-test-to placeholder="Numéro de test (ex. 699000000)" aria-label="Numéro de test">
+        <button class="btn btn-outline" data-test>${icon('send')} Envoyer un SMS de test</button><div style="flex:1"></div><button class="btn btn-primary" data-save-gw>${icon('save')} Enregistrer la passerelle</button></div></div></div>`);
   $('[data-save]', view).onclick = (e) => withBusy(e.currentTarget, async () => {
     try { const ns = await put('/settings', readForm($('[data-form]', view), F)); Object.assign(state.school, ns); toast('Paramètres enregistrés'); } catch (ex) { toast(ex.message, 'err'); }
+  });
+  $('[data-save-gw]', view).onclick = (e) => withBusy(e.currentTarget, async () => {
+    try { const v = readForm($('[data-gw]', view), G); if (!v.sms_secret) delete v.sms_secret; await put('/settings', v); toast('Passerelle SMS enregistrée'); rerender(); } catch (ex) { toast(ex.message, 'err'); }
+  });
+  $('[data-test]', view).onclick = (e) => withBusy(e.currentTarget, async () => {
+    try { const r = await post('/sms/test', { to: $('[data-test-to]', view).value }); toast(r.simulated ? 'Simulation : le SMS de test aurait été envoyé.' : 'SMS de test envoyé.'); } catch (ex) { toast(ex.message, 'err'); }
   });
 }
 

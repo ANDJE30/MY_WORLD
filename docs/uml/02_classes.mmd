@@ -21,6 +21,8 @@ classDiagram
     +delegations, logo, devise
     +anneeScolaire, seuilReussite
     +joursActifs, creneauxHoraires
+    +appellations : Séquence|Situation, Professeur Principal|Titulaire
+    +appellationsFonctions
   }
   class Utilisateur {
     <<abstract>>
@@ -80,7 +82,7 @@ classDiagram
   }
   class Trimestre { +numero [1-3] }
   class Note { +valeur [0-20], absent }
-  class Progression { +leconsPrevues, leconsFaites, observation }
+  class Progression { +leconsPrevues, leconsFaites, leconsDigitalisees, observation }
   class FicheDisciplinaire {
     +absJustifiees, absNonJustifiees, retards
     +consignes, avertissement, blame
@@ -127,3 +129,23 @@ classDiagram
   DocumentAdministratif <|-- LettreObservation
   DocumentAdministratif <|-- DemandeExplication
   LettreObservation "0..*" --> "0..1" DemandeExplication : en référence à
+  class CampagneMessages {
+    +titre, modele, texte avec champs
+    +canal : sms|manuel
+    +total, envoyes, echecs
+  }
+  class MessageParent {
+    +telephone, parent, enfants, classes
+    +message personnalise
+    +statut : a_envoyer|envoye|simule|echec
+  }
+  class PasserelleSMS {
+    +fournisseur : Africa's Talking|Twilio|Orange|simulation
+    +identifiant, cleChiffree, expediteur
+    +envoyer(numero, texte)
+  }
+  Administrateur "1" -- "0..*" CampagneMessages : envoie
+  CampagneMessages "1" *-- "1..*" MessageParent
+  MessageParent "0..*" -- "1..*" Eleve : concerne
+  Entreprise "1" -- "0..1" PasserelleSMS : configure
+  CampagneMessages ..> PasserelleSMS : canal sms

@@ -13,7 +13,8 @@ r.get('/teacher/assignments', requireRole('teacher', 'admin'), (req, res) => {
   const rows = db.prepare(`SELECT cs.id, cs.coef, cs.hours_week, c.id class_id, c.name classe, s.name subject, s.code,
       (SELECT COUNT(*) FROM students st WHERE st.class_id = c.id AND st.active = 1) effectif,
       (SELECT COALESCE(SUM(planned),0) FROM progressions p WHERE p.class_subject_id = cs.id) planned,
-      (SELECT COALESCE(SUM(done),0) FROM progressions p WHERE p.class_subject_id = cs.id) done
+      (SELECT COALESCE(SUM(done),0) FROM progressions p WHERE p.class_subject_id = cs.id) done,
+      (SELECT COALESCE(SUM(digital),0) FROM progressions p WHERE p.class_subject_id = cs.id) digital
     FROM class_subjects cs JOIN classes c ON c.id = cs.class_id JOIN subjects s ON s.id = cs.subject_id
     WHERE cs.teacher_id = ? ORDER BY c.name, s.name`).all(tid);
   const cnt = db.prepare(`SELECT n.seq, COUNT(*) c FROM notes n JOIN students st ON st.id = n.student_id AND st.active = 1
@@ -110,7 +111,7 @@ r.get('/progression', requireRole('teacher', 'admin'), (req, res) => {
   const cs = assertCs(req.user, id(req.query.cs));
   const rows = db.prepare('SELECT * FROM progressions WHERE class_subject_id = ?').all(cs.id);
   const periods = db.prepare('SELECT seq, status FROM periods ORDER BY seq').all();
-  res.json({ cs, rows: periods.map((p) => ({ seq: p.seq, status: p.status, planned: 0, done: 0, comment: '', ...rows.find((x) => x.seq === p.seq) })) });
+  res.json({ cs, rows: periods.map((p) => ({ seq: p.seq, status: p.status, planned: 0, done: 0, digital: 0, comment: '', ...rows.find((x) => x.seq === p.seq) })) });
 });
 r.put('/progression', requireRole('teacher', 'admin'), (req, res) => {
   const cs = assertCs(req.user, id(req.body.cs));
@@ -120,16 +121,18 @@ r.put('/progression', requireRole('teacher', 'admin'), (req, res) => {
     const p = db.prepare('SELECT status FROM periods WHERE seq = ?').get(seq);
     const planned = num(x.planned ?? 0, { min: 0, max: 500, int: true, label: 'Leçons prévues' });
     const done = num(x.done ?? 0, { min: 0, max: 500, int: true, label: 'Leçons faites' });
+    const digital = num(x.digital ?? 0, { min: 0, max: 500, int: true, label: 'Leçons digitalisées' });
+    if (digital > Math.max(planned, done)) throw bad(`Séquence ${seq} : ${digital} leçon(s) digitalisée(s) pour ${Math.max(planned, done)} leçon(s) prévue(s) ou faite(s). Une leçon digitalisée doit figurer dans la progression.`);
     const comment = str(x.comment, { max: 300 });
     const cur = db.prepare('SELECT * FROM progressions WHERE class_subject_id = ? AND seq = ?').get(cs.id, seq);
     if (p.status === 'closed') {
-      if (cur && (cur.planned !== planned || cur.done !== done)) throw bad(`Séquence ${seq} clôturée : progression verrouillée`);
-      if (!cur && (planned || done)) throw bad(`Séquence ${seq} clôturée : progression verrouillée`);
+      if (cur && (cur.planned !== planned || cur.done !== done || (cur.digital || 0) !== digital)) throw bad(`Séquence ${seq} clôturée : progression verrouillée`);
+      if (!cur && (planned || done || digital)) throw bad(`Séquence ${seq} clôturée : progression verrouillée`);
       return;
     }
-    db.prepare(`INSERT INTO progressions(class_subject_id, seq, planned, done, comment, updated_at) VALUES(?,?,?,?,?,unixepoch())
-      ON CONFLICT(class_subject_id, seq) DO UPDATE SET planned = excluded.planned, done = excluded.done, comment = excluded.comment, updated_at = unixepoch()`)
-      .run(cs.id, seq, planned, done, comment);
+    db.prepare(`INSERT INTO progressions(class_subject_id, seq, planned, done, digital, comment, updated_at) VALUES(?,?,?,?,?,?,unixepoch())
+      ON CONFLICT(class_subject_id, seq) DO UPDATE SET planned = excluded.planned, done = excluded.done, digital = excluded.digital, comment = excluded.comment, updated_at = unixepoch()`)
+      .run(cs.id, seq, planned, done, digital, comment);
   }));
   audit(req, 'PROGRESSION', `${cs.classe} / ${cs.subject}`);
   res.json({ ok: true });

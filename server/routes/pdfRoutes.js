@@ -55,7 +55,7 @@ r.get('/progression', requireRole('teacher', 'admin'), (req, res) => {
     JOIN subjects s ON s.id = cs.subject_id WHERE cs.teacher_id = ? ORDER BY c.name, s.name`).all(tid);
   const items = css.map((cs) => {
     const rows = db.prepare('SELECT * FROM progressions WHERE class_subject_id = ?').all(cs.id);
-    return { ...cs, rows: [1, 2, 3, 4, 5, 6].map((s) => ({ seq: s, planned: 0, done: 0, comment: '', ...rows.find((x) => x.seq === s) })) };
+    return { ...cs, rows: [1, 2, 3, 4, 5, 6].map((s) => ({ seq: s, planned: 0, done: 0, digital: 0, comment: '', ...rows.find((x) => x.seq === s) })) };
   });
   const doc = P.createDoc(res, { title: 'Fiche de progression', filename: `progression_${t.full_name}` });
   P.progressionDoc(doc, { teacher: t.full_name, items });

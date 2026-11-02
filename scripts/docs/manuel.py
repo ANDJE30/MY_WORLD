@@ -10,7 +10,7 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre é
 D = Doc("Manuel d'utilisation — AI721 SchoolX CM", "Manuel d'utilisation")
 D.cover("Manuel d'utilisation", 'AI721 SchoolX CM',
         "Guide pas à pas pour le super administrateur AI721, les administrateurs d'établissement, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.1 (anciennement EduGest CM)'), ('Date', today),
+        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.2 (anciennement EduGest CM)'), ('Date', today),
          ('Public', 'Super administrateur AI721 TECH STUFF, administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Éditeur', 'AI721 TECH STUFF'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -29,6 +29,9 @@ D.note("**Nouveau en version 3.0 :** la plateforme s'appelle désormais **AI721 
 D.note("**Nouveau en version 3.1 :** dans **Établissement ▸ Fonctions**, l'administrateur choisit les **appellations des fonctions** de son établissement "
        "(Proviseur, Directeur ou Principal ; Censeur, Préfet ou Préfet Adjoint ; Surveillant Général ou Surveillant Général Adjoint ; Animateur Pédagogique ou Coordonnateur). "
        "Elles apparaissent sur les signatures de tous les documents (section 4.3).", 'ok')
+D.note("**Nouveau en version 3.2 :** appellations **Séquence** ou **Situation** et **Professeur Principal** ou **Titulaire** (section 4.3) ; "
+       "**leçons digitalisées** dans la progression (section 5.3) ; **attestation de présence effective au poste** au modèle administratif officiel, "
+       "enrichie du taux d'assiduité (section 4.22) ; **messages aux parents** par SMS ou WhatsApp, avec le nom de l'enfant (section 4.23).", 'ok')
 D.table(['Votre profil', 'Ce que vous pouvez faire', 'Chapitre'], [
     ['Super administrateur (AI721)', "Créer les établissements abonnés, enregistrer abonnements et paiements, transmettre et retrouver les accès des administrateurs", '3'],
     ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année, assiduité et documents administratifs des enseignants", '4'],
@@ -129,6 +132,11 @@ D.figure(c('pdf_recu.png'), 'Reçu de paiement', max_h=11)
 D.h2("3.5 Paramètres de l'entreprise et journal")
 D.p("Le menu **Paramètres de l'entreprise** définit la raison sociale, les coordonnées, le RCCM, le NIU, le **tarif annuel par défaut** et la devise, repris sur les fiches d'accès et les reçus. "
     "Le **journal d'audit** trace les créations, paiements, consultations du coffre, réinitialisations et suspensions.", align='justify')
+D.h3('Passerelle SMS des messages aux parents')
+D.p("Sur la même page, la carte **Passerelle SMS** configure l'envoi des SMS aux parents pour tous les établissements : fournisseur (Africa's Talking, Twilio, "
+    "Orange SMS API, ou Simulation pour les essais), identifiant du compte, clé secrète (conservée chiffrée, jamais réaffichée), nom et numéro d'expéditeur. "
+    "Le bouton **Envoyer un SMS de test** vérifie la configuration. Sans passerelle, les établissements envoient leurs messages par WhatsApp ou SMS depuis leur téléphone.", align='justify')
+D.figure(c('46_console_parametres.png'), "Paramètres de l'entreprise et passerelle SMS", max_h=14)
 D.note("**Règle d'accès :** un établissement ne peut se connecter que si son abonnement couvre la date du jour, est **payé**, et si l'établissement n'est pas suspendu. "
        "Au 31 août, tous les accès sont bloqués jusqu'au renouvellement.", 'warn')
 
@@ -167,17 +175,23 @@ D.table(['Onglet', 'Contenu'], [
     ['Pédagogie', "Année scolaire, moyenne de réussite (10 par défaut), respect strict du calendrier (la saisie d'une séquence n'ouvre qu'à sa date de début)."],
     ['Horaires & jours', "Jours de cours (lundi à samedi) et créneaux horaires ; cochez « Pause » pour une récréation ou la pause déjeuner."]], widths=[3.2, 13.4], font=9.5)
 D.figure(c('04_admin_horaires.png'), 'Onglet Horaires & jours', max_h=9)
-D.h3('Onglet Fonctions : appellations des fonctions')
-D.p("Chaque établissement emploie ses propres appellations. Dans l'onglet **Fonctions**, choisissez dans chaque liste l'appellation en usage chez vous, "
-    "puis renseignez le nom de la personne qui occupe la fonction :", align='justify')
+D.h3('Onglet Appellations')
+D.p("Chaque établissement emploie son propre vocabulaire. L'onglet **Appellations** permet d'abord de choisir :", align='justify')
+D.table(['Élément', 'Appellations au choix', 'Effet'], [
+    ["Période d'évaluation", 'Séquence • Situation', "« Séquence 1 … 6 » devient « Situation 1 … 6 » dans toute l'interface (menus, listes, messages) et sur tous les documents PDF ; les trimestres sont inchangés"],
+    ['Responsable de classe', 'Professeur Principal • Titulaire', "« Professeur principal » devient « Titulaire » sur la fiche des classes, les bulletins (rubrique et signature) et les procès-verbaux"]],
+    widths=[3.8, 4.6, 8.2], font=9.5, caption='Appellations de la période et du responsable de classe')
+D.p("Après l'enregistrement, l'interface se recharge avec le nouveau vocabulaire. Les données déjà saisies ne sont pas modifiées.", align='justify')
+D.figure(c('65_admin_mode_situation.png'), "Calendrier avec l'appellation « Situation »", max_h=10)
+D.p("Choisissez ensuite, pour chaque fonction, l'appellation en usage chez vous, puis renseignez le nom de la personne qui l'occupe :", align='justify')
 D.table(['Fonction', 'Appellations au choix', 'Où elle apparaît'], [
     ["Chef d'établissement", 'Proviseur • Directeur • Principal', "Bulletins, procès-verbaux, fiches disciplinaires de classe, statistiques, emplois du temps, attestations et courriers du personnel"],
     ["Adjoint du chef d'établissement", 'Censeur • Préfet • Préfet Adjoint', 'Relevés de notes, fiches de progression, procès-verbaux, statistiques, emplois du temps'],
     ['Vie scolaire', 'Surveillant Général • Surveillant Général Adjoint', 'Fiches disciplinaires de classe et individuelles'],
     ['Animation pédagogique', 'Animateur Pédagogique • Coordonnateur', "Fiches de progression ; fonction des enseignants responsables d'une discipline"]],
     widths=[3.8, 5, 7.8], font=9.5, caption='Appellations des fonctions')
-D.figure(c('03b_admin_fonctions.png'), "Onglet Fonctions : appellations, noms et aperçu des signatures", max_h=13)
-D.numbered(["Menu **Établissement** ▸ onglet **Fonctions**.",
+D.figure(c('03b_admin_fonctions.png'), "Onglet Appellations : période, responsable de classe, fonctions et aperçu des signatures", max_h=15)
+D.numbered(["Menu **Établissement** ▸ onglet **Appellations**.",
             "Choisissez l'appellation de chaque fonction et saisissez le nom du titulaire (ex. Préfet : M. FOUDA Bernard).",
             "Vérifiez l'**aperçu des signatures** : il se met à jour à chaque changement.",
             "Cliquez sur **Enregistrer**. Les documents produits ensuite portent les nouvelles appellations, avec le nom du signataire sous la zone de signature."])
@@ -359,7 +373,7 @@ D.bullets([("Situation administrative : ", "bouton **Dossier** pour renseigner m
 D.h2('4.22 Documents administratifs du personnel')
 D.p("Le menu **Documents administratifs** est le **registre** de tous les documents émis pour les enseignants. Cinq documents sont disponibles :", align='justify')
 D.table(['Document', 'Contenu', 'Réf.'], [
-    ['Attestation de présence effective au poste', "Atteste que l'enseignant est présent à son poste, avec le tableau d'assiduité de la période (par séquence), le taux et son appréciation.", 'APE'],
+    ['Attestation de présence effective au poste', "Au modèle administratif officiel : « LE PROVISEUR DU … soussigné(e) … atteste que », grade, matricule, acte de nomination, qualité, discipline et date de prise de service ; enrichie du tableau d'assiduité de la période, du taux et de son appréciation.", 'APEP'],
     ['Certificat de prise de service', "Certifie la date de prise de service, avec le grade, le matricule, l'acte d'affectation et la fonction.", 'CPS'],
     ["Rappel à l'ordre", "Courrier listant les manquements constatés et invitant l'enseignant à se ressaisir.", 'RO'],
     ["Lettre d'observation", "Courrier plus sévère, versé au dossier administratif ; peut citer une demande d'explication en référence.", 'LO'],
@@ -377,8 +391,14 @@ D.figure(c('53_admin_nouveau_document.png'), "Rédaction d'une demande d'explica
 D.figure(c('56_admin_presence_effective.png'), "Attestation de présence effective : aperçu du taux de la période", max_h=12)
 D.p("Chaque document reçoit une **référence** unique, numérotée par type et par année (ex. N° 004/2026-2027/LPEY/P/DE). L'identité de l'enseignant, le signataire et, "
     "pour l'attestation, les chiffres d'assiduité sont **figés** au moment de l'émission.", align='justify')
-D.figures_row([c('pdf_doc_presence.png'), c('pdf_doc_prise_service.png')], 'Attestation de présence effective et certificat de prise de service', width=8)
-D.figures_row([c('pdf_doc_rappel_ordre.png'), c('pdf_doc_observation.png')], "Rappel à l'ordre et lettre d'observation", width=8)
+D.p("L'**attestation de présence effective au poste** reprend le modèle administratif en usage (APEP) : en-tête bilingue officiel avec le logo, titre en capitales, "
+    "numéro « N° …/APEP/… », formule « LE PROVISEUR DU … soussigné(e), …, atteste que : », civilité et nom de l'enseignant, grade, matricule, acte de nomination ou d'affectation, "
+    "qualité, discipline et date de prise de service, puis « En foi de quoi… », les ampliations (Hiérarchie, Intéressé(e), Dossier/Chrono), « Fait à …, le … » et la signature. "
+    "La plateforme l'**enrichit** d'une rubrique **Assiduité au poste** : tableau des heures dues et effectuées, des absences et retards de la période, **taux d'assiduité** et appréciation. "
+    "La mise en forme suit l'usage des actes administratifs : police à empattements (Liberation Serif), titre en capitales condensées, gras pour les noms et valeurs, italique pour les mentions.", align='justify')
+D.figure(c('pdf_doc_presence.png'), 'Attestation de présence effective au poste (modèle APEP, avec le taux d’assiduité)', max_h=19)
+D.figures_row([c('pdf_doc_prise_service.png'), c('pdf_doc_rappel_ordre.png')], "Certificat de prise de service et rappel à l'ordre (même présentation)", width=8)
+D.figure(c('pdf_doc_observation.png'), "Lettre d'observation", max_h=13)
 D.figures_row([c('pdf_doc_demande_explication_vierge_p1.png'), c('pdf_doc_demande_explication_vierge_p2.png')], "Demande d'explication : courrier et espace de réponse à remplir à la main", width=8)
 D.h3('Suivre un document : remise, réponse, suite')
 D.p("Le bouton **Ouvrir** d'une ligne affiche la fiche du document :", align='justify')
@@ -393,6 +413,28 @@ D.figures_row([c('pdf_doc_demande_explication_p1.png'), c('pdf_doc_demande_expli
 D.p("Le **tableau de bord** signale les demandes d'explication restées sans réponse dans le délai et les réponses à examiner. Le bouton **Registre (PDF)** imprime le registre annuel.", align='justify')
 
 # =============================================================== 4
+D.h2('4.23 Messages aux parents')
+D.p("Le menu **Messages aux parents** (groupe Communication) informe les parents d'élèves par SMS ou WhatsApp : remise des bulletins, réunion des parents, "
+    "information utile. **Chaque message est personnalisé** avec le nom de l'enfant et sa classe ; les frères et sœurs dont les parents ont le même numéro sont cités dans un seul message.", align='justify')
+D.figure(c('61_admin_messages_parents.png'), 'Messages aux parents : composition et aperçu personnalisé', max_h=17)
+D.numbered(["Choisissez le **modèle** : Remise des bulletins, Réunion des parents, Information aux parents ou Message libre.",
+            "Complétez les champs demandés : période (pour les bulletins), date, heure, lieu, ordre du jour ou information.",
+            "Adaptez si besoin le **texte** : les champs entre accolades sont remplacés pour chaque parent — {enfant}, {classe}, {parent}, {matricule}, {etablissement}, {sigle}, {periode}, {date}, {heure}, {lieu}, {objet}. Cliquez sur un champ pour l'insérer.",
+            "Choisissez les **classes** (ou Toutes). Le nombre d'élèves ayant le numéro d'un parent est indiqué pour chaque classe.",
+            "Vérifiez l'**aperçu** : nombre de destinataires, élèves sans numéro ou avec un numéro invalide (à corriger dans la fiche de l'élève), exemples de messages et nombre de SMS.",
+            "Cliquez sur **Envoyer** (SMS automatiques) ou **Préparer** (envoi depuis votre téléphone)."])
+D.figure(c('62_admin_message_reunion.png'), "Réunion des parents d'une classe : aperçu des messages", max_h=12)
+D.table(["Mode d'envoi", 'Fonctionnement', 'Quand l’utiliser'], [
+    ['SMS automatiques', "Les SMS partent immédiatement par la passerelle de la plateforme configurée par AI721 TECH STUFF ; l'état de chaque message est suivi (envoyé, échec).", 'Passerelle configurée (voir 3.5)'],
+    ['WhatsApp / SMS depuis mon téléphone', "La liste des messages s'affiche : les boutons **WhatsApp** et **SMS** ouvrent, parent par parent, le message prérempli sur votre téléphone ; le parent est marqué « Envoyé ».", 'Sans passerelle, ou pour un petit nombre de parents'],
+    ['Export CSV', "Fichier téléphone ; parent ; enfant(s) ; classe(s) ; message, à importer dans une plateforme d'envoi groupé.", "Envoi par un prestataire de l'établissement"]],
+    widths=[3.6, 8.6, 4.4], font=9.5, caption="Modes d'envoi des messages aux parents")
+D.figures_row([c('63_admin_envoi_sms.png'), c('64_admin_envoi_manuel.png')], 'Envoi par SMS automatiques (à gauche) et envoi manuel par WhatsApp ou SMS (à droite)', width=8)
+D.note("**Coût des SMS :** un SMS compte 160 caractères ; au-delà, le message est facturé en plusieurs SMS. Les caractères ê, ô, ç, ï… imposent un encodage qui réduit un SMS à 70 caractères : "
+       "l'option **Optimiser pour les SMS** (cochée par défaut) les remplace par e, o, c, i. Pour limiter le coût, préférez des textes courts et le **sigle** de l'établissement.", 'info')
+D.p("L'**historique des envois** (bas de page) indique pour chaque message les destinataires, les envois réussis, les échecs et les messages restant à envoyer. "
+    "**Ouvrir** affiche le détail par parent, permet de **relancer les échecs** ou d'**exporter** la liste.", align='justify')
+
 D.h1("5. Guide de l'enseignant")
 D.h2('5.1 Tableau de bord')
 D.figure(c('23_enseignant_accueil.png'), "Tableau de bord de l'enseignant", max_h=12)
@@ -423,9 +465,12 @@ D.note("**Validation.** Valider signifie « mes notes sont définitives ». Tout
        "Lorsque l'administration a **clôturé** la séquence, la grille est verrouillée.", 'info')
 D.h2('5.3 Progression annuelle')
 D.figure(c('25_enseignant_progression.png'), 'Progression annuelle', max_h=10)
-D.p("Pour chaque classe/matière, indiquez par séquence le nombre de **leçons prévues** et de **leçons faites**, et une observation éventuelle "
-    "(retard, difficulté). Le taux de couverture se calcule automatiquement. Cliquez sur **Enregistrer la progression**. Le bouton **Fiche de progression PDF** "
-    "imprime le document à remettre à l'animateur pédagogique ou au censeur.", align='justify')
+D.p("Pour chaque classe/matière, indiquez par séquence le nombre de **leçons prévues**, de **leçons faites** et de **leçons digitalisées** (mises sous forme numérique : "
+    "support numérique, vidéo, plateforme d'apprentissage), et une observation éventuelle (retard, difficulté). Le **taux de couverture** (leçons faites ÷ prévues) et le "
+    "**taux de digitalisation** (leçons digitalisées ÷ prévues) se calculent automatiquement. Le nombre de leçons digitalisées ne peut dépasser celui des leçons prévues ou faites. "
+    "Cliquez sur **Enregistrer la progression**. Le bouton **Fiche de progression PDF** imprime le document à remettre à l'animateur pédagogique ou au censeur ; "
+    "l'administration suit la couverture et la digitalisation de toutes les classes dans **Suivi des saisies**.", align='justify')
+D.figure(c('pdf_progression.png'), 'Fiche de progression avec les leçons digitalisées', max_h=13)
 D.h2('5.4 Relevés de notes et exports PDF')
 D.figure(c('26_enseignant_releves.png'), 'Relevés et exports', max_h=8.5)
 D.p("Choisissez la **période** (séquence, trimestre ou année), puis **Relevé de notes** pour la classe voulue. Le relevé officiel comporte l'en-tête "
@@ -493,7 +538,7 @@ D.table(['Document', 'Contenu', 'Qui', 'Où'], [
     ['Emploi du temps', "Par classe ou par enseignant", 'Tous', 'Emplois du temps'],
     ['Liste de classe', "Élèves, matricules, naissance, contacts", 'Admin, enseignant', 'Élèves, Relevés'],
     ["Fiches d'identifiants", "Identifiant et mot de passe provisoire à découper", 'Admin', 'Enseignants, Responsables'],
-    ['Attestation de présence effective au poste', "Présence à son poste, tableau d'assiduité de la période, taux et appréciation", 'Admin (enseignant : lecture)', 'Documents administratifs'],
+    ['Attestation de présence effective au poste', "Modèle officiel APEP : identité, grade, matricule, acte, qualité, prise de service ; tableau d'assiduité, taux et appréciation", 'Admin (enseignant : lecture)', 'Documents administratifs'],
     ['Certificat de prise de service', "Date de prise de service, grade, matricule, acte d'affectation, fonction", 'Admin (enseignant : lecture)', 'Documents administratifs'],
     ["Rappel à l'ordre, lettre d'observation", "Courriers numérotés : manquements, formules réglementaires, ampliations", 'Admin (enseignant : lecture)', 'Documents administratifs'],
     ["Demande d'explication", "Faits reprochés, délai, espace de réponse de l'intéressé(e), suite réservée", 'Admin ; réponse de l\'enseignant', 'Documents administratifs, Mes documents'],
@@ -522,6 +567,9 @@ D.table(['Problème', 'Solution'], [
     ["Aucun cours n'apparaît dans le pointage", "Le jour n'est pas un jour de cours, est un jour non ouvré, ou les emplois du temps ne sont pas encore générés."],
     ["Je ne peux plus modifier un document administratif", "Il a déjà été remis ou lu par l'enseignant : annulez-le (avec un motif) et émettez-en un nouveau."],
     ["Le certificat de prise de service est refusé", "Renseignez d'abord la date de prise de service dans le dossier de l'enseignant (bouton Dossier ou Compléter le dossier)."],
+    ["Les SMS aux parents ne partent pas", "La passerelle SMS n'est pas configurée par AI721 TECH STUFF : utilisez l'envoi par WhatsApp ou SMS depuis votre téléphone, ou l'export CSV. En cas d'échec, ouvrez l'envoi et cliquez sur « Relancer les échecs »."],
+    ["Un parent n'apparaît pas dans les destinataires", "Son numéro manque ou est invalide dans la fiche de l'élève (liste affichée dans l'aperçu) : corrigez-le dans Élèves."],
+    ["Je souhaite employer « Situation » au lieu de « Séquence »", "Établissement ▸ onglet Appellations ▸ Période d'évaluation : Situation, puis Enregistrer."],
     ["Enseignant : où répondre à une demande d'explication ?", "Menu Mes documents & assiduité ▸ bouton Répondre ; ou à la main sur le document imprimé."]],
     widths=[5.6, 11], font=9.5)
 
@@ -550,8 +598,9 @@ D.bullets(["**Heures dues :** pour chaque jour de classe de la période (jour de
            "**Heures effectuées :** heures dues moins les heures d'absence, justifiées ou non.",
            "**Taux d'assiduité :** heures effectuées ÷ heures dues × 100. Le taux « hors absences justifiées » est aussi indiqué. Les retards sont comptés à part."])
 D.table(["Taux d'assiduité", 'Appréciation'], [['≥ 98 %', 'Excellente'], ['95 à 97,9 %', 'Très bonne'], ['90 à 94,9 %', 'Bonne'], ['80 à 89,9 %', 'Assez bonne'], ['70 à 79,9 %', 'Passable'], ['< 70 %', 'Insuffisante']], widths=[6, 10.6], font=9.5)
-D.p("**Références :** N° numéro/année scolaire/sigle/P/code — APE (présence effective), CPS (prise de service), RO (rappel à l'ordre), LO (lettre d'observation), DE (demande d'explication). "
-    "La numérotation repart à 001 chaque année pour chaque type ; un numéro annulé n'est jamais réutilisé. Le paramètre « ref_documents » permet de remplacer « sigle/P » par la référence administrative complète de l'établissement.", align='justify')
+D.p("**Références :** N° numéro/millésime/code/référence de l'établissement, par exemple N° 004/26-27/APEP/MINESEC/DRES-CE/DDES-MFDI/LPEY — APEP (présence effective au poste), "
+    "CPS (prise de service), RO (rappel à l'ordre), LO (lettre d'observation), DE (demande d'explication). La numérotation repart à 001 chaque année pour chaque type ; un numéro annulé "
+    "n'est jamais réutilisé. La référence de l'établissement se règle dans Établissement ▸ En-tête officiel (par défaut : MINESEC/sigle).", align='justify')
 D.h1('Annexe C — Comptes du mode démonstration')
 D.p("L'instance de démonstration contient un établissement **fictif** (« Lycée Pilote SchoolX de Yaoundé ») avec 6 classes, 181 élèves, 12 enseignants et "
     "2 responsables. Elle est réinitialisée régulièrement : ne l'utilisez pas pour de vraies données.", align='justify')

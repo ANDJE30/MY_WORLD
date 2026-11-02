@@ -4,9 +4,27 @@
 export class Raw { constructor(s) { this.s = s; } toString() { return this.s; } }
 export const raw = (s) => new Raw(String(s));
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/* ---------- Appellations de l'établissement : « Séquence » ou « Situation », « Professeur principal » ou « Titulaire » ----------
+   Appliquées au texte de l'interface (parties fixes des gabarits, libellés, messages), jamais aux données saisies. */
+let TERMS = { terme_sequence: 'Séquence', terme_pp: 'Professeur Principal' };
+const NL = '(?<!\\p{L})';
+const RULES = {
+  seq: [[new RegExp(`${NL}Séquences`, 'gu'), 'Situations'], [new RegExp(`${NL}séquences`, 'gu'), 'situations'], [new RegExp(`${NL}Séquence`, 'gu'), 'Situation'],
+    [new RegExp(`${NL}séquence`, 'gu'), 'situation'], [new RegExp(`${NL}Séq\\.`, 'gu'), 'Sit.'], [new RegExp(`${NL}séq\\.`, 'gu'), 'sit.']],
+  pp: [[/Professeurs principaux/g, 'Titulaires'], [/professeurs principaux/g, 'titulaires'], [/Professeur [Pp]rincipal/g, 'Titulaire'], [/Prof\. principal/g, 'Titulaire'], [/professeur principal/g, 'titulaire']]
+};
+export const setTerms = (t) => { TERMS = { ...TERMS, ...(t || {}) }; };
+export const getTerms = () => TERMS;
+export function terms(text) {
+  if (typeof text !== 'string') return text;
+  let o = text;
+  if (TERMS.terme_sequence === 'Situation') for (const [re, v] of RULES.seq) o = o.replace(re, v);
+  if (TERMS.terme_pp === 'Titulaire') for (const [re, v] of RULES.pp) o = o.replace(re, v);
+  return o;
+}
 const render = (v) => (v == null || v === false ? '' : v instanceof Raw ? v.s : Array.isArray(v) ? v.map(render).join('') : esc(v));
 /** Gabarit étiqueté : toute valeur interpolée est échappée sauf si elle provient de h`` ou raw(). */
-export function h(strings, ...vals) { let o = ''; strings.forEach((s, i) => { o += s; if (i < vals.length) o += render(vals[i]); }); return new Raw(o); }
+export function h(strings, ...vals) { let o = ''; strings.forEach((s, i) => { o += terms(s); if (i < vals.length) o += render(vals[i]); }); return new Raw(o); }
 export function mount(el, tpl) { el.innerHTML = tpl instanceof Raw ? tpl.s : esc(tpl); return el; }
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -86,10 +104,10 @@ export function appreciation(a) {
 export const noteClass = (v) => (v == null || Number.isNaN(v) ? '' : v < 10 ? 'low' : v >= 14 ? 'good' : '');
 export const ROLE_LABEL = { superadmin: 'Super administrateur', admin: 'Administrateur', teacher: 'Enseignant', discipline: 'Responsable disciplinaire' };
 export const DAYS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-export const PERIODS = [['S1', 'Séquence 1'], ['S2', 'Séquence 2'], ['T1', 'Trimestre 1'], ['S3', 'Séquence 3'], ['S4', 'Séquence 4'], ['T2', 'Trimestre 2'],
+export const PERIODS_BASE = [['S1', 'Séquence 1'], ['S2', 'Séquence 2'], ['T1', 'Trimestre 1'], ['S3', 'Séquence 3'], ['S4', 'Séquence 4'], ['T2', 'Trimestre 2'],
   ['S5', 'Séquence 5'], ['S6', 'Séquence 6'], ['T3', 'Trimestre 3'], ['A', 'Bilan annuel']];
 export const seqOptions = (sel) => [1, 2, 3, 4, 5, 6].map((s) => h`<option value="${s}" ${+sel === s ? raw('selected') : ''}>Séquence ${s}</option>`);
-export const periodOptions = (sel) => PERIODS.map(([v, l]) => h`<option value="${v}" ${sel === v ? raw('selected') : ''}>${l}</option>`);
+export const periodOptions = (sel) => PERIODS_BASE.map(([v, l]) => h`<option value="${v}" ${sel === v ? raw('selected') : ''}>${terms(l)}</option>`);
 // couleur stable par matière (emploi du temps)
 const PALETTE = ['#d9f2e8', '#fde9c8', '#dbeafe', '#fce7f3', '#e9e3fd', '#d1f4f6', '#fee2d5', '#e6f2c9', '#f5e1c8', '#e0e7ff', '#ffe4e6', '#dcfce7'];
 export const colorFor = (k) => { let x = 0; for (const c of String(k)) x = (x * 31 + c.charCodeAt(0)) >>> 0; return PALETTE[x % PALETTE.length]; };
@@ -98,12 +116,13 @@ export const colorFor = (k) => { let x = 0; for (const c of String(k)) x = (x * 
 export function toast(msg, type = 'ok', ms = 3800) {
   let root = $('.toasts'); if (!root) { root = document.createElement('div'); root.className = 'toasts'; root.setAttribute('role', 'status'); root.setAttribute('aria-live', 'polite'); document.body.append(root); }
   const el = document.createElement('div'); el.className = `toast ${type}`;
-  mount(el, h`${icon(type === 'ok' ? 'checkCircle' : type === 'warn' ? 'alert' : 'alert')}<div>${msg}</div>`);
+  mount(el, h`${icon(type === 'ok' ? 'checkCircle' : type === 'warn' ? 'alert' : 'alert')}<div>${terms(msg)}</div>`);
   root.append(el); setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, ms);
 }
 
 /* ---------- Modales ---------- */
 export function modal({ title, body, footer, size = '', onOpen, dismissible = true }) {
+  title = terms(title);
   return new Promise((resolve) => {
     const root = document.createElement('div'); root.className = 'modal-root';
     mount(root, h`<div class="modal ${size}" role="dialog" aria-modal="true" aria-label="${title}">
@@ -124,8 +143,8 @@ export function modal({ title, body, footer, size = '', onOpen, dismissible = tr
 export function confirmDialog({ title = 'Confirmation', message, okLabel = 'Confirmer', danger = false, requirePassword = false, checkbox }) {
   return modal({
     title, size: 'sm',
-    body: h`<p class="mb" style="margin-top:0">${message}</p>
-      ${checkbox ? h`<label class="check mb"><input type="checkbox" name="chk"> ${checkbox}</label>` : ''}
+    body: h`<p class="mb" style="margin-top:0">${message instanceof Raw ? message : terms(message)}</p>
+      ${checkbox ? h`<label class="check mb"><input type="checkbox" name="chk"> ${terms(checkbox)}</label>` : ''}
       ${requirePassword ? h`<div class="field"><label>Confirmez avec votre mot de passe</label><input class="input" type="password" name="pw" autocomplete="current-password"></div>` : ''}`,
     footer: h`<button class="btn btn-outline" data-close>Annuler</button><button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-ok>${okLabel}</button>`,
     onOpen: ({ root, close }) => {
@@ -143,6 +162,8 @@ export function confirmDialog({ title = 'Confirmation', message, okLabel = 'Conf
 /* ---------- Formulaires déclaratifs ---------- */
 // champ : { name, label, type: text|number|date|select|textarea|checkbox|password|email|tel|multiselect, options:[[v,l]], required, full, hint, min, max, step, placeholder }
 export function fieldHtml(f, v) {
+  // libellés traduits selon les appellations (sauf champs qui proposent justement ces appellations)
+  if (!f.noTerms) f = { ...f, label: terms(f.label), hint: terms(f.hint), placeholder: typeof f.placeholder === 'string' ? terms(f.placeholder) : f.placeholder };
   const val = v ?? f.value ?? '';
   const req = f.required ? raw('required') : '';
   const common = h`name="${f.name}" id="f_${f.name}" ${req} ${f.readonly ? raw('readonly') : ''}`;
@@ -194,9 +215,9 @@ export function formModal({ title, fields, values = {}, submitLabel = 'Enregistr
 }
 
 /* ---------- Composants ---------- */
-export const empty = (title, text = '', ic = 'info', action = '') => h`<div class="empty">${icon(ic)}<h4>${title}</h4><div class="small">${text}</div>${action ? h`<div class="mt">${action}</div>` : ''}</div>`;
+export const empty = (title, text = '', ic = 'info', action = '') => h`<div class="empty">${icon(ic)}<h4>${terms(title)}</h4><div class="small">${terms(text)}</div>${action ? h`<div class="mt">${action}</div>` : ''}</div>`;
 export const progressBar = (pct, cls = '') => h`<div class="progress ${cls}" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></span></div>`;
-export const kpi = (ic, value, label, sub = '', tone = '') => h`<div class="card kpi"><div class="ico ${tone}">${icon(ic)}</div><div class="v">${value}</div><div class="l">${label}</div>${sub ? h`<div class="s">${sub}</div>` : ''}</div>`;
+export const kpi = (ic, value, label, sub = '', tone = '') => h`<div class="card kpi"><div class="ico ${tone}">${icon(ic)}</div><div class="v">${value}</div><div class="l">${terms(label)}</div>${sub ? h`<div class="s">${terms(sub)}</div>` : ''}</div>`;
 export const loading = () => h`<div class="empty"><div class="spinner" style="margin:0 auto"></div></div>`;
 export function barsH(items, { max = 20, seuil = 10, fmt = (v) => fmtNum(v) } = {}) {
   if (!items.length) return empty('Aucune donnée', 'Les statistiques apparaîtront après la saisie des notes.', 'chart');

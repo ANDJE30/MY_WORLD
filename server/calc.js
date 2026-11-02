@@ -1,5 +1,5 @@
 // Moteur de calcul : moyennes pondérées, rangs (ex æquo), statistiques, appréciations.
-import { db, getSettings } from './db.js';
+import { db, getSettings, seqLabel } from './db.js';
 
 export const TRIMESTRES = { 1: [1, 2], 2: [3, 4], 3: [5, 6] };
 
@@ -8,7 +8,7 @@ export function parsePeriod(p) {
   const m = /^(S|T|A)([1-6])?$/.exec(String(p || '').toUpperCase());
   if (!m) throw Object.assign(new Error('Période invalide'), { status: 400 });
   const [, t, n] = m;
-  if (t === 'S' && n) return { type: 'S', n: +n, seqs: [+n], label: `Séquence ${n}`, code: `S${n}` };
+  if (t === 'S' && n) { let s = null; try { s = getSettings(); } catch { /* hors contexte d'établissement */ } return { type: 'S', n: +n, seqs: [+n], label: seqLabel(n, s), code: `S${n}` }; }
   if (t === 'T' && n && +n <= 3) return { type: 'T', n: +n, seqs: TRIMESTRES[n], label: `Trimestre ${n}`, code: `T${n}` };
   if (t === 'A') return { type: 'A', n: 0, seqs: [1, 2, 3, 4, 5, 6], label: 'Bilan annuel', code: 'A' };
   throw Object.assign(new Error('Période invalide'), { status: 400 });

@@ -10,6 +10,7 @@ import { pdb, getTenant, createTenant, inTenant, closeTenant, tenantDir, subscri
 import { str, num, id, bool, date, oneOf, bad, HttpError } from '../util.js';
 import { requireRole } from './access.js';
 import * as P from '../pdf.js';
+import { PROVIDERS, gatewayConfig, sendSms, normalizePhone } from '../sms.js';
 
 const r = Router();
 r.use(requireRole('superadmin'));
@@ -191,17 +192,34 @@ r.delete('/subscriptions/:id', (req, res) => {
 });
 
 /* ---------------- Paramètres de l'entreprise & journal ---------------- */
-r.get('/settings', (_req, res) => res.json(getPlatformSettings()));
+const publicSettings = () => { const { sms_secret_enc: enc, ...ps } = getPlatformSettings(); return { ...ps, sms_secret_set: !!enc, sms_providers: PROVIDERS }; };
+r.get('/settings', (_req, res) => res.json(publicSettings()));
 r.put('/settings', (req, res) => {
   const out = {};
   for (const k of Object.keys(PLATFORM_DEFAULTS)) {
-    if (!(k in req.body)) continue;
-    out[k] = k === 'tarif' ? num(req.body.tarif, { min: 0, max: 100_000_000, int: true, label: 'Tarif' }) : (str(req.body[k], { max: 200, label: k }) || '');
+    if (!(k in req.body) || k === 'sms_secret_enc') continue;
+    if (k === 'tarif') out[k] = num(req.body.tarif, { min: 0, max: 100_000_000, int: true, label: 'Tarif' });
+    else if (k === 'sms_provider') out[k] = oneOf(req.body.sms_provider, Object.keys(PROVIDERS), 'Passerelle SMS');
+    else if (k === 'sms_sender') { out[k] = str(req.body.sms_sender, { max: 11, label: "Nom d'expéditeur (11 caractères)" }) || ''; if (out[k] && !/^[A-Za-z0-9 .-]+$/.test(out[k])) throw bad("Nom d'expéditeur : lettres, chiffres, espace, point ou tiret"); }
+    else out[k] = str(req.body[k], { max: 200, label: k }) || '';
   }
+  // secret de la passerelle : jamais renvoyé, conservé chiffré ; champ vide = inchangé
+  if (req.body.sms_secret) out.sms_secret_enc = seal(str(req.body.sms_secret, { max: 300, label: 'Clé de la passerelle' }));
   if (out.societe === '') throw bad("Le nom de l'entreprise est obligatoire");
   savePlatformSettings(out);
-  audit(req, 'PARAMETRES_PLATEFORME', Object.keys(out).join(', '));
-  res.json(getPlatformSettings());
+  audit(req, 'PARAMETRES_PLATEFORME', Object.keys(out).map((k) => (k === 'sms_secret_enc' ? 'sms_secret' : k)).join(', '));
+  res.json(publicSettings());
+});
+// Envoi d'un SMS de test pour vérifier la passerelle
+r.post('/sms/test', async (req, res) => {
+  const to = normalizePhone(req.body.to);
+  if (!to) throw bad('Numéro de téléphone invalide');
+  const cfg = gatewayConfig();
+  if (!cfg.configured) throw bad('Passerelle SMS non configurée : choisissez un fournisseur et renseignez ses identifiants.');
+  const r1 = await sendSms(cfg, to, `${getPlatformSettings().societe} : message de test de la passerelle SMS de la plateforme AI721 SchoolX CM.`);
+  audit(req, 'SMS_TEST', `${to} : ${r1.ok ? 'envoyé' : r1.error}`);
+  if (!r1.ok) throw bad(`Échec de l'envoi : ${r1.error}`);
+  res.json({ ok: true, simulated: !!r1.simulated, id: r1.id });
 });
 r.get('/audit', (req, res) => {
   const q = req.query.q ? `%${str(req.query.q, { max: 60 })}%` : '%';

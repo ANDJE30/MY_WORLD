@@ -9,7 +9,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { db } from './db.js';
+import { db, getSettings, applyTerms } from './db.js';
 import { withDb } from './context.js';
 import { getSession, purgeSessions, rateLimit } from './security.js';
 import { pdb, initPlatform, getTenantByCode, tenantHandle, subscriptionStatus, inPlatform, inTenant, TENANTS_DIR, COMPANY } from './platform.js';
@@ -19,6 +19,7 @@ import workRoutes from './routes/work.js';
 import commonRoutes from './routes/common.js';
 import pdfRoutes from './routes/pdfRoutes.js';
 import staffRoutes from './routes/staff.js';
+import parentsRoutes from './routes/parents.js';
 import platformRoutes from './routes/platform.js';
 import { HttpError } from './util.js';
 
@@ -115,6 +116,7 @@ tenantApi.use(apiRate, sessionAndCsrf, (req, _res, next) => {
   next();
 });
 tenantApi.use('/auth', authRoutes);
+tenantApi.use('/admin/parents', parentsRoutes);
 tenantApi.use('/admin', adminRoutes);
 tenantApi.use('/pdf', pdfRoutes);
 tenantApi.use('/', commonRoutes);
@@ -151,7 +153,12 @@ app.use((err, req, res, _next) => {
     message = `Erreur interne (réf. ${ref}). Réessayez ou contactez l'administrateur.`;
   }
   if (res.headersSent) return res.end();
-  res.status(status).json({ error: message, ...(err.problems ? { problems: err.problems } : {}), ...(err.redirect ? { redirect: err.redirect } : {}) });
+  // messages formulés avec les appellations de l'établissement (« situation », « titulaire »)
+  let problems = err.problems;
+  if (req.tenant && status < 500) {
+    try { const s = inTenant(req.tenant, getSettings); message = applyTerms(message, s); problems = problems?.map((p) => applyTerms(p, s)); } catch { /* message d'origine */ }
+  }
+  res.status(status).json({ error: message, ...(problems ? { problems } : {}), ...(err.redirect ? { redirect: err.redirect } : {}) });
 });
 
 /* ---------------- Tâches de fond ---------------- */

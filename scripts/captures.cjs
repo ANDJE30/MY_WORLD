@@ -56,7 +56,7 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   console.log('Accès générés :', (await page.locator('.modal .cred').allInnerTexts()).slice(0, 2).map((c) => c.replace(/\s+/g, ' ')).join(' | '));
   await page.click('.modal [data-close]');
   await visit(page, '/console', 'abonnements', '45_console_abonnements');
-  await visit(page, '/console', 'parametres', '46_console_parametres');
+  await visit(page, '/console', 'parametres', '46_console_parametres', true);
   await ctx.close();
   // ---- Administrateur de l'établissement
   ({ ctx, page } = await ctxFor(browser, D));
@@ -104,6 +104,22 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.goto(`${BASE}/e/lpey/admin#/documents-rh`); await page.waitForSelector('[data-new]'); await page.click('[data-new]'); await page.click('.doc-menu [data-t=presence]');
   await page.waitForSelector('.modal [name=period]'); await page.selectOption('.modal [data-teacher]', '3'); await page.waitForTimeout(500);
   await page.selectOption('.modal [name=period]', 'T1'); await page.waitForTimeout(700); await shot(page, '56_admin_presence_effective'); await page.click('.modal [data-close]');
+  // ---- Messages aux parents (v3.2)
+  await page.goto(`${BASE}/e/lpey/admin#/parents`); await page.waitForSelector('[data-preview] [data-send]'); await page.waitForTimeout(500); await shot(page, '61_admin_messages_parents', true);
+  await page.selectOption('[data-modele]', 'reunion'); await page.waitForSelector('#pv_objet'); await page.fill('#pv_objet', 'bilan du premier trimestre et calendrier des examens');
+  await page.click('[data-cls] >> nth=0'); await page.waitForTimeout(800); await shot(page, '62_admin_message_reunion');
+  await page.click('[data-send]'); await page.waitForSelector('.modal [data-ok]'); await page.click('.modal [data-ok]'); await page.waitForTimeout(1500);
+  await page.waitForSelector('.modal [data-csv]'); await shot(page, '63_admin_envoi_sms'); await page.click('.modal-root:last-child .modal-f [data-close]');
+  await page.waitForTimeout(600);
+  await page.selectOption('[data-modele]', 'bulletins'); await page.waitForTimeout(300); await page.click('[data-canal=manuel]'); await page.click('[data-cls] >> nth=1'); await page.waitForTimeout(800);
+  await page.click('[data-send]'); await page.waitForSelector('.modal [data-ok]'); await page.click('.modal [data-ok]'); await page.waitForSelector('.modal [data-sent]'); await page.waitForTimeout(400);
+  await shot(page, '64_admin_envoi_manuel'); await page.click('.modal-root:last-child .modal-f [data-close]'); await page.waitForTimeout(600);
+  // ---- Appellations « Situation » et « Titulaire » (v3.2), puis retour aux valeurs par défaut
+  await page.goto(`${BASE}/e/lpey/admin#/etablissement?tab=fonctions`); await page.waitForSelector('[name=terme_sequence]');
+  await page.selectOption('[name=terme_sequence]', 'Situation'); await page.selectOption('[name=terme_pp]', 'Titulaire'); await page.click('[data-save]'); await page.waitForTimeout(2500);
+  await visit(page, '/e/lpey/admin', 'calendrier', '65_admin_mode_situation');
+  await page.goto(`${BASE}/e/lpey/admin#/etablissement?tab=fonctions`); await page.waitForSelector('[name=terme_sequence]');
+  await page.selectOption('[name=terme_sequence]', 'Séquence'); await page.selectOption('[name=terme_pp]', 'Professeur Principal'); await page.click('[data-save]'); await page.waitForTimeout(2500);
   await ctx.close();
   ({ ctx, page } = await ctxFor(browser, T)); await login(page, '/e/lpey/admin', 'admin', 'Admin@2026'); await page.waitForTimeout(600); await shot(page, '22_tablette_admin'); await ctx.close();
   // ---- Enseignant

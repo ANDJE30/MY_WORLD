@@ -1,6 +1,6 @@
 {
   "name": "ai721-schoolx-cm",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "AI721 SchoolX CM — gestion des notes, de la discipline et des emplois du temps des établissements secondaires du Cameroun",
   "private": true,
   "type": "module",

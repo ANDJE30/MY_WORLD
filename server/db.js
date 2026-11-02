@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS progressions (
   seq INTEGER NOT NULL CHECK (seq BETWEEN 1 AND 6),
   planned INTEGER NOT NULL DEFAULT 0 CHECK (planned >= 0),
   done INTEGER NOT NULL DEFAULT 0 CHECK (done >= 0),
+  digital INTEGER NOT NULL DEFAULT 0 CHECK (digital >= 0),
   comment TEXT, updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
   PRIMARY KEY (class_subject_id, seq)
 );
@@ -217,6 +218,24 @@ CREATE TABLE IF NOT EXISTS staff_documents (
 );
 CREATE INDEX IF NOT EXISTS idx_staff_docs_user ON staff_documents(user_id, status);
 
+-- Messages aux parents (SMS, WhatsApp) : un envoi = une campagne, un message par numéro de parent
+CREATE TABLE IF NOT EXISTS parent_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  titre TEXT NOT NULL, modele TEXT, texte TEXT NOT NULL, variables TEXT NOT NULL DEFAULT '{}',
+  canal TEXT NOT NULL CHECK (canal IN ('sms','manuel')), classes TEXT,
+  total INTEGER NOT NULL DEFAULT 0, envoyes INTEGER NOT NULL DEFAULT 0, echecs INTEGER NOT NULL DEFAULT 0, en_cours INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER, created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS parent_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id INTEGER NOT NULL REFERENCES parent_campaigns(id) ON DELETE CASCADE,
+  phone TEXT NOT NULL, parent TEXT, enfants TEXT NOT NULL, classes TEXT, student_ids TEXT,
+  message TEXT NOT NULL, segments INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'a_envoyer' CHECK (status IN ('a_envoyer','en_cours','envoye','simule','echec')),
+  provider_id TEXT, error TEXT, sent_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_parent_messages ON parent_messages(campaign_id, status);
+
 CREATE TABLE IF NOT EXISTS year_archives (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   annee TEXT NOT NULL UNIQUE, closed_at INTEGER NOT NULL, closed_by TEXT,
@@ -245,7 +264,7 @@ export function tx(fn) {
 }
 
 export const DEFAULT_SETTINGS = {
-  nom: 'Mon Établissement', nom_court: '', type: "Lycée d'enseignement général",
+  nom: 'Mon Établissement', nom_court: '', nom_en: '', type: "Lycée d'enseignement général",
   statut: 'Public', sous_systeme: 'Francophone',
   ministere: 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES',
   ministere_en: 'MINISTRY OF SECONDARY EDUCATION',
@@ -253,7 +272,7 @@ export const DEFAULT_SETTINGS = {
   region: '', departement: '', ville: '', bp: '', tel: '', email: '', site: '',
   immatriculation: '', arrete_creation: '', devise: 'Discipline – Travail – Réussite',
   chef_titre: 'Le Proviseur', chef_nom: '', censeur_titre: 'Censeur', censeur_nom: '', sg_titre: 'Surveillant Général', surveillant_general: '',
-  ap_titre: 'Animateur Pédagogique',
+  ap_titre: 'Animateur Pédagogique', terme_sequence: 'Séquence', terme_pp: 'Professeur Principal',
   annee_scolaire: '', annee_cloturee: '', feries_annee: '', ref_documents: '', note_max: 20, seuil_reussite: 10, strict_calendar: true,
   logo: '',
   jours_actifs: [1, 2, 3, 4, 5],
@@ -286,12 +305,34 @@ export function titres(s = getSettings()) {
   };
 }
 
+/* ---------- Appellations des périodes et du responsable de classe ---------- */
+export const TERMES = {
+  terme_sequence: { label: "Période d'évaluation", options: ['Séquence', 'Situation'] },
+  terme_pp: { label: 'Responsable de classe', options: ['Professeur Principal', 'Titulaire'] }
+};
+const NL = '(?<!\\p{L})';
+const TERM_RULES = {
+  Situation: [[new RegExp(`${NL}Séquences`, 'gu'), 'Situations'], [new RegExp(`${NL}séquences`, 'gu'), 'situations'], [new RegExp(`${NL}Séquence`, 'gu'), 'Situation'],
+    [new RegExp(`${NL}séquence`, 'gu'), 'situation'], [new RegExp(`${NL}SÉQUENCES`, 'gu'), 'SITUATIONS'], [new RegExp(`${NL}SÉQUENCE`, 'gu'), 'SITUATION'],
+    [new RegExp(`${NL}Séq\\.`, 'gu'), 'Sit.'], [new RegExp(`${NL}séq\\.`, 'gu'), 'sit.']],
+  Titulaire: [[/Professeurs principaux/g, 'Titulaires'], [/professeurs principaux/g, 'titulaires'], [/Professeur [Pp]rincipal/g, 'Titulaire'], [/professeur principal/g, 'titulaire'],
+    [/PROFESSEUR PRINCIPAL/g, 'TITULAIRE']]
+};
+/** Remplace « séquence » par « situation » et « professeur principal » par « titulaire » selon les appellations choisies. */
+export function applyTerms(text, s) {
+  if (typeof text !== 'string' || !s) return text;
+  let o = text;
+  if (s.terme_sequence === 'Situation') for (const [re, v] of TERM_RULES.Situation) o = o.replace(re, v);
+  if (s.terme_pp === 'Titulaire') for (const [re, v] of TERM_RULES.Titulaire) o = o.replace(re, v);
+  return o;
+}
+/** Libellé d'une période d'évaluation : « Séquence 3 » ou « Situation 3 ». */
+export const seqLabel = (n, s) => `${s?.terme_sequence === 'Situation' ? 'Situation' : 'Séquence'} ${n}`;
+
 export function getSettings() {
   const out = { ...DEFAULT_SETTINGS };
-  const getS = db.prepare('SELECT value FROM settings WHERE key = ?');
-  for (const k of Object.keys(DEFAULT_SETTINGS)) {
-    const r = getS.get(k);
-    if (r) { try { out[k] = JSON.parse(r.value); } catch { /* valeur par défaut */ } }
+  for (const r of db.prepare('SELECT key, value FROM settings').all()) {
+    if (r.key in DEFAULT_SETTINGS) { try { out[r.key] = JSON.parse(r.value); } catch { /* valeur par défaut */ } }
   }
   if (!out.annee_scolaire) {
     const d = new Date(); const y = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
@@ -375,11 +416,17 @@ function ensureStaffColumns() {
   for (const f of HR_FIELDS) if (!cols.includes(f)) db.exec(`ALTER TABLE users ADD COLUMN ${f} TEXT`);
 }
 
+/** Leçons digitalisées dans la progression (version 3.2). */
+function ensureProgressionDigital() {
+  const cols = db.prepare('PRAGMA table_info(progressions)').all().map((c) => c.name);
+  if (!cols.includes('digital')) db.exec('ALTER TABLE progressions ADD COLUMN digital INTEGER NOT NULL DEFAULT 0 CHECK (digital >= 0)');
+}
+
 /** Ouvre (ou crée) la base d'un établissement et applique schéma et migrations. */
 export function openTenantDb(file) {
   const h = openSqlite(file);
   h.exec(TENANT_SCHEMA);
-  withDb(h, () => { ensurePeriods(); ensureTaxonomy(); ensureVaultColumns(); ensureStaffColumns(); });
+  withDb(h, () => { ensurePeriods(); ensureTaxonomy(); ensureVaultColumns(); ensureStaffColumns(); ensureProgressionDigital(); });
   return h;
 }
 

@@ -5,7 +5,7 @@ import { parsePeriod } from './calc.js';
 
 /* ---------- Types de documents ---------- */
 export const DOC_TYPES = {
-  presence: { code: 'APE', titre: 'Attestation de présence effective au poste', court: 'Présence effective', lettre: false },
+  presence: { code: 'APEP', titre: 'Attestation de présence effective au poste', court: 'Présence effective', lettre: false },
   prise_service: { code: 'CPS', titre: 'Certificat de prise de service', court: 'Prise de service', lettre: false },
   rappel_ordre: { code: 'RO', titre: "Rappel à l'ordre", court: "Rappel à l'ordre", lettre: true },
   observation: { code: 'LO', titre: "Lettre d'observation", court: "Lettre d'observation", lettre: true },
@@ -13,8 +13,8 @@ export const DOC_TYPES = {
 };
 export const DOC_STATUS = { emis: 'Émis', repondu: 'Réponse reçue', clos: 'Clos', annule: 'Annulé' };
 export const DEFAULT_AMPLIATIONS = {
-  presence: ['Intéressé(e)', 'Archives'],
-  prise_service: ['Intéressé(e)', 'Délégation départementale', 'Archives'],
+  presence: ['Hiérarchie', 'Intéressé(e)', 'Dossier/Chrono'],
+  prise_service: ['Hiérarchie', 'Intéressé(e)', 'Dossier/Chrono'],
   rappel_ordre: ['Intéressé(e)', 'Dossier administratif', 'Archives'],
   observation: ['Intéressé(e)', 'Délégation départementale', 'Dossier administratif', 'Archives'],
   demande_explication: ['Intéressé(e)', 'Dossier administratif', 'Archives']
@@ -141,8 +141,10 @@ export const chefFonction = (s) => String(s.chef_titre || 'Le Chef d\'établisse
 export function nextReference(type, annee) {
   const s = getSettings();
   const num = (db.prepare('SELECT MAX(num) n FROM staff_documents WHERE type = ? AND annee = ?').get(type, annee).n || 0) + 1;
-  const suffixe = s.ref_documents || [s.nom_court || 'ETAB', 'P'].join('/');
-  return { num, reference: `N° ${String(num).padStart(3, '0')}/${annee}/${suffixe}/${DOC_TYPES[type].code}` };
+  // ex. N° 004/26-27/APEP/MINESEC/DRES-CE/DDES-MFDI/LPEY (le millésime évite les doublons d'une année à l'autre)
+  const suffixe = s.ref_documents || `MINESEC/${s.nom_court || 'ETAB'}`;
+  const mil = `${String(annee).slice(2, 4)}-${String(annee).slice(7, 9)}`;
+  return { num, reference: `N° ${String(num).padStart(3, '0')}/${mil}/${DOC_TYPES[type].code}/${suffixe}` };
 }
 
 /** Faits constatés proposés pour un rappel à l'ordre, une lettre d'observation ou une demande d'explication. */

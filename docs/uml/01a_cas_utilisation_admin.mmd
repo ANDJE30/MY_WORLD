@@ -23,17 +23,21 @@ flowchart LR
     UC18(["Tenir le dossier administratif d'un enseignant<br/>(grade, statut, prise de service, affectation)"])
     UC19(["Émettre un document administratif : présence effective,<br/>prise de service, rappel à l'ordre, lettre d'observation,<br/>demande d'explication"])
     UC20(["Enregistrer la remise, examiner la réponse,<br/>décider la suite réservée"])
+    UC21(["Choisir les appellations : Séquence / Situation,<br/>Professeur Principal / Titulaire, fonctions"])
+    UC22(["Envoyer un message aux parents<br/>(bulletins, réunion, information)"])
+    PERS(["Personnaliser avec le nom de l'enfant"])
     V(["Vérifier la complétude des saisies"])
     TX(["Calculer heures dues et effectuées"])
   end
-  ADM --- UC0 & UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15 & UC16 & UC17 & UC18 & UC19 & UC20
+  ADM --- UC0 & UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15 & UC16 & UC17 & UC18 & UC19 & UC20 & UC21 & UC22
   UC3 -. "«include»" .-> V
   UC10 -. "«include»" .-> V
   UC17 -. "«include»" .-> TX
   UC19 -. "«include» (présence effective)" .-> TX
   UC20 -. "«extend»" .-> UC19
+  UC22 -. "«include»" .-> PERS
   classDef actor fill:#fbf1db,stroke:#a97a1d,color:#3b2a06,font-weight:bold
   classDef uc fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
   class ADM actor
-  class UC0,UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC14,UC15,UC16,UC17,UC18,UC19,UC20,V,TX uc
+  class UC0,UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC14,UC15,UC16,UC17,UC18,UC19,UC20,UC21,UC22,PERS,V,TX uc
   style SYS fill:#ffffff,stroke:#0b5d4b,stroke-width:2px

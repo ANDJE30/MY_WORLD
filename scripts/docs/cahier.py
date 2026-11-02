@@ -11,8 +11,8 @@ D = Doc('Cahier des charges — AI721 SchoolX CM', 'Cahier des charges')
 D.cover('Cahier des charges fonctionnel et technique', 'AI721 SchoolX CM',
         "Plateforme web responsive (SaaS) de gestion des notes, des faits disciplinaires et des emplois du temps des établissements d'enseignement secondaire général et technique du Cameroun — proposée par AI721 TECH STUFF",
         [('Projet', 'AI721 SchoolX CM — plateforme de gestion scolaire multi-établissements'), ('Éditeur', 'AI721 TECH STUFF (super administrateur : AI721)'), ('Document', 'Cahier des charges (spécifications fonctionnelles, techniques et conception UML)'),
-         ('Version', '3.1'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
-         ('Historique', "1.0 : version initiale.  1.1 : groupe et type de matière dissociés.  2.0 : plateforme multi-établissements AI721 (abonnements annuels, console super admin, quatre interfaces de connexion, coffre des accès), saisie et statistiques par trimestre, statistiques PDF, clôture annuelle.  3.0 : nouveau nom « AI721 SchoolX CM » ; dossier administratif des enseignants (pointage, taux d'assiduité, attestation de présence effective, certificat de prise de service, rappel à l'ordre, lettre d'observation, demande d'explication avec réponse en ligne).  3.1 : appellations des fonctions paramétrables (chef d'établissement, adjoint, vie scolaire, animation pédagogique)."),
+         ('Version', '3.2'), ('Date', today), ('Statut', 'Validé pour réalisation — application livrée'),
+         ('Historique', "1.0 : version initiale.  1.1 : groupe et type de matière dissociés.  2.0 : plateforme multi-établissements AI721 (abonnements annuels, console super admin, quatre interfaces de connexion, coffre des accès), saisie et statistiques par trimestre, statistiques PDF, clôture annuelle.  3.0 : nouveau nom « AI721 SchoolX CM » ; dossier administratif des enseignants (pointage, taux d'assiduité, attestation de présence effective, certificat de prise de service, rappel à l'ordre, lettre d'observation, demande d'explication avec réponse en ligne).  3.1 : appellations des fonctions paramétrables (chef d'établissement, adjoint, vie scolaire, animation pédagogique).  3.2 : appellations Séquence/Situation et Professeur Principal/Titulaire, leçons digitalisées, attestation de présence effective au modèle officiel (APEP), messages aux parents (SMS, WhatsApp)."),
 
          ('Destinataires', "Chefs d'établissement, censeurs, surveillants généraux, enseignants, promoteurs d'établissements privés, équipe technique"),
          ('Rédaction', 'Équipe de développement full stack AI721 SchoolX CM')], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -39,6 +39,10 @@ D.p("Le chef d'établissement est aussi le **gestionnaire du personnel** placé 
     "l'assiduité et les obligations professionnelles par une gradation de courriers : **rappel à l'ordre**, **demande d'explication** (à laquelle l'intéressé répond par écrit) "
     "puis **lettre d'observation** versée au dossier. Ces documents sont aujourd'hui rédigés à la main, sans données fiables sur les heures réellement assurées. "
     "La version 3.0 de la plateforme, renommée **AI721 SchoolX CM**, outille cette mission.", align='justify')
+D.p("Enfin, l'établissement doit **informer les familles** (remise des bulletins, réunions des parents, informations diverses) alors que les convocations papier "
+    "confiées aux élèves arrivent rarement. La version 3.2 ajoute l'envoi de **messages aux parents** par SMS ou WhatsApp, personnalisés avec le nom de l'enfant, "
+    "adapte le vocabulaire de chaque établissement (**séquence** ou **situation**, **professeur principal** ou **titulaire**), suit les **leçons digitalisées** "
+    "et produit l'attestation de présence effective au poste selon le **modèle administratif en usage (APEP)**.", align='justify')
 D.h2('1.2 Problématique')
 D.bullets(["Comment permettre à chaque enseignant de saisir ses notes **où qu'il soit**, depuis un ordinateur, une tablette ou un simple smartphone, même avec une connexion instable ?",
            "Comment garantir que les moyennes, rangs et décisions soient **calculés sans erreur** et que les documents officiels soient **conformes** à la présentation administrative camerounaise ?",
@@ -54,6 +58,7 @@ D.table(['Objectif', 'Indicateur de réussite'], [
     ["Garantir sécurité et traçabilité", "Accès par rôle, verrouillage des séquences clôturées, journal d'audit complet"],
     ["Être utilisable partout", "Interface responsive (ordinateur, tablette, smartphone), installable comme une application"],
     ["Suivre l'assiduité du personnel enseignant", "Taux d'assiduité calculé à partir de l'emploi du temps et du pointage, par séquence, trimestre, mois ou année"],
+    ["Informer les parents rapidement", "Message personnalisé (nom de l'enfant, classe) envoyé à tous les parents d'une ou plusieurs classes en quelques minutes"],
     ["Dématérialiser les documents administratifs du personnel", "Attestation, certificat ou courrier numéroté émis en moins d'une minute ; réponses aux demandes d'explication reçues en ligne"],
     ["Commercialiser la plateforme (AI721)", "Création d'un établissement abonné en moins de 2 minutes ; abonnements, paiements et échéances suivis depuis une console unique"]],
     widths=[7.5, 9], caption='Objectifs du projet')
@@ -65,6 +70,7 @@ D.bullets(["la gestion administrative de référence : établissement, classes, 
            "la gestion pédagogique : calendrier des séquences, saisie des notes, progression annuelle, résultats, bulletins, statistiques ;",
            "la gestion disciplinaire : absences, retards, consignes, sanctions, registre des incidents ;",
            "la gestion des emplois du temps : conception, génération automatique, détection des conflits ;",
+           "la communication avec les parents : messages personnalisés par SMS (passerelle de la plateforme), WhatsApp ou export CSV ;",
            "la gestion administrative du personnel enseignant : dossier (grade, statut, prise de service, affectation), pointage, absences et retards, taux d'assiduité, documents administratifs et registre ;",
            "l'édition de tous les documents officiels au format PDF ;",
            "l'administration technique : sauvegarde, restauration, journal d'audit, clôture de l'année et nouvelle année scolaire."])
@@ -103,6 +109,7 @@ EF = [
    ('EF-106', 'Tableau de bord', "Établissements abonnés, actifs et inactifs, élèves et enseignants gérés, recettes de l'année et cumulées, relances (impayés, échéances < 30 jours), répartition par région, activité.", 'M'),
    ('EF-107', 'Gestion du cycle de vie', "Renouvellement (option : nouveaux identifiants), encaissement, suspension et réactivation (sessions fermées), suppression avec archivage des données.", 'M'),
    ('EF-108', 'Documents', "Reçu de paiement PDF, liste des établissements abonnés PDF, export CSV.", 'S'),
+   ('EF-125', 'Passerelle SMS', "Choix du fournisseur (Africa's Talking, Twilio, Orange SMS API, simulation), identifiant, clé secrète conservée chiffrée, nom et numéro d'expéditeur ; SMS de test. Utilisée par tous les établissements pour les messages aux parents.", 'S'),
    ('EF-109', 'Paramètres et journal', "Coordonnées de l'entreprise (raison sociale, RCCM, NIU, tarif, devise) reprises sur les documents ; journal d'audit de la console.", 'S')]),
  ('3.1 Authentification et compte (tous profils)', [
    ('EF-01', 'Connexion', "Connexion par identifiant et mot de passe sur l'interface propre au rôle ; message d'erreur générique ; nombre d'essais restants affiché ; refus et redirection si le compte n'appartient pas à cette interface.", 'M'),
@@ -118,7 +125,8 @@ EF = [
    ('EF-12', 'Logo', "Téléversement du logo (PNG/JPEG ≤ 500 Ko, glisser-déposer), aperçu, suppression ; affiché dans l'application et sur les documents.", 'M'),
    ('EF-13', 'Paramètres pédagogiques', "Année scolaire, moyenne de réussite (par défaut 10/20), respect strict du calendrier.", 'M'),
    ('EF-14', 'Horaires', "Jours de cours (lundi à samedi) et créneaux horaires, y compris récréations et pauses.", 'M'),
-   ('EF-15', 'Appellations des fonctions', "Onglet « Fonctions » : choix, dans des listes, de l'appellation de chaque fonction — chef d'établissement (**Proviseur, Directeur, Principal**), adjoint (**Censeur, Préfet, Préfet Adjoint**), vie scolaire (**Surveillant Général, Surveillant Général Adjoint**), animation pédagogique (**Animateur Pédagogique, Coordonnateur**) — et nom des titulaires ; aperçu en direct des zones de signature. Les appellations et les noms sont repris sur les signatures de tous les documents et proposés pour la fonction des personnels.", 'M')]),
+   ('EF-16', 'Appellations Séquence / Situation et Professeur Principal / Titulaire', "Onglet « Appellations » : la période d'évaluation s'appelle **Séquence** ou **Situation** (approche par les compétences) et le responsable de classe **Professeur Principal** ou **Titulaire**. Le choix s'applique à toute l'interface (menus, listes, messages) et à tous les documents PDF (bulletins, relevés, procès-verbaux, fiches…), sans modifier les données saisies.", 'M'),
+   ('EF-15', 'Appellations des fonctions', "Onglet « Appellations » : choix, dans des listes, de l'appellation de chaque fonction — chef d'établissement (**Proviseur, Directeur, Principal**), adjoint (**Censeur, Préfet, Préfet Adjoint**), vie scolaire (**Surveillant Général, Surveillant Général Adjoint**), animation pédagogique (**Animateur Pédagogique, Coordonnateur**) — et nom des titulaires ; aperçu en direct des zones de signature. Les appellations et les noms sont repris sur les signatures de tous les documents et proposés pour la fonction des personnels.", 'M')]),
  ('3.3 Administrateur — calendrier et clôtures', [
    ('EF-20', 'Calendrier', "Dates de début et de fin des 6 séquences, regroupées en 3 trimestres ; contrôle de cohérence (pas de chevauchement).", 'M'),
    ('EF-21', 'État des saisies', "Pour une séquence : matières complètes et validées, fiches disciplinaires validées, pourcentage global.", 'M'),
@@ -158,6 +166,10 @@ EF = [
    ('EF-63', 'Bulletins', "Bulletins PDF par élève ou pour toute la classe ; procès-verbal de conseil de classe.", 'M'),
    ('EF-64', 'Statistiques', "Par séquence, trimestre ou année : réussite par classe, par matière, par type de matière, par sexe ; tableau d'honneur ; discipline par classe ; **export PDF** pour exploitation.", 'M'),
    ('EF-65', 'Discipline (supervision)', "Accès à toutes les fiches disciplinaires et au registre des incidents.", 'S'),
+   ('EF-140', 'Messages aux parents', "Modèles « Remise des bulletins », « Réunion des parents », « Information aux parents » et message libre ; champs à compléter (période, date, heure, lieu, ordre du jour) ; choix des classes ; aperçu des messages personnalisés, des élèves sans numéro et des numéros invalides.", 'M'),
+   ('EF-141', 'Personnalisation', "Chaque message porte le nom de l'enfant et sa classe ({enfant}, {classe}, {parent}, {matricule}, {etablissement}…) ; un seul message par numéro, citant les frères et sœurs ensemble ; optimisation SMS (ê, ô, ç… → e, o, c) et estimation du nombre de SMS.", 'M'),
+   ('EF-142', "Modes d'envoi", "SMS automatiques par la passerelle de la plateforme ; à défaut, envoi depuis le téléphone de l'administration (boutons WhatsApp et SMS préremplis, parent par parent) ; export CSV pour une plateforme d'envoi groupé.", 'M'),
+   ('EF-143', 'Historique et relance', "Historique des envois (destinataires, envoyés, échecs, à envoyer), détail par parent, relance des échecs, journal d'audit.", 'S'),
    ('EF-66', 'Annonces', "Publication de messages ciblés (tous, enseignants, responsables), affichés sur les tableaux de bord.", 'S'),
    ('EF-67', "Journal d'audit", "Traçabilité des actions sensibles (connexions, échecs, saisies, clôtures, suppressions, exports) ; recherche et export.", 'M'),
    ('EF-68', 'Recherche globale', "Recherche instantanée d'élèves, personnels et classes depuis la barre supérieure.", 'C'),
@@ -169,7 +181,7 @@ EF = [
    ('EF-113', 'Absences et retards', "Saisie libre d'une absence (heures, journée entière ou période de plusieurs jours, décomptée d'après l'emploi du temps) ou d'un retard ; justification modifiable ; liste filtrable par période et par enseignant ; suppression.", 'M'),
    ('EF-114', "Taux d'assiduité", "Par enseignant et pour l'établissement, par séquence, trimestre, mois ou année : heures dues, effectuées, absences justifiées et non justifiées, retards, taux et appréciation ; détail par séquence.", 'M'),
    ('EF-115', 'Jours non ouvrés', "Fêtes légales à date fixe ajoutées automatiquement chaque année ; ajout des fêtes mobiles et journées banalisées ; exclusion du calcul des heures dues.", 'M'),
-   ('EF-116', 'Attestation de présence effective au poste', "Attestation numérotée certifiant la présence de l'enseignant à son poste, avec le tableau d'assiduité de la période choisie (par séquence si besoin), la jauge et l'appréciation du taux.", 'M'),
+   ('EF-116', 'Attestation de présence effective au poste', "Selon le **modèle administratif en usage** : en-tête bilingue (République, ministère, délégations, établissement, logo), titre « ATTESTATION DE PRÉSENCE EFFECTIVE AU POSTE » et numéro N° …/APEP/…, formule « LE PROVISEUR DU … soussigné(e), …, atteste que : », civilité et nom, grade, matricule, acte de nomination ou d'affectation, qualité, discipline, date de prise de service ; **amélioration** : tableau d'assiduité de la période (par séquence), taux et appréciation ; « En foi de quoi… », ampliations (Hiérarchie, Intéressé(e), Dossier/Chrono), « Fait à …, le … », signature. Typographie soignée : Liberation Serif (corps), Anton (titre), gras et italique selon l'usage administratif.", 'M'),
    ('EF-117', 'Certificat de prise de service', "Certificat numéroté reprenant la date de prise de service, le grade, le matricule, l'acte d'affectation et la fonction ; émission refusée si la date de prise de service n'est pas renseignée.", 'M'),
    ('EF-118', "Rappel à l'ordre et lettre d'observation", "Courriers numérotés adressés à l'enseignant : objet, manquements constatés (un par ligne), formules réglementaires, signature, ampliations ; la lettre d'observation peut citer en référence une demande d'explication.", 'M'),
    ('EF-119', "Demande d'explication", "Courrier numéroté avec délai de réponse (24 h à 7 jours, à compter de la réception) et **espace de réponse de l'intéressé** (lignes d'écriture ou réponse transmise en ligne), puis cadre « suite réservée par le chef d'établissement ».", 'M'),
@@ -177,7 +189,7 @@ EF = [
    ('EF-121', 'Cycle de vie et registre', "Registre annuel filtrable (type, statut, enseignant, année) ; remise en main propre (date), réponse, suite réservée et clôture, annulation motivée (le numéro n'est pas réattribué) ; registre et état d'assiduité en PDF ; alertes au tableau de bord.", 'M')]),
  ('3.9 Enseignant', [
    ('EF-70', 'Tableau de bord', "Classes et matières attribuées, avancement de la saisie de la séquence en cours, couverture du programme, cours du jour, annonces.", 'M'),
-   ('EF-71', 'Progression annuelle', "Pour chaque classe/matière et chaque séquence : leçons prévues, leçons faites, taux de couverture, observations ; fiche PDF.", 'M'),
+   ('EF-71', 'Progression annuelle', "Pour chaque classe/matière et chaque séquence : leçons prévues, leçons faites, **leçons digitalisées**, taux de couverture et de digitalisation, observations ; fiche PDF ; suivi de l'ensemble par l'administration.", 'M'),
    ('EF-72', 'Saisie des notes', "Grille par classe et par **séquence** ou par **trimestre** (deux séquences côte à côte et moyenne trimestrielle en direct) : note sur 20 (virgule ou point, 2 décimales), absent, appréciation et statistiques ; chaque séquence garde son propre verrou.", 'M'),
    ('EF-73', 'Ergonomie de saisie', "Navigation clavier (Entrée/↓/↑), touche « a » pour absent, collage d'une colonne Excel, enregistrement automatique, brouillon conservé hors ligne.", 'M'),
    ('EF-74', 'Validation', "« Valider la saisie » lorsque tous les élèves ont une note ou sont absents ; toute modification ultérieure annule la validation.", 'M'),
@@ -231,11 +243,14 @@ D.table(['Réf.', 'Règle'], [
   ['RG-25', "Heures dues d'un enseignant sur une période = somme, pour chaque jour de classe (jour de cours actif, compris dans une séquence, hors jour non ouvré, au plus tard aujourd'hui), des heures de cours prévues ce jour-là à son emploi du temps (un créneau = une heure de cours)."],
   ['RG-26', "Heures effectuées = heures dues − heures d'absence (justifiées et non justifiées). Taux d'assiduité = heures effectuées / heures dues × 100 (une décimale). Appréciation : ≥ 98 % Excellente ; ≥ 95 % Très bonne ; ≥ 90 % Bonne ; ≥ 80 % Assez bonne ; ≥ 70 % Passable ; < 70 % Insuffisante. Les retards sont comptés à part (nombre et minutes)."],
   ['RG-27', "Une absence ou un retard ne peut porter sur une date future ; une absence pointée sur un créneau doit correspondre à un cours de l'enseignant à l'emploi du temps ; une absence d'une journée entière remplace les absences par créneau du même jour."],
-  ['RG-28', "Référence d'un document : N° nnn/année scolaire/sigle/P/code, numérotée par type et par année (APE présence effective, CPS prise de service, RO rappel à l'ordre, LO lettre d'observation, DE demande d'explication). Un numéro n'est jamais réattribué, même après annulation."],
+  ['RG-28', "Référence d'un document : N° nnn/aa-aa/code/référence de l'établissement (ex. N° 004/26-27/APEP/MINESEC/DRES-CE/DDES-MFDI/LPEY), numérotée par type et par année (APEP présence effective au poste, CPS prise de service, RO rappel à l'ordre, LO lettre d'observation, DE demande d'explication). Un numéro n'est jamais réattribué, même après annulation."],
   ['RG-29', "À l'émission, l'identité de l'agent (grade, matricule, fonction…), le signataire et, pour l'attestation de présence, les chiffres d'assiduité sont **figés** dans le document : une modification ultérieure du dossier ne change pas un document émis."],
   ['RG-30', "Un document n'est modifiable que tant qu'il n'a pas été remis. Le délai de réponse d'une demande d'explication court à partir de la remise en main propre ou de l'accusé de réception en ligne (l'ouverture du PDF par l'enseignant vaut accusé de réception) ; la réponse est unique et définitive ; une réponse postérieure à l'échéance est signalée « hors délai »."],
   ['RG-31', "Un enseignant n'accède qu'à ses propres documents non annulés et à sa propre assiduité ; seul l'administrateur émet, modifie, clôt ou annule un document."],
   ['RG-32', "Chaque appellation de fonction est choisie dans sa liste (contrôle côté serveur) ; l'article est ajouté automatiquement sur les documents (Le Censeur, L'Animateur Pédagogique). Le nom du titulaire, s'il est renseigné, figure sous la zone de signature. Un changement d'appellation s'applique aux documents produits ensuite ; les documents administratifs déjà émis conservent le signataire figé à leur émission."],
+  ['RG-34', "Les appellations « Situation » et « Titulaire », si elles sont choisies, remplacent « Séquence » et « Professeur principal » dans tout le texte produit par la plateforme (interface, messages d'erreur, PDF). Les données saisies par les utilisateurs ne sont jamais modifiées. Les deux termes étant du même genre, les accords sont conservés (la séquence / la situation)."],
+  ['RG-35', "Leçons digitalisées : entier positif, au plus égal au plus grand des nombres de leçons prévues et faites de la séquence ; taux de digitalisation = leçons digitalisées ÷ leçons prévues. Une séquence clôturée est verrouillée."],
+  ['RG-36', "Messages aux parents : seuls les élèves actifs des classes choisies sont concernés ; le numéro du parent est normalisé au format international (+237 et 9 chiffres pour le Cameroun) ; un numéro absent ou invalide est signalé et écarté ; un SMS compte 160 caractères (70 si un caractère hors alphabet GSM subsiste), 153 ou 67 par segment au-delà ; les champs non renseignés utilisés dans le texte sont refusés."],
   ['RG-33', "Les appellations « Animateur Pédagogique » et « Coordonnateur » étant synonymes, en changer met à jour la fonction des enseignants qui la reprennent (ex. « Animateur Pédagogique de SVT » → « Coordonnateur de SVT »). Les autres appellations ne modifient pas les fonctions des personnels, car un préfet et un préfet adjoint, ou un surveillant général et son adjoint, peuvent coexister."],
   ['RG-19', "Chaque matière a exactement un groupe et un type, choisis indépendamment. Sur le bulletin, les matières sont regroupées et sous-totalisées par groupe, dans l'ordre des positions. Un groupe ou un type utilisé par une matière ne peut être supprimé ; il en reste toujours au moins un de chaque. Les libellés sont uniques (sans distinction de casse)."]],
   widths=[1.6, 15], caption='Règles de gestion', font=9.5)
@@ -263,6 +278,7 @@ D.table(['Menace', 'Mesure mise en œuvre'], [
   ['Fuite du coffre des accès', "Chiffrement **AES-256-GCM** (authentifié) des seuls mots de passe générés ; clé hors de la base (variable VAULT_KEY ou fichier vault.key, droits 600) ; consultation à la demande et tracée (COFFRE_CONSULTATION)."],
   ['Usage hors abonnement', "Contrôle de l'abonnement et de la suspension sur chaque requête de l'établissement (réponse 402) ; suspension = fermeture immédiate des sessions."],
   ['Confidentialité des dossiers du personnel', "Documents et assiduité d'un enseignant accessibles à lui seul et à l'administration (404 pour tout autre compte) ; émission, remise, consultation PDF, réponse, suite et annulation tracées dans le journal d'audit."],
+  ['Messages aux parents', "Fonction réservée à l'administration ; clé de la passerelle SMS chiffrée (AES-256-GCM) et jamais renvoyée par l'API ; numéros validés ; chaque envoi et chaque relance tracés dans le journal d'audit."],
   ['Fuite d\'informations', "Messages d'erreur génériques avec référence ; en-têtes HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, COOP/CORP."]],
   widths=[3.6, 13], caption='Mesures de sécurité', font=9.5)
 D.note("**Conformité.** Les données traitées (identité, date de naissance, résultats, discipline de mineurs) sont des données personnelles au sens de la "
@@ -309,6 +325,7 @@ D.figure(u('05_seq_saisie_notes.png'), 'Séquence « Saisie des notes avec enreg
 D.figure(u('06_seq_cloture.png'), 'Séquence « Clôture d\'une séquence »', max_h=13)
 D.figure(u('11_seq_souscription.png'), "Séquence « Souscription d'un établissement et transmission des accès »", max_h=10)
 D.figure(u('13_seq_demande_explication.png'), "Séquence « Demande d'explication : émission, réponse en ligne et suite réservée »", max_h=14)
+D.figure(u('16_seq_message_parents.png'), "Séquence « Message aux parents : aperçu personnalisé, envoi par SMS ou WhatsApp »", max_h=11)
 D.h2("6.5 Diagramme d'états-transitions")
 D.figure(u('07_etats_sequence.png'), "Cycle de vie d'une séquence d'évaluation", max_h=13)
 D.figure(u('12_etats_abonnement.png'), "Cycle de vie d'un abonnement", max_h=11)
@@ -344,10 +361,12 @@ D.table(['Chemin', 'Contenu'], [
   ['server/calc.js', "Moyennes, rangs, appréciations, décisions, complétude, calendrier"],
   ['server/pdf.js', "Mise en page des documents officiels"],
   ['server/routes/*.js', "auth, admin, work (notes, progression, discipline), staff (pointage, documents administratifs, espace enseignant), pdfRoutes, common, access (contrôle d'accès)"],
+  ['server/sms.js, server/routes/parents.js', "Messages aux parents : numéros, longueur des SMS, passerelles (Africa's Talking, Twilio, Orange), envoi et historique"],
+  ['server/fonts/', "Polices des actes administratifs : Liberation Serif et Anton (licence SIL OFL)"],
   ['server/staff.js', "Assiduité (jours de classe, heures dues, taux), numérotation des documents, faits proposés"],
   ['server/pdfStaff.js', "Attestation de présence effective, certificat de prise de service, courriers, espace de réponse, états d'assiduité, registre"],
   ['server/seed.js', "Jeu de démonstration (établissement fictif)"],
-  ['public/js/*.js', "app (détection de l'interface, connexion, coquille, routeur), landing, console, admin, rh (assiduité et documents administratifs), teacher, discipline, shared, ui, api"],
+  ['public/js/*.js', "app (détection de l'interface, connexion, coquille, routeur), landing, console, admin, rh (assiduité et documents administratifs), parents (messages aux parents), teacher, discipline, shared, ui, api"],
   ['public/css/app.css', "Design system responsive"],
   ['test/api.test.js', "Tests d'intégration"], ['deploy/', "docker-compose, Caddyfile, script d'installation serveur"]],
   widths=[4.2, 12.4], font=9.5)
@@ -377,6 +396,8 @@ D.table(['Table', 'Rôle', 'Champs principaux'], [
   ['incidents', 'Registre des incidents', "student_id, seq, date, type, gravite, sanction, description"],
   ['discipline_validations', 'Validations des fiches', "class_id, seq, validated_at"],
   ['timetable', 'Emplois du temps', "class_id, day, slot, class_subject_id, room"],
+  ['parent_campaigns', 'Envois de messages aux parents', "titre, modele, texte, variables, canal (sms | manuel), classes, total, envoyes, echecs, created_by"],
+  ['parent_messages', 'Messages personnalisés', "campaign_id, phone (E.164), parent, enfants, classes, message, segments, status (a_envoyer, en_cours, envoye, simule, echec), error, sent_at"],
   ['staff_attendance', 'Absences et retards des enseignants', "user_id, date, kind (absence | retard), hours, minutes, slot (créneau), class_id, justified, motif, recorded_by"],
   ['staff_documents', 'Documents administratifs', "user_id, type, annee, num, reference, date_doc, objet, faits, ampliations, data (agent, signataire, assiduité figés), ref_doc_id, delai_heures, echeance, status, ack_at, reponse, reponse_at, suite"],
   ['days_off', 'Jours non ouvrés', "date, label"],
@@ -400,6 +421,7 @@ D.table(['Domaine', 'Principales routes'], [
   ['Coffre', "GET admin/acces ; POST admin/users/:id/reveal ; POST pdf/credentials {ids}"],
   ['Enseignant', "GET teacher/assignments ; GET notes/grid?period=S2|T1 ; PUT notes/grid (séquence par note) ; POST notes/validate ; GET|PUT progression"],
   ['Discipline', "GET discipline/classes ; GET|PUT discipline/sheet ; POST discipline/validate ; GET|POST|DELETE discipline/incidents ; GET discipline/student/:id"],
+  ['Messages aux parents', "GET admin/parents/modeles, admin/parents/campagnes, admin/parents/campagnes/:id ; POST admin/parents/apercu, admin/parents/campagnes, admin/parents/campagnes/:id/relancer, admin/parents/messages/:id/envoye ; console : POST sms/test"],
   ['Personnel (RH)', "GET rh/enseignants, rh/enseignants/:id, rh/referentiels ; PUT rh/enseignants/:id ; GET|PUT rh/pointage ; GET|POST rh/absences ; PUT|DELETE rh/absences/:id ; GET|POST rh/jours-feries ; DELETE rh/jours-feries/:date ; GET|POST rh/documents ; GET rh/documents/faits ; GET|PUT rh/documents/:id ; POST rh/documents/:id/remise|suite|annuler"],
   ['Espace enseignant (documents)', "GET mes-documents, mon-assiduite ; POST mes-documents/:id/accuse ; PUT mes-documents/:id/reponse"],
   ['Documents PDF', "GET pdf/document/:id, pdf/assiduite, pdf/assiduite-enseignant, pdf/registre-documents, pdf/releve, pdf/progression, pdf/discipline, pdf/discipline-eleve, pdf/bulletins, pdf/pv, pdf/liste, pdf/timetable, pdf/stats ; POST pdf/credentials"]],
@@ -426,7 +448,7 @@ D.bullets([("Démonstration (Render) : ", "connecter le dépôt GitHub à Render
 
 # ------------------------------------------------------------------ 11
 D.h1('11. Recette et assurance qualité')
-D.p("La qualité est assurée par une suite de tests d'intégration automatisés (29 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
+D.p("La qualité est assurée par une suite de tests d'intégration automatisés (32 scénarios) exécutée avec npm test, et par un parcours de bout en bout "
     "dans un navigateur réel (Playwright) qui visite toutes les pages des quatre profils sur ordinateur, tablette et smartphone sans aucune erreur.", align='justify')
 D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ['Connexion correcte / incorrecte', "200 / 401, cookie HttpOnly", 'Réussi'], ['Requête sans en-tête anti-CSRF ou d\'origine étrangère', '403', 'Réussi'],
@@ -453,6 +475,9 @@ D.table(['Scénario de test', 'Résultat attendu', 'Statut'], [
   ["Clôture de l'année puis nouvelle année", 'Nouvelle année refusée avant clôture ; rapport et sauvegarde archivés', 'Réussi'],
   ['Limitation de débit : échecs seulement', '10 échecs → blocage ; 12 connexions réussies → jamais bloquées', 'Réussi'],
   ['Nouveau nom AI721 SchoolX CM', 'Titre des pages, manifeste et sauvegardes au nouveau nom', 'Réussi'],
+  ['Appellations Séquence/Situation et Professeur Principal/Titulaire', "Libellés « Situation 1 », messages d'erreur et PDF adaptés ; valeur hors liste refusée (400)", 'Réussi'],
+  ['Leçons digitalisées', "Enregistrement, refus au-delà des leçons prévues ou faites, séquence clôturée verrouillée, fiche PDF", 'Réussi'],
+  ["Messages aux parents : numéros, aperçu, SMS (simulation), envoi manuel, droits", "Numéros normalisés (+237…), nom de l'enfant dans le message, date en toutes lettres, envoi simulé complet, statut « envoyé » après WhatsApp, enseignant refusé (403), secret jamais renvoyé", 'Réussi'],
   ['Appellations des fonctions : listes, refus hors liste, signatures, fonction des enseignants', "400 hors liste ; PDF générés avec Principal / Préfet Adjoint / Surveillant Général Adjoint / Coordonnateur ; « Animateur Pédagogique de Mathématiques » ↔ « Coordonnateur de Mathématiques »", 'Réussi'],
   ["Assiduité : dossier, absence d'une journée, justification, retard, pointage, jour non ouvré", "Heures dues, effectuées et taux exacts ; date future et créneau sans cours refusés (400) ; enseignant refusé (403)", 'Réussi'],
   ["Documents administratifs : 5 types, numérotation, accusé, réponse unique, suite, référence, annulation", "Prise de service sans date refusée ; échéance = remise + délai ; 2e réponse refusée ; autre enseignant 404 ; PDF valides ; sauvegarde « EduGest CM » restaurable", 'Réussi']],
@@ -477,7 +502,8 @@ D.h1("13. Évolutions et extensions prévues")
 D.p("L'architecture modulaire et l'API REST permettent d'ajouter les modules suivants sans remettre en cause l'existant :", align='justify')
 D.table(['Module', 'Description'], [
   ['Portail parents / élèves', "Consultation des notes, bulletins, absences et emploi du temps ; comptes parents liés au téléphone."],
-  ['Notifications SMS / WhatsApp', "Alerte automatique des parents en cas d'absence non justifiée, de sanction ou à la publication des bulletins (passerelles des opérateurs locaux)."],
+  ['Alertes automatiques aux parents', "Envoi automatique d'un SMS en cas d'absence non justifiée ou de sanction, à partir de la passerelle déjà en place."],
+  ['Accusés de réception des SMS', "Suivi de la remise effective des SMS (rapports de livraison des fournisseurs) et réponses des parents."],
   ['Frais de scolarité', "Suivi des paiements, reçus, relances, intégration du paiement mobile (Mobile Money)."],
   ['Interface bilingue', "Interface et documents intégralement en anglais pour le sous-système anglophone (terminologie GCE : terms, Form, Lower/Upper Sixth)."],
   ['Évaluation par compétences', "Grilles de compétences et appréciations qualitatives par situation d'apprentissage (APC)."],
@@ -497,6 +523,9 @@ D.table(['Terme', 'Définition'], [
   ['Séquence / situation', "Période d'évaluation ; l'année en compte six."], ['Trimestre', "Regroupement de deux séquences, sanctionné par un bulletin trimestriel."],
   ['Coefficient', "Poids d'une matière dans le calcul de la moyenne générale."],
   ['Proviseur / Directeur / Principal', "Appellations du chef d'établissement (lycée ; collège, CES ou CETIC selon l'usage)."], ['Censeur / Préfet', "Adjoint du chef d'établissement chargé notamment des études ; le préfet adjoint le seconde."],
+  ['Situation', "Autre appellation de la séquence d'évaluation, en usage avec l'approche par les compétences."], ['Titulaire', "Autre appellation du professeur principal d'une classe."],
+  ['Leçon digitalisée', "Leçon disponible sous forme numérique (support, vidéo, plateforme d'apprentissage)."], ['APEP', "Attestation de présence effective au poste."],
+  ['Segment SMS', "Unité facturée : 160 caractères (alphabet GSM) ou 70 caractères (Unicode)."],
   ['Animateur pédagogique / coordonnateur', "Enseignant responsable de l'animation d'une discipline (progressions, réunions du conseil d'enseignement)."],
   ['Abonnement', "Droit d'utilisation annuel d'un établissement, du 1er septembre au 31 août."], ['Coffre des accès', "Liste chiffrée des identifiants et mots de passe générés, consultable par AI721 (administrateurs) et par l'administrateur (personnel)."],
   ['Interface (portail)', "Page de connexion propre à un rôle : console, administration, enseignants, vie scolaire."], ['Super administrateur', "Compte AI721 de l'éditeur, qui gère les établissements abonnés."], ['Conseil de classe', "Réunion qui arrête les résultats et décisions de fin de période."],

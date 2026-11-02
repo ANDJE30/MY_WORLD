@@ -11,8 +11,8 @@ L'éditeur, **AI721 TECH STUFF**, commercialise la plateforme sur **abonnement a
 | Profil | Interface | Fonctions principales |
 |---|---|---|
 | **Super administrateur AI721** | `/console` | Établissements abonnés (une base de données dédiée par établissement), abonnements et paiements (reçus PDF), coffre des accès des administrateurs, liens et fiches d'accès (PDF, WhatsApp), suspension et renouvellement, tableau de bord commercial |
-| **Administrateur d'établissement** | `/e/<code>/admin` | Paramétrage, comptes du personnel avec **coffre des accès** (mots de passe générés et liens, envoi par WhatsApp), classes, matières (groupe et type), élèves, attributions, emplois du temps, clôtures par séquence et par trimestre, **clôture de l'année** (statistiques annuelles et sauvegarde archivées), bulletins, PV, **statistiques exportables en PDF**, **assiduité des enseignants** (pointage journalier, taux d'assiduité) et **documents administratifs** (présence effective au poste, prise de service, rappel à l'ordre, lettre d'observation, demande d'explication) |
-| **Enseignant** | `/e/<code>/enseignant` | Saisie des notes **par séquence ou par trimestre**, progression annuelle, validation, relevés PDF, emploi du temps, **mes documents administratifs** (accusé de réception, **réponse en ligne aux demandes d'explication**) et mon assiduité |
+| **Administrateur d'établissement** | `/e/<code>/admin` | Paramétrage, comptes du personnel avec **coffre des accès** (mots de passe générés et liens, envoi par WhatsApp), classes, matières (groupe et type), élèves, attributions, emplois du temps, clôtures par séquence et par trimestre, **clôture de l'année** (statistiques annuelles et sauvegarde archivées), bulletins, PV, **statistiques exportables en PDF**, **messages aux parents** (SMS, WhatsApp), **assiduité des enseignants** (pointage journalier, taux d'assiduité) et **documents administratifs** (présence effective au poste, prise de service, rappel à l'ordre, lettre d'observation, demande d'explication) |
+| **Enseignant** | `/e/<code>/enseignant` | Saisie des notes **par séquence ou par trimestre**, progression annuelle (dont leçons digitalisées), validation, relevés PDF, emploi du temps, **mes documents administratifs** (accusé de réception, **réponse en ligne aux demandes d'explication**) et mon assiduité |
 | **Responsable disciplinaire** | `/e/<code>/discipline` | Absences, retards, consignes, sanctions, incidents, récapitulatif trimestriel, fiches PDF |
 
 Les quatre interfaces de connexion sont distinctes : chacune a son adresse, ses couleurs et sa page, et n'accepte que son propre rôle.
@@ -52,7 +52,7 @@ Les autres établissements de démonstration illustrent les situations d'abonnem
 Pour une installation réelle, lancez `npm start` sur un dossier de données vide. Le compte `AI721` est créé au premier démarrage avec le mot de passe `SUPERADMIN_PASSWORD`, ou un mot de passe affiché une seule fois dans la console. Une installation 1.x existante (`data/edugest.db`) est **convertie automatiquement** en premier établissement de la plateforme.
 
 ```bash
-npm test                  # 29 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, PDF, migrations)
+npm test                  # 32 tests d'intégration (plateforme, abonnements, isolation, sécurité, calculs, clôtures, assiduité, documents administratifs, PDF, migrations)
 ```
 
 ## Déploiement
@@ -108,6 +108,12 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
 
 ## Historique des versions
+
+- **3.2** :
+  - appellations au choix : **Séquence** ou **Situation**, **Professeur Principal** ou **Titulaire** (interface, messages et PDF) ;
+  - **leçons digitalisées** dans la progression annuelle (saisie, taux de digitalisation, suivi par l'administration, fiche PDF) ;
+  - **attestation de présence effective au poste** au modèle administratif officiel (APEP), enrichie du taux d'assiduité ; actes administratifs en Liberation Serif et Anton (polices embarquées, licence OFL) ;
+  - **messages aux parents** (remise des bulletins, réunion des parents, information) personnalisés avec le nom de l'enfant : SMS par passerelle (Africa's Talking, Twilio, Orange — configurée dans la console AI721), WhatsApp ou SMS depuis le téléphone, export CSV, historique et relance.
 
 - **3.1** : appellations des fonctions paramétrables (onglet *Établissement ▸ Fonctions*) — chef d'établissement (Proviseur, Directeur, Principal), adjoint (Censeur, Préfet, Préfet Adjoint), vie scolaire (Surveillant Général, Surveillant Général Adjoint), animation pédagogique (Animateur Pédagogique, Coordonnateur) — reprises avec le nom des titulaires sur les signatures de tous les documents.
 

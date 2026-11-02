@@ -1,6 +1,6 @@
 // Composants et pages communs aux trois profils.
 import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, parseNote, appreciation, noteClass, seqOptions, DAYS, colorFor,
-  empty, formModal, confirmDialog, debounce, initials, ROLE_LABEL, withBusy } from './ui.js';
+  empty, formModal, confirmDialog, debounce, initials, ROLE_LABEL, withBusy, terms } from './ui.js';
 import { get, put, post, del, openPdf } from './api.js';
 import { state, passwordForm, setLeaveGuard, setParams, schoolLogo, rerender } from './app.js';
 
@@ -296,7 +296,7 @@ export async function disciplineEditor(container, { class_id, period, classes, o
     $('[data-unvalidate]', container)?.addEventListener('click', async () => { try { await post('/discipline/validate', { class_id, seq, cancel: true }); data.validated_at = null; renderHead(); } catch (ex) { toast(ex.message, 'err'); } });
   };
   mount(container, h`<div class="card"><div class="card-h">
-      <div><h3>Classe de ${data.classe.name}</h3><div class="sub">${rows.length} élève(s) • ${recap ? data.period.label + ' (récapitulatif)' : 'Séquence ' + seq}</div></div>
+      <div><h3>Classe de ${data.classe.name}</h3><div class="sub">${rows.length} élève(s) • ${recap ? data.period.label + ' (récapitulatif)' : terms('Séquence ' + seq)}</div></div>
       <div class="actions">
         <select class="select" style="min-height:36px;width:auto" data-class aria-label="Classe">${classes.map((c) => h`<option value="${c.id}" ${c.id === +class_id ? raw('selected') : ''}>${c.name}</option>`)}</select>
         <select class="select" style="min-height:36px;width:auto" data-seq aria-label="Période">${entryPeriodOptions(period)}</select>
@@ -341,7 +341,7 @@ export async function incidentModal({ students, seq, student_id }) {
     fields: [
       { name: 'student_id', label: 'Élève', type: 'select', required: true, full: true, options: students.map((s) => [s.id, `${s.nom} ${s.prenom} (${s.matricule})`]) },
       { name: 'date', label: 'Date des faits', type: 'date', required: true, value: new Date().toISOString().slice(0, 10) },
-      { name: 'seq', label: 'Séquence', type: 'select', required: true, placeholder: false, options: [1, 2, 3, 4, 5, 6].map((s) => [s, `Séquence ${s}`]) },
+      { name: 'seq', label: 'Séquence', type: 'select', required: true, placeholder: false, options: [1, 2, 3, 4, 5, 6].map((s) => [s, terms(`Séquence ${s}`)]) },
       { name: 'type', label: 'Nature du fait', type: 'select', required: true, options: state.incidentTypes.map((t) => [t, t]) },
       { name: 'gravite', label: 'Gravité', type: 'select', placeholder: false, options: [['mineure', 'Mineure'], ['moyenne', 'Moyenne'], ['grave', 'Grave'], ['très grave', 'Très grave']] },
       { name: 'sanction', label: 'Sanction prononcée', placeholder: 'ex. Consigne 2 h, convocation du parent…', full: true },
