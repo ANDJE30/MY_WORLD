@@ -360,6 +360,7 @@ export function seedPlatformDemo() {
 if (process.argv[1]?.endsWith('seed.js')) {
   const t = getTenantByCode('lpey');
   if (t) inTenant(t, () => seedDemo()); else seedPlatformDemo();
-  console.log('Démonstration prête. Console : AI721 / Ai721@2026 — Établissement /e/lpey :');
+  // terminal de l'exploitant uniquement (jamais affiché aux visiteurs) ; la console AI721 n'a pas de mot de passe de démonstration
+  console.log('Démonstration prête. Console : AI721 (mot de passe : SUPERADMIN_PASSWORD ou celui affiché au premier démarrage) — Établissement /e/lpey :');
   DEMO_ACCOUNTS.forEach((a) => console.log(`  ${a.label.padEnd(28)} ${a.username} / ${a.password}`));
 }

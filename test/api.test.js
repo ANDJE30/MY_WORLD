@@ -8,6 +8,7 @@ const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'edugest-test-'));
 process.env.DATA_DIR = DATA;
 process.env.DEMO = '1';
 process.env.AUTO_BACKUP = '0';
+process.env.SUPERADMIN_PASSWORD = 'Ai721@2026'; // la démonstration n'a plus de mot de passe AI721 fixe : celui-ci est imposé pour les tests
 const { app } = await import('../server/index.js');
 
 let server, base;
@@ -816,6 +817,73 @@ test('fin d\'année : clôture avec statistiques annuelles et sauvegarde archiv�
   assert.ok(fs.existsSync(path.join(DATA, 'tenants', 'lpey', 'archives', `rapport-annuel-${annee}.pdf`)));
   assert.equal((await a.post('/admin/new-year', { annee_scolaire: `${y + 1}-${y + 2}`, password: 'Admin@2026' })).status, 200);
   assert.equal((await a.get('/admin/settings')).data.annee_scolaire, `${y + 1}-${y + 2}`);
+});
+
+test('sécurité : aucun identifiant de démonstration exposé, mot de passe AI721 public remplacé', async () => {
+  for (const u of ['/console/api/auth/public', '/e/lpey/api/auth/public']) {
+    const txt = await (await fetch(base + u)).text();
+    assert.ok(!/demo|@2026|mbargajp|sg\.nguemap/i.test(txt), `${u} : ${txt.slice(0, 80)}`);
+  }
+  const { secureSuperadmin, pdb } = await import('../server/platform.js');
+  const { hashPassword } = await import('../server/security.js');
+  assert.equal(secureSuperadmin(), null, 'mot de passe désigné explicitement par SUPERADMIN_PASSWORD : conservé');
+  delete process.env.SUPERADMIN_PASSWORD;
+  try {
+    const pw = secureSuperadmin();
+    assert.ok(pw && pw !== 'Ai721@2026');
+    assert.equal((await client('/console/api').login('AI721', 'Ai721@2026')).status, 401);
+    const c = client('/console/api'); assert.equal((await c.login('AI721', pw)).status, 200);
+    assert.equal((await c.get('/dashboard')).status, 428, 'nouveau mot de passe à changer à la première connexion');
+  } finally {
+    process.env.SUPERADMIN_PASSWORD = 'Ai721@2026';
+    pdb.prepare("UPDATE users SET pass_hash = ?, must_change = 0 WHERE username = 'AI721'").run(hashPassword('Ai721@2026'));
+  }
+});
+
+test('cloisonnement : chaque compte n\'ouvre que son interface ; la console est fermée aux établissements', async () => {
+  const loginRaw = async (u, p, portal) => {
+    const r = await fetch(base + '/e/lpey/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'EduGest' }, body: JSON.stringify({ username: u, password: p, portal }) });
+    const cookies = r.headers.getSetCookie();
+    return { cookies, jar: cookies.map((c) => c.split(';')[0]).join('; ') };
+  };
+  const page = (p, jar, extra = {}) => fetch(base + p, { redirect: 'manual', headers: { ...(jar ? { cookie: jar } : {}), ...extra } });
+  const t = await loginRaw('mbargajp', 'Prof@2026', 'teacher');
+  const mark = t.cookies.find((c) => c.startsWith('sx_esp_lpey='));
+  assert.ok(mark && /HttpOnly/i.test(mark) && /Path=\//.test(mark) && /SameSite=Strict/i.test(mark), 'témoin d\'espace HttpOnly');
+  // pages : l'enseignant est renvoyé vers son espace
+  let r = await page('/e/lpey/admin', t.jar);
+  assert.equal(r.status, 302); assert.equal(r.headers.get('location'), '/e/lpey/enseignant?refus=admin');
+  assert.equal((await page('/e/lpey/discipline', t.jar)).status, 302);
+  assert.equal((await page('/e/lpey/enseignant', t.jar)).status, 200);
+  r = await page('/console', t.jar);
+  assert.equal(r.status, 302); assert.equal(r.headers.get('location'), '/e/lpey/enseignant?refus=console');
+  // console : API fermée (sauf informations publiques de l'accueil), même avec les identifiants AI721
+  const k = await fetch(base + '/console/api/auth/login', { method: 'POST', headers: { cookie: t.jar, 'Content-Type': 'application/json', 'X-Requested-With': 'EduGest' }, body: JSON.stringify({ username: 'AI721', password: 'Ai721@2026' }) });
+  assert.equal(k.status, 403); assert.equal((await k.json()).redirect, '/e/lpey/enseignant');
+  assert.equal((await page('/console/api/auth/public', t.jar)).status, 200);
+  // API : l'interface appelante (X-Portal) doit être celle du rôle
+  r = await page('/e/lpey/api/classes/mine', t.jar, { 'X-Portal': 'admin' });
+  assert.equal(r.status, 403); assert.match((await r.json()).error, /réservée à l'administrateur/);
+  assert.equal((await page('/e/lpey/api/classes/mine', t.jar, { 'X-Portal': 'teacher' })).status, 200);
+  assert.equal((await page('/e/lpey/api/auth/me', t.jar, { 'X-Portal': 'admin' })).status, 200);
+  assert.equal((await page('/e/lpey/api/admin/dashboard', t.jar, { 'X-Portal': 'teacher' })).status, 403);
+  // responsable disciplinaire : administration refusée
+  const d = await loginRaw('sg.nguemap', 'Disc@2026', 'discipline');
+  r = await page('/e/lpey/admin', d.jar);
+  assert.equal(r.headers.get('location'), '/e/lpey/discipline?refus=admin');
+  assert.equal((await page('/console', d.jar)).status, 302);
+  // administrateur : console refusée, son interface ouverte
+  const a = await loginRaw('admin', 'Admin@2026', 'admin');
+  assert.equal((await page('/console', a.jar)).headers.get('location'), '/e/lpey/admin?refus=console');
+  assert.equal((await page('/e/lpey/admin', a.jar)).status, 200);
+  // témoin falsifié ou expiré : sans effet
+  const [role, exp, sig] = decodeURIComponent(mark.split(';')[0].split('=')[1]).split('.');
+  assert.equal((await page('/console', null, { cookie: `sx_esp_lpey=${encodeURIComponent(`admin.${exp}.${sig}`)}` })).status, 200);
+  assert.equal((await page('/console', null, { cookie: `sx_esp_lpey=${encodeURIComponent(`${role}.${Date.now() - 1000}.${sig}`)}` })).status, 200);
+  // déconnexion : témoin effacé, la console redevient accessible (page de connexion)
+  const out = await fetch(base + '/e/lpey/api/auth/logout', { method: 'POST', headers: { cookie: t.jar, 'X-Requested-With': 'EduGest' } });
+  assert.ok(out.headers.getSetCookie().some((c) => c.startsWith('sx_esp_lpey=;') && /Expires=Thu, 01 Jan 1970/.test(c)));
+  assert.equal((await page('/console')).status, 200);
 });
 
 test('limitation de débit : seules les tentatives échouées sont comptées', async () => {

@@ -67,10 +67,6 @@ svg.i.lg { width: 26px; height: 26px; }
 .login-card .school { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
 .login-card h2 { font-size: 26px; margin-bottom: 6px; }
 .login-card .muted { margin-bottom: 24px; }
-.demo-box { margin-top: 22px; border: 1px dashed var(--gold-500); background: var(--gold-100); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; }
-.demo-box button { all: unset; cursor: pointer; display: flex; justify-content: space-between; width: 100%; padding: 5px 0; border-bottom: 1px solid rgba(0, 0, 0, .06); }
-.demo-box button:last-child { border-bottom: 0; }
-.demo-box code { font-family: var(--mono); font-size: 12.5px; }
 @media (max-width: 900px) { .login { grid-template-columns: 1fr; } .login-hero { padding: 28px 22px; min-height: auto; } .hero-feats, .login-hero .hero-foot { display: none; } .login-hero h1 { font-size: 24px; } }
 
 /* ---------------- Logo établissement ---------------- */
@@ -495,7 +491,6 @@ body[data-portal="discipline"] .login-hero::after { background-image: repeating-
 .lp-role.r0 { background: linear-gradient(135deg, #4f46e5, #1e1b4b); } .lp-role.r1 { background: linear-gradient(135deg, #127a62, #073f33); }
 .lp-role.r2 { background: linear-gradient(135deg, #2563eb, #0b1f4d); } .lp-role.r3 { background: linear-gradient(135deg, #d97706, #4a1d08); }
 .lp-foot { background: #1e1b4b; color: #c7d2fe; padding: 28px clamp(16px, 4vw, 48px); font-size: 14px; }
-.lp-demo a.portal-card { margin-bottom: 8px; }
 
 /* Grille de notes par trimestre */
 .tri-cols th.seqh { text-align: center; }

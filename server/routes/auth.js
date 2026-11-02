@@ -3,6 +3,7 @@ import { db, audit, getSettings } from '../db.js';
 import { inPlatform, subscriptionStatus, getPlatformSettings, pdb, COMPANY } from '../platform.js';
 import { verifyPassword, dummyVerify, createSession, destroySession, destroyUserSessions, hashPassword, passwordIssues, rateLimit } from '../security.js';
 import { str, bad, HttpError } from '../util.js';
+import { setEspace, clearEspace } from '../espace.js';
 
 const r = Router();
 const MAX_FAILS = 5, LOCK_SECONDS = 15 * 60;
@@ -15,15 +16,12 @@ export function cookieOpts(req) {
 // Interfaces de connexion : chacune n'accepte que son rôle
 const PORTALS = { superadmin: 'la console AI721', admin: "l'interface Administration", teacher: "l'interface Enseignants", discipline: "l'interface Vie scolaire (discipline)" };
 const PORTAL_PATH = { admin: 'admin', teacher: 'enseignant', discipline: 'discipline' };
-const DEMO_ACCOUNTS = { superadmin: { u: 'AI721', p: 'Ai721@2026' }, admin: { u: 'admin', p: 'Admin@2026' }, teacher: { u: 'mbargajp', p: 'Prof@2026' }, discipline: { u: 'sg.nguemap', p: 'Disc@2026' } };
 
-// Informations publiques pour l'écran de connexion (aucune donnée sensible)
+// Informations publiques pour l'écran de connexion : aucune donnée sensible, aucun identifiant (même en démonstration)
 r.get('/public', (req, res) => {
-  const demo = process.env.DEMO === '1';
   if (!req.tenant) {
     const ps = getPlatformSettings();
-    return res.json({ platform: true, societe: ps.societe, slogan: ps.slogan, tel: ps.tel, email: ps.email, adresse: ps.adresse,
-      demo: demo ? { superadmin: DEMO_ACCOUNTS.superadmin } : null });
+    return res.json({ platform: true, societe: ps.societe, slogan: ps.slogan, tel: ps.tel, email: ps.email, adresse: ps.adresse });
   }
   const s = getSettings();
   const st = inPlatform(() => subscriptionStatus(req.tenant));
@@ -32,8 +30,7 @@ r.get('/public', (req, res) => {
     fonctions: { chef_titre: s.chef_titre, censeur_titre: s.censeur_titre, sg_titre: s.sg_titre, ap_titre: s.ap_titre },
     termes: { terme_sequence: s.terme_sequence, terme_pp: s.terme_pp },
     subscription: { valid: st.valid, code: st.code, label: st.label, message: st.message, valid_to: st.current?.valid_to || null },
-    societe: ps.societe, societe_tel: ps.tel, societe_email: ps.email,
-    demo: demo && req.tenant.code === 'lpey' ? { admin: DEMO_ACCOUNTS.admin, teacher: DEMO_ACCOUNTS.teacher, discipline: DEMO_ACCOUNTS.discipline } : null });
+    societe: ps.societe, societe_tel: ps.tel, societe_email: ps.email });
 });
 
 // Double limitation : par IP (établissement derrière une même IP publique) et par identifiant ciblé
@@ -67,6 +64,8 @@ r.post('/login',
     db.prepare('UPDATE users SET failed_attempts = 0, locked_until = 0, last_login = ? WHERE id = ?').run(now, u.id);
     const token = createSession(u.id, req.ip, req.get('user-agent'));
     res.cookie(COOKIE, token, cookieOpts(req));
+    // navigateur connecté à un établissement : la console AI721 lui est fermée (voir espace.js)
+    if (req.tenant) setEspace(req, res, req.tenant.code, u.role);
     audit({ ...req, user: u }, 'LOGIN', u.role);
     res.json({ user: { id: u.id, role: u.role, username: u.username, full_name: u.full_name, must_change: !!u.must_change } });
   });
@@ -74,6 +73,7 @@ r.post('/login',
 r.post('/logout', (req, res) => {
   if (req.sessionToken) destroySession(req.sessionToken);
   res.clearCookie(COOKIE, { path: req.cookiePath || '/' });
+  if (req.tenant) clearEspace(req, res, req.tenant.code);
   res.json({ ok: true });
 });
 

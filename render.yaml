@@ -23,3 +23,7 @@ services:
         value: "1"
       - key: TRUST_PROXY
         value: "1"
+      # Mot de passe de la console AI721 : saisi dans Render (jamais dans le dépôt). Sans lui, un mot de passe aléatoire est créé
+      # à chaque démarrage et n'apparaît que dans les journaux du service (Render ▸ Logs).
+      - key: SUPERADMIN_PASSWORD
+        sync: false

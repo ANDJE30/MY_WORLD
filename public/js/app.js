@@ -1,6 +1,6 @@
 // Point d'entrée : détection de l'interface (site, console AI721, établissement), connexion, coque responsive, routeur.
 import { h, raw, mount, $, $$, icon, toast, modal, initials, ROLE_LABEL, debounce, setTerms, terms } from './ui.js';
-import { get, post, setHandlers, setBase } from './api.js';
+import { get, post, setHandlers, setBase, setPortal } from './api.js';
 
 export const state = { user: null, school: null, periods: [], current: 1, incidentTypes: [], ctx: null };
 const root = document.getElementById('root');
@@ -25,6 +25,7 @@ function detect() {
 }
 const ctx = state.ctx = detect();
 setBase(ctx.base);
+setPortal(ctx.portal);
 document.body.dataset.portal = ctx.portal || 'landing';
 // manifeste PWA propre à l'interface : l'application installée s'ouvre directement sur la bonne page
 $('link[rel=manifest]')?.setAttribute('href', `/manifest.webmanifest?p=${encodeURIComponent(ctx.home)}`);
@@ -60,6 +61,13 @@ setHandlers({
   onSubscription: (msg) => { state.user = null; if (state.school?.subscription) state.school.subscription = { valid: false, message: msg }; renderLogin(); }
 });
 
+// Redirection du serveur vers l'espace du compte connecté (?refus=…) : explication, puis adresse nettoyée
+const REFUS = { console: "La console AI721 est réservée au super administrateur d'AI721 TECH STUFF : ce navigateur est connecté à votre établissement.",
+  admin: "L'interface Administration est réservée à l'administrateur de l'établissement.", enseignant: "L'espace Enseignants est réservé aux enseignants.",
+  discipline: "L'espace Vie scolaire est réservé aux responsables disciplinaires." };
+const refus = new URLSearchParams(location.search).get('refus');
+if (refus) { history.replaceState(null, '', location.pathname + location.hash); if (REFUS[refus]) setTimeout(() => toast(`Accès refusé. ${REFUS[refus]} Vous êtes dans votre espace.`, 'warn', 9000), 300); }
+
 async function boot() {
   if (ctx.kind === 'landing') return (await import('./landing.js')).renderLanding(root);
   state.school = await get('/auth/public').catch((e) => ({ error: e.message, status: e.status }));
@@ -71,6 +79,7 @@ async function boot() {
   if (state.school.subscription && !state.school.subscription.valid) return renderLogin();
   try { const { user } = await get('/auth/me'); state.user = user || null; } catch { state.user = null; }
   if (!state.user) return renderLogin();
+  if (ctx.kind === 'tenant' && state.user.role !== ctx.portal) return renderRefused(state.user.role);
   if (state.user.must_change) return forcePasswordChange();
   await startApp();
 }
@@ -86,8 +95,10 @@ function renderUnknown(msg) {
 }
 
 /* ---------- Choix de l'espace d'un établissement ---------- */
-function renderChooser() {
+async function renderChooser() {
   const s = state.school, sub = s.subscription || {};
+  // déjà connecté dans cet établissement : directement vers son espace (les autres interfaces ne sont pas proposées)
+  try { const { user } = await get('/auth/me'); if (user && ROLE_SLUG[user.role]) return location.replace(`/e/${s.code}/${ROLE_SLUG[user.role]}`); } catch { /* page de choix */ }
   document.title = `${s.nom_court || s.nom} — AI721 SchoolX CM`;
   const card = (slug, role) => { const P = PORTALS[role]; return h`<a class="portal-card" data-p="${role}" href="/e/${s.code}/${slug}">
     <div class="pc-ico">${icon(P.icon, 'lg')}</div><div><b>${P.name}</b><div class="small muted">${P.role}</div></div>${icon('arrowRight')}</a>`; };
@@ -105,7 +116,6 @@ function renderChooser() {
 function renderLogin(notice) {
   const s = state.school || {}, P = PORTALS[ctx.portal], isConsole = ctx.kind === 'console';
   const sub = s.subscription;
-  const demo = s.demo?.[ctx.portal];
   mount(root, h`<div class="login">
     <section class="login-hero">
       <div class="brand">${isConsole ? companyLogo() : h`<div class="logo">${icon('school')}</div>`}<div><div>${isConsole ? s.societe || 'AI721 TECH STUFF' : 'AI721 SchoolX CM'}</div>
@@ -133,16 +143,14 @@ function renderLogin(notice) {
           <div class="alert danger hidden" id="loginErr" role="alert"></div>
           <button class="btn btn-primary btn-block" style="min-height:46px" type="submit">${icon('arrowRight')} Se connecter</button>
         </form>
-        <p class="small muted mt">${isConsole ? 'Mot de passe oublié : réinitialisation sur le serveur (variable SUPERADMIN_PASSWORD).'
+        <p class="small muted mt">${isConsole ? "Mot de passe oublié : contactez l'équipe technique d'AI721 TECH STUFF."
     : ctx.portal === 'admin' ? `Identifiants oubliés ? Contactez ${s.societe || 'AI721 TECH STUFF'}${s.societe_tel ? ' (' + s.societe_tel + ')' : ''}.`
       : "Identifiants oubliés ? L'administrateur de votre établissement les retrouve dans son coffre des accès."}</p>
         ${!isConsole ? h`<p class="small" style="text-align:center"><a href="/e/${s.code}">${icon('swap', 'sm')} Changer d'espace</a></p>` : ''}
-        ${demo ? h`<div class="demo-box"><b>Mode démonstration</b> — cliquez pour remplir :<button type="button" data-u="${demo.u}" data-p="${demo.p}"><span>${P.role}</span><code>${demo.u} / ${demo.p}</code></button></div>` : ''}
       </div>
     </section></div>`);
   const form = $('#loginForm'), err = $('#loginErr');
   $('.pw-toggle').onclick = () => { const p = $('#p'); p.type = p.type === 'password' ? 'text' : 'password'; };
-  $$('.demo-box button').forEach((b) => (b.onclick = () => { $('#u').value = b.dataset.u; $('#p').value = b.dataset.p; }));
   form.onsubmit = async (e) => {
     e.preventDefault();
     const btn = $('button[type=submit]', form);
@@ -211,17 +219,21 @@ export async function logout() {
   history.replaceState(null, '', location.pathname); renderLogin();
 }
 
+/* ---------- Interface d'un autre rôle : accès refusé, retour à son espace ----------
+   Le serveur redirige déjà la page ; ce garde-fou couvre une session ouverte pendant la navigation. */
+function renderRefused(role) {
+  const own = `/e/${ctx.code}/${ROLE_SLUG[role]}`;
+  mount(root, h`<div class="splash"><div class="card" style="max-width:500px;margin:16px"><div class="empty">${icon('lock')}
+    <h4>Accès refusé</h4><div class="small">L'interface « ${PORTALS[ctx.portal].name} » est réservée ${({ admin: "à l'administrateur de l'établissement", teacher: 'aux enseignants', discipline: 'aux responsables disciplinaires' })[ctx.portal]}.
+    Vous êtes connecté en tant que ${ROLE_LABEL[role].toLowerCase()} : vous allez être redirigé vers votre espace.</div>
+    <div class="mt row" style="justify-content:center"><a class="btn btn-primary" href="${own}">${icon('arrowRight')} Aller à mon espace</a></div></div></div></div>`);
+  setTimeout(() => location.replace(own), 4000);
+}
+
 /* ---------- Application ---------- */
 async function startApp() {
   const role = state.user.role;
-  // une session ouverte dans un autre espace du même établissement : on oriente vers le bon
-  if (ctx.kind === 'tenant' && role !== ctx.portal) {
-    mount(root, h`<div class="splash"><div class="card" style="max-width:480px;margin:16px"><div class="empty">${icon('info')}
-      <h4>Vous êtes connecté en tant que ${ROLE_LABEL[role].toLowerCase()}</h4><div class="small">Cette page est l'interface « ${PORTALS[ctx.portal].name} ».</div>
-      <div class="mt row" style="justify-content:center"><a class="btn btn-primary" href="/e/${ctx.code}/${ROLE_SLUG[role]}">${icon('arrowRight')} Aller à mon espace</a>
-      <button class="btn btn-outline" data-out>${icon('logout')} Me déconnecter</button></div></div></div></div>`);
-    $('[data-out]').onclick = logout; return;
-  }
+  if (ctx.kind === 'tenant' && role !== ctx.portal) return renderRefused(role);
   let mod;
   if (ctx.kind === 'console') mod = await import('./console.js');
   else {
