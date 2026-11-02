@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy, periodPlan, HR_FIELDS } from '../db.js';
+import { db, tx, audit, getSettings, saveSettings, DEFAULT_SETTINGS, ensureTaxonomy, legacyTaxonomy, periodPlan, HR_FIELDS, FONCTIONS } from '../db.js';
 import { seal, unseal } from '../vault.js';
 import { inPlatform, pdb, TENANTS_DIR } from '../platform.js';
 import { renderPdfBuffer, statsReport } from '../pdf.js';
@@ -59,13 +59,32 @@ r.get('/dashboard', (_req, res) => {
 });
 
 /* ============ Paramètres de l'établissement ============ */
-r.get('/settings', (_req, res) => res.json(getSettings()));
+r.get('/settings', (_req, res) => res.json({ ...getSettings(), _fonctions: FONCTIONS }));
+/** Après un changement d'appellation synonyme, les fonctions des personnels qui la reprennent sont mises à jour (ex. « Animateur Pédagogique de SVT » → « Coordonnateur de SVT »). */
+function renameFonction(oldT, newT) {
+  if (!oldT || !newT || oldT === newT) return 0;
+  const esc = oldT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`^${esc}(?=$|\\s+de\\s|\\s+d['’]|\\s+des\\s|\\s+du\\s)`, 'i');
+  let n = 0;
+  const upd = { fonction: db.prepare('UPDATE users SET fonction = ? WHERE id = ?'), specialite: db.prepare('UPDATE users SET specialite = ? WHERE id = ?') };
+  for (const u of db.prepare("SELECT id, fonction, specialite, role FROM users WHERE role IN ('teacher','discipline')").all()) {
+    if (u.fonction && re.test(u.fonction)) { upd.fonction.run(u.fonction.replace(re, newT), u.id); n++; }
+    if (u.role === 'discipline' && u.specialite && re.test(u.specialite)) { upd.specialite.run(u.specialite.replace(re, newT), u.id); n++; }
+  }
+  return n;
+}
 r.put('/settings', (req, res) => {
   const b = req.body || {}; const out = {};
+  const before = getSettings();
   for (const k of Object.keys(DEFAULT_SETTINGS)) {
     if (!(k in b) || k === 'annee_cloturee' || k === 'feries_annee') continue;
     const def = DEFAULT_SETTINGS[k];
-    if (k === 'logo') {
+    if (FONCTIONS[k]) {
+      // appellation choisie dans la liste officielle (une valeur antérieure hors liste reste acceptée telle quelle)
+      const v = str(b[k], { max: 60, label: FONCTIONS[k].label });
+      if (!FONCTIONS[k].options.includes(v) && v !== before[k]) throw bad(`${FONCTIONS[k].label} : appellation non prévue (${FONCTIONS[k].options.join(', ')})`);
+      out[k] = v;
+    } else if (k === 'logo') {
       if (b.logo && !/^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/.test(b.logo)) throw bad('Logo : PNG ou JPEG uniquement');
       if (b.logo && b.logo.length > 700_000) throw bad('Logo trop volumineux (500 Ko maximum)');
       out.logo = b.logo || '';
@@ -83,9 +102,15 @@ r.put('/settings', (req, res) => {
     else out[k] = str(b[k], { max: 300, label: k }) || '';
   }
   if (out.nom === '') throw bad("Le nom de l'établissement est obligatoire");
-  saveSettings(out);
+  let renamed = 0;
+  tx(() => {
+    saveSettings(out);
+    // seules les appellations synonymes sont reportées sur les fonctions des enseignants (un préfet et un préfet adjoint peuvent coexister)
+    if ('ap_titre' in out) renamed += renameFonction(before.ap_titre, out.ap_titre);
+  });
   audit(req, 'PARAMETRES_MODIFIES', Object.keys(out).join(', '));
-  res.json(getSettings());
+  for (const k of Object.keys(FONCTIONS)) if (k in out && out[k] !== before[k]) audit(req, 'APPELLATION_FONCTION', `${FONCTIONS[k].label} : ${before[k]} → ${out[k]}${renamed ? ` (${renamed} fonction(s) du personnel mises à jour)` : ''}`);
+  res.json({ ...getSettings(), _fonctions: FONCTIONS, _renamed: renamed });
 });
 
 /* ============ Calendrier & clôtures ============ */

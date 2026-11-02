@@ -1,5 +1,5 @@
 // Espace administrateur.
-import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, seqOptions, periodOptions,
+import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, seqOptions, periodOptions, fonctionsOf, sansArticle,
   barsH, barsV, parseCSV, downloadCSV, readFileText, copyText, withBusy, ROLE_LABEL, DAYS, initials, noteClass, debounce, fieldHtml, readForm, colorFor } from './ui.js';
 import { get, post, put, del, openPdf, postPdf, apiUrl } from './api.js';
 import { state, go, refreshPeriods, setParams, rerender } from './app.js';
@@ -98,9 +98,19 @@ async function etablissement(view, params) {
       { name: 'delegation_regionale', label: 'Délégation régionale (suffixe)', placeholder: 'ex. du Centre' },
       { name: 'delegation_departementale', label: 'Délégation départementale (suffixe)', placeholder: 'ex. du Mfoundi' },
       { name: 'ministere', label: 'Ministère (français)', full: true }, { name: 'ministere_en', label: 'Ministère (anglais)', full: true },
-      { name: 'chef_titre', label: 'Titre du chef d’établissement', type: 'select', placeholder: false, options: [['Le Proviseur', 'Le Proviseur'], ['Le Directeur', 'Le Directeur'], ['Le Principal', 'Le Principal'], ['The Principal', 'The Principal']] },
-      { name: 'chef_nom', label: "Nom du chef d'établissement" }, { name: 'censeur_nom', label: 'Censeur' }, { name: 'surveillant_general', label: 'Surveillant général' },
       { name: 'ref_documents', label: 'Référence des documents administratifs du personnel', full: true, placeholder: 'ex. MINESEC/DRES-CE/DDES-MFI/LPEY/P', hint: 'Insérée dans le numéro des attestations et courriers (N° 001/2026-2027/…/DE). Par défaut : sigle/P.' }],
+    fonctions: (() => {
+      const opt = (k, fmt = (x) => x) => { const o = s._fonctions[k].options.map((x) => [x, fmt(x)]); if (s[k] && !s._fonctions[k].options.includes(s[k])) o.push([s[k], `${fmt(s[k])} (ancienne valeur)`]); return o; };
+      return [
+        { name: 'chef_titre', label: "Chef d'établissement — appellation", type: 'select', placeholder: false, options: opt('chef_titre', sansArticle), hint: 'Proviseur (lycée), Directeur ou Principal (collège, CES, CETIC)' },
+        { name: 'chef_nom', label: "Nom du chef d'établissement", placeholder: 'ex. Dr. ATANGANA Marie-Claire' },
+        { name: 'censeur_titre', label: "Adjoint du chef d'établissement — appellation", type: 'select', placeholder: false, options: opt('censeur_titre') },
+        { name: 'censeur_nom', label: 'Nom (censeur / préfet)' },
+        { name: 'sg_titre', label: 'Vie scolaire — appellation', type: 'select', placeholder: false, options: opt('sg_titre') },
+        { name: 'surveillant_general', label: 'Nom (surveillant général)' },
+        { name: 'ap_titre', label: 'Animation pédagogique — appellation', type: 'select', placeholder: false, options: opt('ap_titre'), full: true,
+          hint: "Responsable pédagogique d'une discipline (ex. « Animateur Pédagogique de Mathématiques » ou « Coordonnateur de Mathématiques »)." }];
+    })(),
     pedagogie: [
       { name: 'annee_scolaire', label: 'Année scolaire', required: true, placeholder: '2026-2027' },
       { name: 'seuil_reussite', label: 'Moyenne de réussite (/20)', type: 'number', min: 0, max: 20, step: 0.5 },
@@ -108,7 +118,7 @@ async function etablissement(view, params) {
   };
   const days = [1, 2, 3, 4, 5, 6];
   mount(view, h`<div class="page-head"><div><h2>Paramètres de l'établissement</h2><p>Ces informations apparaissent sur tous les documents officiels (bulletins, relevés, fiches).</p></div></div>
-    <div class="tabs">${T('identite', 'Identité')}${T('officiel', 'En-tête officiel')}${T('logo', 'Logo')}${T('pedagogie', 'Pédagogie')}${T('horaires', 'Horaires & jours')}</div>
+    <div class="tabs">${T('identite', 'Identité')}${T('officiel', 'En-tête officiel')}${T('fonctions', 'Fonctions')}${T('logo', 'Logo')}${T('pedagogie', 'Pédagogie')}${T('horaires', 'Horaires & jours')}</div>
     <div class="card"><div class="card-b">${tab === 'logo' ? h`
       <div class="row" style="gap:24px;align-items:flex-start">
         <div class="logo" style="width:140px;height:140px;border-radius:20px;font-size:40px" data-preview>${s.logo ? h`<img src="${s.logo}" alt="Logo">` : initials(s.nom_court || s.nom)}</div>
@@ -124,14 +134,35 @@ async function etablissement(view, params) {
         ${s.time_slots.map((t, i) => slotRow(t, i))}</tbody></table></div>
       <div class="row mt"><button class="btn btn-outline btn-sm" data-add-slot>${icon('plus', 'sm')} Ajouter un créneau</button><div style="flex:1"></div><button class="btn btn-primary" data-save-h>${icon('save')} Enregistrer</button></div>
       <div class="alert info mt">${icon('info')}<div>La modification des créneaux n'efface pas les emplois du temps existants. Vérifiez-les après un changement important.</div></div>`
-      : h`<form class="form-grid" data-form>${F[tab].map((f) => fieldHtml(f, s[f.name]))}</form>
+      : h`${tab === 'fonctions' ? h`<div class="alert info mb">${icon('info')}<div class="small">Choisissez les appellations en usage dans votre établissement. Elles figurent sur les zones de signature
+        des bulletins, procès-verbaux, relevés, fiches disciplinaires et de progression, ainsi que sur les documents administratifs du personnel. En changeant l'appellation
+        de l'animation pédagogique, les fonctions des enseignants concernés suivent automatiquement (ex. « Animateur Pédagogique de Mathématiques » → « Coordonnateur de Mathématiques »).</div></div>` : ''}
+      <form class="form-grid" data-form>${F[tab].map((f) => fieldHtml(f, s[f.name]))}</form>
+      ${tab === 'fonctions' ? h`<div class="card mt" style="box-shadow:none"><div class="card-h"><h3>Aperçu des signatures</h3></div><div class="card-b"><div class="grid g-4" data-sig-preview></div></div></div>` : ''}
       <div class="row mt" style="justify-content:flex-end"><button class="btn btn-primary" data-save>${icon('save')} Enregistrer</button></div>`}
     </div></div>`);
   $$('[data-tab]', view).forEach((b) => (b.onclick = () => go('etablissement', { tab: b.dataset.tab })));
   const save = async (btn, payload) => withBusy(btn, async () => {
-    try { const ns = await put('/admin/settings', payload); Object.assign(state.school, { nom: ns.nom, nom_court: ns.nom_court, logo: ns.logo, annee_scolaire: ns.annee_scolaire }); toast('Paramètres enregistrés'); }
-    catch (ex) { toast(ex.message, 'err'); }
+    try {
+      const ns = await put('/admin/settings', payload);
+      Object.assign(state.school, { nom: ns.nom, nom_court: ns.nom_court, logo: ns.logo, annee_scolaire: ns.annee_scolaire,
+        fonctions: { chef_titre: ns.chef_titre, censeur_titre: ns.censeur_titre, sg_titre: ns.sg_titre, ap_titre: ns.ap_titre } });
+      toast(`Paramètres enregistrés${ns._renamed ? ` — ${ns._renamed} fonction(s) du personnel mise(s) à jour` : ''}`);
+    } catch (ex) { toast(ex.message, 'err'); }
   });
+  // aperçu en direct des zones de signature avec les appellations choisies
+  const prev = $('[data-sig-preview]', view);
+  if (prev) {
+    const art = (t) => (/^(le |la |l'|the )/i.test(t) ? t : /^[aeiouyéèêâîôh]/i.test(t) ? `L'${t}` : `Le ${t}`);
+    const draw = () => {
+      const v = (n) => $(`[name="${n}"]`, view)?.value || '';
+      const items = [['Bulletin, procès-verbal', art(v('chef_titre')), v('chef_nom')], ['Relevé, procès-verbal, statistiques', art(v('censeur_titre')), v('censeur_nom')],
+        ['Fiches disciplinaires', art(v('sg_titre')), v('surveillant_general')], ['Fiche de progression', art(v('ap_titre')), '']];
+      mount(prev, h`${items.map(([doc, t, n]) => h`<div style="text-align:center;padding:10px;border:1px dashed var(--border);border-radius:10px"><div class="small muted">${doc}</div>
+        <div style="text-decoration:underline;font-weight:700;margin-top:6px">${t}</div><div style="height:28px"></div><div class="small">${n || '—'}</div></div>`)}`);
+    };
+    view.addEventListener('input', draw); view.addEventListener('change', draw); draw();
+  }
   $('[data-save]', view)?.addEventListener('click', (e) => { const d = readForm($('[data-form]', view), F[tab]); save(e.currentTarget, d); });
   if (tab === 'logo') {
     let data = null;
@@ -805,6 +836,7 @@ async function acces(view, params) {
 }
 
 async function staff(view, params, role) {
+  const FN = fonctionsOf(state.school);
   const [list, classes] = await Promise.all([get(`/admin/users?role=${role}`), role === 'discipline' ? getClasses(true) : Promise.resolve([])]);
   const T = role === 'teacher';
   const q = (params.q || '').toLowerCase();
@@ -813,7 +845,8 @@ async function staff(view, params, role) {
     { name: 'full_name', label: 'Nom complet', required: true, placeholder: 'NOM Prénom(s)', full: true, hint: "L'identifiant est généré automatiquement à partir du nom (ex. MBARGA Jean Paul → mbargajp)" },
     { name: 'sexe', label: 'Sexe', type: 'select', options: [['M', 'Masculin'], ['F', 'Féminin']] },
     { name: 'matricule', label: 'Matricule' },
-    { name: 'specialite', label: T ? 'Spécialité / discipline' : 'Fonction', placeholder: T ? 'ex. Mathématiques' : 'ex. Surveillant général' },
+    { name: 'specialite', label: T ? 'Spécialité / discipline' : 'Fonction', placeholder: T ? 'ex. Mathématiques' : `ex. ${FN.sg_titre}`,
+      suggestions: T ? [] : ['Surveillant Général', 'Surveillant Général Adjoint', 'Surveillant de secteur', "Conseiller d'orientation"] },
     { name: 'phone', label: 'Téléphone', type: 'tel' }, { name: 'email', label: 'E-mail', type: 'email', full: !T },
     ...(T ? [] : [{ name: 'class_ids', label: 'Classes à charge', type: 'multiselect', full: true, options: classes.map((c) => [c.id, c.name]) }])];
   const sel = new Set();
@@ -890,7 +923,7 @@ async function importStaff(role) {
       <div class="dropzone" data-drop>${icon('upload', 'lg')}<div><b>Cliquez ou déposez le fichier CSV</b></div></div><input type="file" accept=".csv,text/csv" class="hidden" data-file><div data-preview class="mt"></div>`,
     footer: h`<button class="btn btn-outline" data-close>Annuler</button><button class="btn btn-primary" data-go disabled>${icon('upload')} Importer et générer les comptes</button>`,
     onOpen: ({ root, close }) => {
-      $('[data-tpl]', root).onclick = () => downloadCSV(`modele_${role}.csv`, [['nom', 'prenom', 'sexe', 'matricule', 'specialite', 'phone', 'email'], ['MBARGA', 'Jean Paul', 'M', 'MAT-0001', role === 'teacher' ? 'Mathématiques' : 'Surveillant général', '+237 699 00 00 00', '']]);
+      $('[data-tpl]', root).onclick = () => downloadCSV(`modele_${role}.csv`, [['nom', 'prenom', 'sexe', 'matricule', 'specialite', 'phone', 'email'], ['MBARGA', 'Jean Paul', 'M', 'MAT-0001', role === 'teacher' ? 'Mathématiques' : fonctionsOf(state.school).sg_titre, '+237 699 00 00 00', '']]);
       const file = $('[data-file]', root), drop = $('[data-drop]', root);
       const load = async (f) => {
         rows = parseCSV(await readFileText(f)).map((r) => ({ ...r, full_name: [r.nom, r.prenom].filter(Boolean).join(' ') || r.full_name || r.nom_complet }));

@@ -1,6 +1,6 @@
 // Génération des documents PDF officiels (PDFKit) — en-tête bilingue République du Cameroun.
 import PDFDocument from 'pdfkit';
-import { getSettings } from './db.js';
+import { getSettings, titres } from './db.js';
 import { appreciation } from './calc.js';
 
 export const C = { primary: '#0B5D4B', accent: '#C8962E', dark: '#1F2937', muted: '#6B7280', zebra: '#F3F6F5', line: '#CBD5D1', red: '#B42318' };
@@ -138,16 +138,28 @@ export function ensureSpace(doc, y, needed) {
   return y;
 }
 
+/** Zones de signature : libellé (appellation paramétrée) et, s'il est connu, nom du signataire. Accepte 'Libellé' ou ['Libellé', 'Nom']. */
 export function signatures(doc, y, labels) {
-  y = ensureSpace(doc, y, 70);
+  y = ensureSpace(doc, y, 72);
   const L = doc.page.margins.left, W = doc.page.width - L - doc.page.margins.right, cw = W / labels.length;
   const s = doc._settings;
   doc.font('Helvetica').fontSize(8).fillColor(C.muted)
-    .text(`Fait à ${s.ville || '................'}, le ${new Date().toLocaleDateString('fr-FR')}`, L, y, { width: W, align: 'right' });
+    .text(`Fait à ${s.ville || '................'}, le ${new Date().toLocaleDateString('fr-FR', { timeZone: 'Africa/Douala' })}`, L, y, { width: W, align: 'right' });
   y += 14;
-  labels.forEach((l, i) => doc.font('Helvetica-Bold').fontSize(9).fillColor(C.dark).text(l, L + i * cw, y, { width: cw, align: 'center', underline: true }));
-  return y + 60;
+  labels.forEach((l, i) => {
+    const [label, name] = Array.isArray(l) ? l : [l, ''];
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(C.dark).text(label, L + i * cw, y, { width: cw, align: 'center', underline: true });
+    if (name) doc.font('Helvetica').fontSize(8.5).fillColor(C.dark).text(name, L + i * cw, y + 46, { width: cw, align: 'center' });
+  });
+  return y + 62;
 }
+/** Signataires usuels d'après les appellations choisies par l'établissement. */
+const SIG = {
+  chef: (d) => { const t = titres(d._settings); return [t.chef, t.chefNom]; },
+  adjoint: (d) => { const t = titres(d._settings); return [t.adjoint, t.adjointNom]; },
+  sg: (d) => { const t = titres(d._settings); return [t.sg, t.sgNom]; },
+  ap: (d) => [titres(d._settings).ap, '']
+};
 
 /** Pied de page sur toutes les pages : établissement, date, pagination. */
 export function finalize(doc) {
@@ -186,7 +198,7 @@ export function releveNotes(doc, { classe, subject, teacher, coef, period, rows,
   y = ensureSpace(doc, y, 40);
   y = infoGrid(doc, y, [['Moyenne de la classe', stats.avg], ['Note la plus haute', stats.max], ['Note la plus basse', stats.min],
     ['Notes ≥ 10', stats.admis], ['Taux de réussite', stats.reussite == null ? null : `${fmt(stats.reussite)} %`], ['Absents', stats.absents]], 3);
-  signatures(doc, y, ["L'Enseignant", 'Le Censeur']);
+  signatures(doc, y, ["L'Enseignant", SIG.adjoint(doc)]);
 }
 
 export function progressionDoc(doc, { teacher, items }) {
@@ -205,7 +217,7 @@ export function progressionDoc(doc, { teacher, items }) {
     ], [...it.rows, { seq: 'Total', planned: tp, done: td, comment: '', _bold: true, _highlight: true }]
       .map((r) => (r.seq === 'Total' ? { ...r, seq: '' } : r)));
   }
-  signatures(doc, y, ["L'Enseignant", "L'Animateur pédagogique", 'Le Censeur']);
+  signatures(doc, y, ["L'Enseignant", SIG.ap(doc), SIG.adjoint(doc)]);
 }
 
 export function ficheDiscipline(doc, { classe, period, rows, incidents, officer }) {
@@ -236,7 +248,7 @@ export function ficheDiscipline(doc, { classe, period, rows, incidents, officer 
       { header: 'Sanction', width: 1.5, key: 'sanction' }, { header: 'Description', width: 2.6, key: 'description' }
     ], incidents, { fontSize: 7.5, headerColor: C.accent });
   }
-  signatures(doc, y, ['Le Surveillant Général', doc._settings.chef_titre || 'Le Chef d\'établissement']);
+  signatures(doc, y, [SIG.sg(doc), SIG.chef(doc)]);
 }
 
 export function ficheEleveDiscipline(doc, { student, classe, records, incidents }) {
@@ -262,7 +274,7 @@ export function ficheEleveDiscipline(doc, { student, classe, records, incidents 
       { header: 'Sanction', width: 1.6, key: 'sanction' }, { header: 'Description', width: 3, key: 'description' }
     ], incidents, { headerColor: C.accent });
   }
-  signatures(doc, y, ['Le Surveillant Général', 'Le Parent']);
+  signatures(doc, y, [SIG.sg(doc), 'Le Parent']);
 }
 
 export function bulletin(doc, r, ctx) {
@@ -317,7 +329,7 @@ export function bulletin(doc, r, ctx) {
   doc.roundedRect(L, y, W, 26, 4).fill('#FDF6E7');
   doc.font('Helvetica-Bold').fontSize(9).fillColor(C.dark).text(`Décision du conseil de classe : ${r.decision}`, L + 8, y + 9, { width: W - 16 });
   y += 36;
-  signatures(doc, y, ['Le Professeur principal', 'Le Parent', doc._settings.chef_titre || "Le Chef d'établissement"]);
+  signatures(doc, y, ['Le Professeur principal', 'Le Parent', SIG.chef(doc)]);
 }
 
 export function pvClasse(doc, ctx) {
@@ -334,7 +346,7 @@ export function pvClasse(doc, ctx) {
   y = ensureSpace(doc, y, 40);
   y = infoGrid(doc, y, [['Effectif', stats.effectif], ['Classés', stats.classes], ['Admis (≥ seuil)', stats.admis],
     ['Moyenne de la classe', stats.moyenne], ['Écart-type', stats.ecart_type], ['Taux de réussite', stats.reussite == null ? null : `${fmt(stats.reussite)} %`]], 6);
-  signatures(doc, y, ['Le Professeur principal', 'Le Censeur', doc._settings.chef_titre || "Le Chef d'établissement"]);
+  signatures(doc, y, ['Le Professeur principal', SIG.adjoint(doc), SIG.chef(doc)]);
 }
 
 export function emploiDuTemps(doc, { title, subtitle, grid, slots, days }) {
@@ -343,7 +355,7 @@ export function emploiDuTemps(doc, { title, subtitle, grid, slots, days }) {
     { header: 'Horaire', width: 1, bold: true, value: (r) => `${r.slot.start} – ${r.slot.end}` },
     ...days.map((d) => ({ header: DAYS[d], width: 1.6, align: 'center', value: (r) => (r.slot.break ? (r.slot.label || 'Pause') : (grid[d]?.[r.idx] || '')) }))
   ], slots.map((slot, idx) => ({ slot, idx, _highlight: slot.break })), { fontSize: 7.5 });
-  signatures(doc, y, ['Le Censeur', doc._settings.chef_titre || "Le Chef d'établissement"]);
+  signatures(doc, y, [SIG.adjoint(doc), SIG.chef(doc)]);
 }
 
 export function credentialsSheet(doc, items, url) {
@@ -416,7 +428,7 @@ export function statsReport(doc, st, { annual = false } = {}) {
     { header: 'Avertissements', width: 1, align: 'center', key: 'avertissements', decimals: 0 }, { header: 'Blâmes', width: 0.8, align: 'center', key: 'blames', decimals: 0 },
     { header: 'Incidents', width: 0.8, align: 'center', key: 'incidents', decimals: 0 }
   ], st.discipline, { headerColor: C.accent });
-  signatures(doc, y, ['Le Censeur', doc._settings.chef_titre || "Le Chef d'établissement"]);
+  signatures(doc, y, [SIG.adjoint(doc), SIG.chef(doc)]);
 }
 
 /* ======================= Documents de la plateforme AI721 TECH STUFF ======================= */
@@ -457,7 +469,7 @@ export function accessSheet(doc, { tenant, sub, username, password, links }) {
   y += 108;
   doc.font('Helvetica-Bold').fontSize(11).fillColor(P.primary).text('Liens à transmettre aux personnels de l\'établissement', L, y); y = doc.y + 6;
   y = table(doc, y, [{ header: 'Interface', width: 1.6, key: 'k' }, { header: 'Adresse', width: 4, key: 'v' }, { header: 'Public', width: 2, key: 'p' }], [
-    { k: 'Administration', v: links.admin, p: 'Proviseur / Directeur, Censeur' },
+    { k: 'Administration', v: links.admin, p: "Chef d'établissement (Proviseur, Directeur, Principal), Censeur / Préfet" },
     { k: 'Enseignants', v: links.teacher, p: 'Tous les enseignants' },
     { k: 'Vie scolaire (discipline)', v: links.discipline, p: 'Surveillants généraux' }], { headerColor: P.primary });
   doc.font('Helvetica-Bold').fontSize(10.5).fillColor(P.primary).text('Mise en route', L, y); y = doc.y + 4;

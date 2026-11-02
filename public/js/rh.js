@@ -1,6 +1,6 @@
 // Dossier administratif des enseignants : assiduité, pointage, documents administratifs (administration)
 // et « Mes documents » (enseignant : lecture, accusé de réception, réponse à une demande d'explication).
-import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, withBusy, initials, debounce } from './ui.js';
+import { h, raw, mount, $, $$, icon, toast, modal, fmtNum, fmtDate, fmtTs, kpi, progressBar, empty, formModal, confirmDialog, withBusy, initials, debounce, fonctionsOf } from './ui.js';
 import { get, post, put, del, openPdf } from './api.js';
 import { state, go, rerender } from './app.js';
 
@@ -235,10 +235,14 @@ async function feries(body) {
 /* ========================= Dossier d'un enseignant ========================= */
 export async function hrForm(agent) {
   const R = await refs();
+  const FN = fonctionsOf(state.school);
   const fields = [
     { name: 'matricule', label: 'Matricule' }, { name: 'grade', label: 'Grade / corps', type: 'select', options: R.grades.map((g) => [g, g]) },
     { name: 'statut_agent', label: 'Statut', type: 'select', options: R.statuts.map((g) => [g, g]) }, { name: 'diplome', label: 'Diplôme professionnel', placeholder: 'ex. DIPES II, DIPET I, CAPIEMP…' },
-    { name: 'fonction', label: 'Fonction', full: true, placeholder: `Par défaut : Enseignant(e)${agent.specialite ? ' de ' + agent.specialite : ''}`, hint: 'ex. Animateur pédagogique de Mathématiques, Censeur, Chef de travaux…' },
+    { name: 'fonction', label: 'Fonction', full: true, placeholder: `Par défaut : Enseignant(e)${agent.specialite ? ' de ' + agent.specialite : ''}`,
+      hint: `Choisissez une proposition ou saisissez librement (ex. ${FN.ap_titre} de ${agent.specialite || 'Mathématiques'}, ${FN.censeur_titre}, Chef de travaux…).`,
+      suggestions: [`${agent.sexe === 'F' ? 'Enseignante' : 'Enseignant'}${agent.specialite ? ' de ' + agent.specialite : ''}`, `${FN.ap_titre}${agent.specialite ? ' de ' + agent.specialite : ''}`,
+        FN.censeur_titre, FN.sg_titre, 'Chef de travaux', 'Professeur principal'] },
     { name: 'date_naissance', label: 'Date de naissance', type: 'date' }, { name: 'lieu_naissance', label: 'Lieu de naissance' },
     { name: 'date_prise_service', label: 'Date de prise de service', type: 'date', hint: "Date d'arrivée dans l'établissement" },
     { name: 'acte_affectation', label: "Acte d'affectation", full: true, placeholder: 'ex. la décision n° 0123/MINESEC/CAB du 12/08/2026', maxlength: 250 }];

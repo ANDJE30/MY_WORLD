@@ -61,7 +61,7 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   // ---- Administrateur de l'établissement
   ({ ctx, page } = await ctxFor(browser, D));
   await login(page, '/e/lpey/admin', 'admin', 'Admin@2026');
-  const pages = [['dashboard', '02_admin_tableau_de_bord', true], ['etablissement', '03_admin_etablissement'], ['etablissement?tab=horaires', '04_admin_horaires'],
+  const pages = [['dashboard', '02_admin_tableau_de_bord', true], ['etablissement', '03_admin_etablissement'], ['etablissement?tab=fonctions', '03b_admin_fonctions', true], ['etablissement?tab=horaires', '04_admin_horaires'],
     ['calendrier', '05_admin_calendrier', true], ['classes', '06_admin_classes'], ['matieres', '07_admin_matieres'], ['matieres?tab=groupes', '07c_admin_groupes'], ['matieres?tab=types', '07d_admin_types'],
     ['attributions', '08_admin_attributions'], ['eleves?class=1', '09_admin_eleves'], ['enseignants', '10_admin_enseignants'], ['responsables', '11_admin_responsables'],
     ['acces', '11b_admin_coffre'], ['edt?class=1', '12_admin_edt'], ['suivi?period=S2', '13_admin_suivi'], ['suivi?period=T1', '13b_admin_suivi_trimestre'],
