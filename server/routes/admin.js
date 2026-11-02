@@ -9,6 +9,7 @@ import { hashPassword, genPassword, genUsername, verifyPassword, slug, destroyUs
 import { completeness, currentSeq, computeClassResults, TRIMESTRES, round2, parsePeriod } from '../calc.js';
 import { str, num, id, bool, date, oneOf, bad, seqParam, HttpError } from '../util.js';
 import { requireRole, portalLink } from './access.js';
+import { rappels } from './echeancier.js';
 
 const r = Router();
 r.use(requireRole('admin'));
@@ -40,6 +41,11 @@ r.get('/dashboard', (_req, res) => {
   if (deLate) alerts.push({ level: 'danger', text: `${deLate} demande(s) d'explication sans réponse dans le délai imparti`, link: '#/documents-rh' });
   const deAns = count("SELECT COUNT(*) c FROM staff_documents WHERE type = 'demande_explication' AND status = 'repondu'");
   if (deAns) alerts.push({ level: 'info', text: `${deAns} réponse(s) à une demande d'explication à examiner`, link: '#/documents-rh' });
+  // documents périodiques à déposer (chronogramme)
+  const rp = rappels();
+  const late = rp.filter((e) => e.etat === 'retard'), soon = rp.filter((e) => e.etat !== 'retard');
+  if (late.length) alerts.push({ level: 'danger', text: `${late.length} document(s) périodique(s) en retard de dépôt : ${late.slice(0, 2).map((e) => e.titre).join(' ; ')}${late.length > 2 ? '…' : ''}`, link: '#/chronogramme' });
+  if (soon.length) alerts.push({ level: 'warn', text: `${soon.length} document(s) à déposer prochainement : ${soon.slice(0, 2).map((e) => `${e.titre} (${e.jours === 0 ? "aujourd'hui" : `dans ${e.jours} j`})`).join(' ; ')}${soon.length > 2 ? '…' : ''}`, link: '#/chronogramme' });
   const locked = count('SELECT COUNT(*) c FROM users WHERE locked_until > unixepoch()');
   if (locked) alerts.push({ level: 'danger', text: `${locked} compte(s) verrouillé(s) suite à des échecs de connexion`, link: '#/enseignants' });
   res.json({
@@ -697,7 +703,7 @@ r.get('/audit', (req, res) => {
 /* ============ Sauvegarde / restauration / nouvelle année ============ */
 const TABLES = ['settings', 'users', 'classes', 'subject_groups', 'subject_types', 'subjects', 'class_subjects', 'students', 'officer_classes', 'periods', 'notes', 'note_validations',
   'progressions', 'discipline_records', 'incidents', 'discipline_validations', 'timetable', 'announcements', 'year_archives',
-  'days_off', 'staff_attendance', 'staff_documents', 'parent_campaigns', 'parent_messages'];
+  'days_off', 'staff_attendance', 'staff_documents', 'parent_campaigns', 'parent_messages', 'chronogrammes', 'echeances'];
 function buildDump() {
   const dump = { app: 'AI721 SchoolX CM', version: 3, created_at: new Date().toISOString(), tables: {} };
   for (const t of TABLES) dump.tables[t] = db.prepare(`SELECT * FROM ${t}`).all();

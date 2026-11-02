@@ -10,7 +10,7 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre é
 D = Doc("Manuel d'utilisation — AI721 SchoolX CM", "Manuel d'utilisation")
 D.cover("Manuel d'utilisation", 'AI721 SchoolX CM',
         "Guide pas à pas pour le super administrateur AI721, les administrateurs d'établissement, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.2 (anciennement EduGest CM)'), ('Date', today),
+        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.3 (anciennement EduGest CM)'), ('Date', today),
          ('Public', 'Super administrateur AI721 TECH STUFF, administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Éditeur', 'AI721 TECH STUFF'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -32,9 +32,12 @@ D.note("**Nouveau en version 3.1 :** dans **Établissement ▸ Fonctions**, l'ad
 D.note("**Nouveau en version 3.2 :** appellations **Séquence** ou **Situation** et **Professeur Principal** ou **Titulaire** (section 4.3) ; "
        "**leçons digitalisées** dans la progression (section 5.3) ; **attestation de présence effective au poste** au modèle administratif officiel, "
        "enrichie du taux d'assiduité (section 4.22) ; **messages aux parents** par SMS ou WhatsApp, avec le nom de l'enfant (section 4.23).", 'ok')
+D.note("**Nouveau en version 3.3 :** l'administrateur charge le **chronogramme des dépôts** des documents périodiques reçu de la hiérarchie (Word ou PDF) ; "
+       "la plateforme en extrait les échéances, **rappelle** les documents à produire et propose pour chacun un **modèle Word pré-rempli**, modifiable (section 4.24). "
+       "L'adresse de l'application reprend son nom : **ai721-schoolx-cm.onrender.com** (et **ai721-schoolx.cm** comme domaine propre) ; elle remplace edugest-cm.onrender.com.", 'ok')
 D.table(['Votre profil', 'Ce que vous pouvez faire', 'Chapitre'], [
     ['Super administrateur (AI721)', "Créer les établissements abonnés, enregistrer abonnements et paiements, transmettre et retrouver les accès des administrateurs", '3'],
-    ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année, assiduité et documents administratifs des enseignants", '4'],
+    ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année, assiduité et documents administratifs des enseignants, chronogramme des dépôts et modèles Word", '4'],
     ['Enseignant', "Saisir vos notes (par séquence ou par trimestre) et votre progression, valider vos saisies, imprimer vos relevés, consulter vos documents administratifs et votre assiduité, répondre à une demande d'explication", '5'],
     ['Responsable disciplinaire', "Saisir absences, retards et sanctions, signaler les incidents, imprimer les fiches", '6']],
     widths=[3.6, 11, 2], font=9.5)
@@ -162,7 +165,7 @@ D.figure(c('02_admin_tableau_de_bord.png'), "Tableau de bord de l'administrateur
 D.bullets([("Indicateurs : ", "élèves (garçons/filles), classes, enseignants, incidents de la séquence."),
            ("Saisie de la séquence en cours : ", "pourcentage global, matières validées par les enseignants, fiches disciplinaires validées."),
            ("Moyennes par classe : ", "dernière séquence clôturée ; une barre rouge signale une moyenne inférieure à 10."),
-           ("Points d'attention : ", "matières sans enseignant, classes sans responsable, séquence échue non clôturée, comptes verrouillés… Cliquez pour corriger."),
+           ("Points d'attention : ", "matières sans enseignant, classes sans responsable, séquence échue non clôturée, comptes verrouillés, **documents périodiques en retard ou à déposer prochainement**… Cliquez pour corriger."),
            ("Activité récente : ", "dernières actions enregistrées dans le journal d'audit.")])
 D.h2("4.3 Paramétrer l'établissement")
 D.p("Menu **Établissement**. Les informations sont réparties en onglets ; cliquez sur **Enregistrer** dans chaque onglet.")
@@ -435,6 +438,57 @@ D.note("**Coût des SMS :** un SMS compte 160 caractères ; au-delà, le message
 D.p("L'**historique des envois** (bas de page) indique pour chaque message les destinataires, les envois réussis, les échecs et les messages restant à envoyer. "
     "**Ouvrir** affiche le détail par parent, permet de **relancer les échecs** ou d'**exporter** la liste.", align='justify')
 
+D.h2('4.24 Chronogramme des dépôts et modèles Word')
+D.p("Le menu **Chronogramme des dépôts** (groupe Pilotage) tient le calendrier des documents périodiques à déposer auprès de la hiérarchie : délégation départementale "
+    "ou régionale, inspection pédagogique, Office du Baccalauréat… La plateforme vous **rappelle** chaque document avant sa date limite et vous propose un "
+    "**modèle Word pré-rempli** avec les données de l'établissement, que vous complétez et modifiez librement avant de l'imprimer et de le signer.", align='justify')
+D.figure(c('66_admin_chronogramme.png'), 'Chronogramme des dépôts : indicateurs, rappels, échéances et chronogrammes importés', max_h=10.5)
+D.h3('Importer le chronogramme reçu')
+D.numbered(["Cliquez sur **Importer un chronogramme** et choisissez le fichier reçu : document **Word (.docx)** ou **PDF**, 10 Mo au plus.",
+            "La plateforme lit le tableau du document et affiche les **échéances repérées** : document à produire, date limite, destinataire, périodicité et modèle Word proposé.",
+            "Vérifiez chaque ligne : corrigez un intitulé, une date ou un destinataire, choisissez un autre modèle, **décochez** les lignes inutiles.",
+            "Cliquez sur **Enregistrer les échéances**. Le fichier d'origine reste consultable dans « Chronogrammes importés » (bouton **Ouvrir**) et peut être relu (**Relire**)."])
+D.figure(c('67_admin_import_chronogramme.png'), 'Échéances repérées dans un chronogramme PDF, à vérifier avant enregistrement', max_h=10.5)
+D.table(['Le chronogramme indique…', 'La plateforme crée…'], [
+    ['une date : « 15/10/2026 », « 15 octobre 2026 », « 1er oct. »', "une échéance à cette date (une date sans année est placée sur l'année scolaire en cours)"],
+    ['« le 5 de chaque mois »', "dix échéances mensuelles, le 5 d'octobre à juillet, chacune pour le mois écoulé (ex. « … — septembre 2026 »)"],
+    ['« dans les 10 jours après chaque séquence »', 'six échéances : fin de chaque séquence de votre calendrier + 10 jours (7 jours si aucun délai)'],
+    ['« fin de chaque trimestre »', 'trois échéances : fin des séquences 2, 4 et 6 + 7 jours'],
+    ["« fin d'année », « rentrée »", "fin de la séquence 6 + 14 jours ; début de la séquence 1 + 30 jours"]],
+    widths=[6.6, 10], font=9.5, caption='Échéances créées selon la formulation du chronogramme')
+D.note("**Conseils :** un ancien fichier Word **.doc** doit d'abord être enregistré au format **.docx** (Fichier ▸ Enregistrer sous). Un PDF **scanné** (photo du document) "
+       "ne contient pas de texte lisible : il est conservé, mais ajoutez alors les échéances avec le bouton **+ Échéance**. Un exemple de chronogramme fictif "
+       "(Word et PDF) est fourni dans le dossier docs/exemples du projet pour vous entraîner.", 'info')
+D.h3('Être rappelé des documents à produire')
+D.bullets([("Carte « Rappels » : ", "en tête de la page, les documents **en retard**, à déposer **aujourd'hui** ou **bientôt** (dans le délai de rappel, 7 jours par défaut, réglable pour chaque échéance)."),
+           ("Tableau de bord : ", "les mêmes documents figurent dans les **points d'attention** ; un clic ouvre le chronogramme."),
+           ("À la connexion : ", "une notification résume les documents en retard et à déposer prochainement."),
+           ("Filtres : ", "À produire, En retard, Déposées, Toutes ; les échéances sont groupées par mois.")])
+D.h3('Produire le document avec le modèle Word')
+D.p("Cliquez sur **Modèle Word** (ou **Word** dans la liste) : un fichier .docx est téléchargé. Il reprend l'**en-tête officiel bilingue** et le logo, la référence, "
+    "« Fait à …, le … », le titre, l'année scolaire et la date limite, le destinataire, des **tableaux déjà remplis** avec les données de la plateforme "
+    "(effectifs, résultats de la période, couverture des programmes, assiduité du personnel du mois…), des sections **[À compléter : …]** et le bloc de signature. "
+    "Ouvrez-le dans Word, LibreOffice ou WPS Office, complétez, imprimez et signez. Le menu **Modèles Word** propose aussi chaque modèle hors échéance.", align='justify')
+D.figures_row([c('word_modele_effectifs.png'), c('word_modele_assiduite_personnel.png')], 'Modèles Word pré-remplis : effectifs par classe et par sexe (à gauche), présence et assiduité du personnel du mois (à droite)', width=7.6)
+D.table(['Modèle Word', 'Contenu pré-rempli'], [
+    ['État des effectifs par classe et par sexe', 'Effectifs, garçons, filles, redoublants par classe ; total'],
+    ['Rapport de rentrée scolaire', 'Personnel par grade (effectif, dont femmes), effectifs des élèves ; sections à compléter : déroulement, infrastructures, difficultés, besoins'],
+    ['Statistiques des résultats scolaires', 'Résultats par classe de la séquence ou du trimestre : effectif, classés, moyenne, extrêmes, admis, taux ; par sexe'],
+    ['Procès-verbaux des conseils de classe (synthèse)', 'Par classe : effectif, classés, moyenne, plus forte et plus faible, taux de réussite ; décisions du conseil à compléter'],
+    ['Taux de couverture des programmes et digitalisation', 'Par classe et discipline : leçons prévues, faites, digitalisées, taux'],
+    ["État de présence et d'assiduité du personnel", "Par enseignant : heures dues, effectuées, absences, retards, taux (mois ou trimestre de l'échéance)"],
+    ['Rapport disciplinaire', 'Par classe sur la période : absences justifiées et non justifiées, retards, avertissements, blâmes, incidents'],
+    ["Rapport trimestriel d'activités, rapport de fin d'année", 'Synthèse des résultats, de la couverture, de la discipline et de l’assiduité, sections à compléter'],
+    ['Liste des candidats aux examens officiels', "Élèves des classes d'examen (3e, Première, Terminale…) : matricule, nom, sexe, date et lieu de naissance"],
+    ['Document générique', 'En-tête officiel, titre, destinataire, sections à compléter et signature']],
+    widths=[6, 10.6], font=9.5, caption='Les modèles Word')
+D.figure(c('68_admin_modeles_word.png'), 'Menu « Modèles Word »', max_h=10)
+D.h3('Enregistrer le dépôt')
+D.p("Une fois le document remis, cliquez sur **Déposé** : indiquez la date de dépôt, une observation (accusé de réception, décharge…) et, si vous le souhaitez, "
+    "joignez le document déposé (Word ou PDF) : il est archivé avec l'échéance et reste consultable (icône œil). **Annuler le dépôt** remet l'échéance « à produire ».", align='justify')
+D.figure(c('69_admin_depot.png'), 'Enregistrement du dépôt', max_h=10)
+D.figure(c('70_mobile_chronogramme.png'), 'Chronogramme des dépôts sur smartphone', max_h=12)
+
 D.h1("5. Guide de l'enseignant")
 D.h2('5.1 Tableau de bord')
 D.figure(c('23_enseignant_accueil.png'), "Tableau de bord de l'enseignant", max_h=12)
@@ -543,7 +597,8 @@ D.table(['Document', 'Contenu', 'Qui', 'Où'], [
     ["Rappel à l'ordre, lettre d'observation", "Courriers numérotés : manquements, formules réglementaires, ampliations", 'Admin (enseignant : lecture)', 'Documents administratifs'],
     ["Demande d'explication", "Faits reprochés, délai, espace de réponse de l'intéressé(e), suite réservée", 'Admin ; réponse de l\'enseignant', 'Documents administratifs, Mes documents'],
     ["État et relevé d'assiduité", "Heures dues, effectuées, absences, retards, taux : tous les enseignants ou un seul", 'Admin, enseignant (le sien)', 'Assiduité, dossier, Mes documents'],
-    ['Registre des documents administratifs', "Tous les documents de l'année avec leur statut", 'Admin', 'Documents administratifs']],
+    ['Registre des documents administratifs', "Tous les documents de l'année avec leur statut", 'Admin', 'Documents administratifs'],
+    ['Modèles Word des documents périodiques (.docx)', "En-tête officiel, tableaux pré-remplis (effectifs, résultats, couverture, assiduité, discipline, candidats), sections à compléter, signature", 'Admin', 'Chronogramme des dépôts']],
     widths=[3.6, 7.4, 2.6, 3], font=9, caption='Documents PDF')
 D.p("Tous les documents portent l'en-tête bilingue « République du Cameroun / Republic of Cameroon », le logo et les références de l'établissement, "
     "la date d'édition et la pagination. Ils s'ouvrent dans un nouvel onglet : utilisez ensuite **Imprimer** ou **Télécharger** de votre navigateur.", align='justify')
@@ -570,6 +625,11 @@ D.table(['Problème', 'Solution'], [
     ["Les SMS aux parents ne partent pas", "La passerelle SMS n'est pas configurée par AI721 TECH STUFF : utilisez l'envoi par WhatsApp ou SMS depuis votre téléphone, ou l'export CSV. En cas d'échec, ouvrez l'envoi et cliquez sur « Relancer les échecs »."],
     ["Un parent n'apparaît pas dans les destinataires", "Son numéro manque ou est invalide dans la fiche de l'élève (liste affichée dans l'aperçu) : corrigez-le dans Élèves."],
     ["Je souhaite employer « Situation » au lieu de « Séquence »", "Établissement ▸ onglet Appellations ▸ Période d'évaluation : Situation, puis Enregistrer."],
+    ["L'import du chronogramme ne trouve aucune échéance", "Le PDF est probablement scanné (image) : ajoutez les échéances avec « + Échéance ». Sinon, vérifiez que le document contient bien les dates limites ou les périodicités (« chaque mois », « chaque séquence »…)."],
+    ["Mon chronogramme est un fichier .doc", "Ouvrez-le dans Word ou LibreOffice et enregistrez-le au format .docx, puis importez-le."],
+    ["Une date ou un intitulé est mal repéré", "Corrigez la ligne avant d'enregistrer, ou plus tard avec le bouton crayon de l'échéance."],
+    ["Le modèle Word ne s'ouvre pas sur mon téléphone", "Installez Microsoft Word ou WPS Office (gratuits), ou ouvrez le fichier sur un ordinateur."],
+    ["L'ancienne adresse edugest-cm.onrender.com", "L'application est désormais à l'adresse ai721-schoolx-cm.onrender.com (ou ai721-schoolx.cm) : mettez à jour vos favoris et l'icône installée."],
     ["Enseignant : où répondre à une demande d'explication ?", "Menu Mes documents & assiduité ▸ bouton Répondre ; ou à la main sur le document imprimé."]],
     widths=[5.6, 11], font=9.5)
 
@@ -608,7 +668,8 @@ D.table(['Profil', 'Interface', 'Identifiant', 'Mot de passe'], [['Super adminis
     ['Administrateur', '/e/lpey/admin', 'admin', 'Admin@2026'], ['Enseignant (mathématiques)', '/e/lpey/enseignant', 'mbargajp', 'Prof@2026'],
     ['Responsable disciplinaire', '/e/lpey/discipline', 'sg.nguemap', 'Disc@2026']], widths=[4.6, 4.4, 3.4, 4.2], font=9.5)
 D.p("Les enseignants de démonstration ont un dossier administratif, un pointage depuis la rentrée et plusieurs documents (prise de service, présence effective, rappel à l'ordre, "
-    "demandes d'explication avec et sans réponse, lettre d'observation). L'enseignant de démonstration a une demande d'explication à laquelle répondre.", align='justify')
+    "demandes d'explication avec et sans réponse, lettre d'observation). L'enseignant de démonstration a une demande d'explication à laquelle répondre. "
+    "Un chronogramme des dépôts fictif (29 échéances, dont une en retard) est déjà importé.", align='justify')
 D.p("La console de démonstration contient aussi trois autres établissements fictifs illustrant les situations d'abonnement : actif (lbdouala), expiré (cetbafoussam) et en attente de paiement (cesgaroua).", align='justify')
 
 out = os.path.join(ROOT, 'docs', 'Manuel_utilisation_AI721_SchoolX_CM.docx')

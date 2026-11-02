@@ -25,19 +25,25 @@ flowchart LR
     UC20(["Enregistrer la remise, examiner la réponse,<br/>décider la suite réservée"])
     UC21(["Choisir les appellations : Séquence / Situation,<br/>Professeur Principal / Titulaire, fonctions"])
     UC22(["Envoyer un message aux parents<br/>(bulletins, réunion, information)"])
+    UC23(["Importer le chronogramme des dépôts<br/>(Word ou PDF) et valider les échéances"])
+    UC24(["Être rappelé des documents à produire<br/>(tableau de bord, connexion)"])
+    UC25(["Télécharger le modèle Word pré-rempli,<br/>enregistrer le dépôt (pièce archivée)"])
     PERS(["Personnaliser avec le nom de l'enfant"])
+    EXT(["Lire le tableau et repérer<br/>dates, destinataires, périodicités"])
     V(["Vérifier la complétude des saisies"])
     TX(["Calculer heures dues et effectuées"])
   end
-  ADM --- UC0 & UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15 & UC16 & UC17 & UC18 & UC19 & UC20 & UC21 & UC22
+  ADM --- UC0 & UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10 & UC11 & UC12 & UC13 & UC14 & UC15 & UC16 & UC17 & UC18 & UC19 & UC20 & UC21 & UC22 & UC23 & UC24 & UC25
   UC3 -. "«include»" .-> V
   UC10 -. "«include»" .-> V
   UC17 -. "«include»" .-> TX
   UC19 -. "«include» (présence effective)" .-> TX
   UC20 -. "«extend»" .-> UC19
   UC22 -. "«include»" .-> PERS
+  UC23 -. "«include»" .-> EXT
+  UC25 -. "«extend»" .-> UC24
   classDef actor fill:#fbf1db,stroke:#a97a1d,color:#3b2a06,font-weight:bold
   classDef uc fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
   class ADM actor
-  class UC0,UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC14,UC15,UC16,UC17,UC18,UC19,UC20,UC21,UC22,PERS,V,TX uc
+  class UC0,UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC14,UC15,UC16,UC17,UC18,UC19,UC20,UC21,UC22,UC23,UC24,UC25,PERS,EXT,V,TX uc
   style SYS fill:#ffffff,stroke:#0b5d4b,stroke-width:2px

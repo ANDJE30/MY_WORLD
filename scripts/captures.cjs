@@ -1,5 +1,5 @@
 // Parcours de bout en bout + captures d'écran du manuel (Playwright).
-// Usage : DEMO=1 npm start (dossier de données vide)  puis  node scripts/captures.cjs [url]
+// Usage : DEMO=1 npm start (dossier de données vide)  puis  LANG=fr_FR.UTF-8 node scripts/captures.cjs [url]   (LANG : dates au format jj/mm/aaaa)
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://localhost:4100', OUT = path.join(__dirname, '..', 'docs', 'captures') + '/';
@@ -114,6 +114,15 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.selectOption('[data-modele]', 'bulletins'); await page.waitForTimeout(300); await page.click('[data-canal=manuel]'); await page.click('[data-cls] >> nth=1'); await page.waitForTimeout(800);
   await page.click('[data-send]'); await page.waitForSelector('.modal [data-ok]'); await page.click('.modal [data-ok]'); await page.waitForSelector('.modal [data-sent]'); await page.waitForTimeout(400);
   await shot(page, '64_admin_envoi_manuel'); await page.click('.modal-root:last-child .modal-f [data-close]'); await page.waitForTimeout(600);
+  // ---- Chronogramme des dépôts (v3.3) : page, import d'un chronogramme PDF, modèles Word, dépôt
+  const noToast = () => page.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));
+  await page.goto(`${BASE}/e/lpey/admin#/chronogramme`); await page.waitForSelector('[data-depot]'); await noToast(); await shot(page, '66_admin_chronogramme');
+  await page.setInputFiles('[data-import]', path.join(__dirname, '..', 'docs', 'exemples', 'Chronogramme_exemple_2026-2027.pdf'));
+  await page.waitForSelector('.modal [data-save]'); await page.waitForTimeout(400); await noToast(); await shot(page, '67_admin_import_chronogramme');
+  await page.click('.modal-f [data-close]'); await page.waitForTimeout(600);
+  await page.click('[data-models]'); await page.waitForSelector('.mod-menu'); await noToast(); await shot(page, '68_admin_modeles_word'); await page.keyboard.press('Escape'); await page.mouse.click(5, 890);
+  await page.goto(`${BASE}/e/lpey/admin#/chronogramme`); await page.waitForSelector('[data-depot]'); await page.click('[data-depot] >> nth=0'); await page.waitForSelector('.modal #dp_o');
+  await page.fill('#dp_o', 'Remis au secrétariat de la DDES contre décharge'); await noToast(); await shot(page, '69_admin_depot'); await page.click('.modal-f [data-close]');
   // ---- Appellations « Situation » et « Titulaire » (v3.2), puis retour aux valeurs par défaut
   await page.goto(`${BASE}/e/lpey/admin#/etablissement?tab=fonctions`); await page.waitForSelector('[name=terme_sequence]');
   await page.selectOption('[name=terme_sequence]', 'Situation'); await page.selectOption('[name=terme_pp]', 'Titulaire'); await page.click('[data-save]'); await page.waitForTimeout(2500);
@@ -146,7 +155,9 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.goto(`${BASE}/e/lpey/enseignant#/documents`); await page.waitForSelector('[data-pdf]'); await page.waitForTimeout(400); await shot(page, '60_mobile_enseignant_documents');
   await ctx.close();
   ({ ctx, page } = await ctxFor(browser, M)); await login(page, '/e/lpey/admin', 'admin', 'Admin@2026');
-  await page.goto(`${BASE}/e/lpey/admin#/assiduite?tab=pointage`); await page.waitForSelector('[data-save]'); await page.waitForTimeout(400); await shot(page, '59_mobile_pointage'); await ctx.close();
+  await page.goto(`${BASE}/e/lpey/admin#/assiduite?tab=pointage`); await page.waitForSelector('[data-save]'); await page.waitForTimeout(400); await shot(page, '59_mobile_pointage');
+  await page.goto(`${BASE}/e/lpey/admin#/chronogramme`); await page.waitForSelector('[data-depot]'); await page.waitForTimeout(400);
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove())); await shot(page, '70_mobile_chronogramme'); await ctx.close();
   // ---- Responsable disciplinaire
   ({ ctx, page } = await ctxFor(browser, D)); await login(page, '/e/lpey/discipline', 'sg.nguemap', 'Disc@2026'); await page.waitForTimeout(600); await shot(page, '31_discipline_accueil');
   await page.goto(`${BASE}/e/lpey/discipline#/saisie?period=S2`); await page.waitForSelector('[data-k=abs_nj]');

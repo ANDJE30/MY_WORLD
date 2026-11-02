@@ -149,3 +149,23 @@ classDiagram
   MessageParent "0..*" -- "1..*" Eleve : concerne
   Entreprise "1" -- "0..1" PasserelleSMS : configure
   CampagneMessages ..> PasserelleSMS : canal sms
+  class Chronogramme {
+    +titre, annee, fichier Word ou PDF
+    +lire() lignes du tableau
+    +extraireEcheances() propositions
+  }
+  class Echeance {
+    +titre, dateLimite, destinataire
+    +periodicite : ponctuel|mensuel|sequentiel|trimestriel|annuel
+    +rappelJours
+    +etat() : a_venir|bientot|aujourdhui|retard|depose
+    +deposer(date, piece, observation)
+  }
+  class ModeleWord {
+    +type : effectifs|resultats|couverture|assiduite|discipline|...
+    +generer(echeance) docx pre-rempli
+  }
+  Administrateur "1" -- "0..*" Chronogramme : importe
+  Chronogramme "0..1" *-- "0..*" Echeance : extraites
+  Echeance "0..*" --> "1" ModeleWord : propose
+  Echeance ..> Etablissement : en-tête officiel, données

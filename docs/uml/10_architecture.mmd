@@ -7,6 +7,7 @@ flowchart TB
     F3["admin.js / teacher.js / discipline.js"]
     F5["rh.js<br/>assiduité, pointage, documents administratifs"]
     F6["parents.js<br/>messages aux parents"]
+    F7["echeancier.js<br/>chronogramme des dépôts"]
     F4["shared.js / ui.js<br/>notes (séquence/trimestre), discipline, EDT"]
   end
   subgraph BACK["Backend — Node.js 22 / Express 5"]
@@ -18,6 +19,8 @@ flowchart TB
     RT["routes/auth, admin, work, staff, pdf, common<br/>(établissement)"]
     ST["staff.js / pdfStaff.js<br/>assiduité, numérotation, courriers officiels<br/>(polices Liberation Serif et Anton)"]
     SM["routes/parents + sms.js<br/>messages personnalisés, passerelles SMS"]
+    EC["routes/echeancier + chrono.js<br/>import, échéances, rappels, dépôts<br/>(lecture PDF : unpdf)"]
+    WD["docx.js + modeles.js<br/>Word (.docx) écrit et lu sans dépendance,<br/>modèles pré-remplis"]
     AC["access.js<br/>rôles, ressources, liens"]
     V["vault.js<br/>coffre AES-256-GCM"]
     C["calc.js / pdf.js"]
@@ -30,7 +33,9 @@ flowchart TB
   M --> RC & CX
   CX --> RT
   RC --> PL & V
-  RT --> AC & C & V & ST & SM
+  RT --> AC & C & V & ST & SM & EC
+  EC --> WD
+  EC -- "fichiers importés et pièces déposées" --> FS[("tenants/*/chronogrammes<br/>tenants/*/depots")]
   SM -- "HTTPS" --> GW[("Passerelle SMS<br/>Africa's Talking • Twilio • Orange")]
   PL --> PDB
   D --> TDB

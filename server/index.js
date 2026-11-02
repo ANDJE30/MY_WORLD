@@ -20,6 +20,7 @@ import commonRoutes from './routes/common.js';
 import pdfRoutes from './routes/pdfRoutes.js';
 import staffRoutes from './routes/staff.js';
 import parentsRoutes from './routes/parents.js';
+import echeancierRoutes from './routes/echeancier.js';
 import platformRoutes from './routes/platform.js';
 import { HttpError } from './util.js';
 
@@ -40,6 +41,21 @@ app.disable('x-powered-by');
 // Derrière un proxy (Render, Caddy, Nginx) : 1. Exposé directement sur Internet : TRUST_PROXY=0
 const tp = process.env.TRUST_PROXY ?? '1';
 app.set('trust proxy', /^\d+$/.test(tp) ? Number(tp) : tp);
+
+// Nom de domaine canonique (ex. CANONICAL_URL=https://ai721-schoolx.cm ou https://ai721-schoolx-cm.onrender.com) :
+// toute autre adresse publique (ancienne URL edugest-cm.onrender.com, sous-domaine onrender.com après l'ajout d'un domaine
+// personnalisé…) est redirigée de façon permanente vers la même page sur le domaine canonique. Sans la variable : aucun effet.
+let canon = { raw: null, url: null };
+export function canonicalUrl() {
+  const raw = process.env.CANONICAL_URL || '';
+  if (raw !== canon.raw) { let url = null; try { url = raw ? new URL(raw) : null; } catch { console.warn('CANONICAL_URL invalide, ignorée :', raw); } canon = { raw, url }; }
+  return canon.url;
+}
+app.use((req, res, next) => {
+  const c = canonicalUrl(); const host = String(req.headers.host || '').toLowerCase();
+  if (!c || !host || host === c.host || req.path === '/healthz' || /^(localhost|127\.|\[::1\]|10\.|192\.168\.)/.test(host)) return next();
+  res.redirect(req.method === 'GET' || req.method === 'HEAD' ? 301 : 308, c.origin + req.originalUrl);
+});
 
 // En-têtes de sécurité (équivalent Helmet)
 app.use((req, res, next) => {
@@ -77,7 +93,8 @@ app.use(express.static(PUBLIC, { maxAge: '1h', setHeaders: (res, p) => { if (p.e
 
 /* ---------------- Middlewares communs des API ---------------- */
 // Le corps JSON est lu AVANT d'entrer dans le contexte de l'établissement (lecture asynchrone du flux)
-const bodyParser = (req, res, next) => express.json({ limit: req.path === '/admin/restore' ? '50mb' : '2mb' })(req, res, next);
+// sauvegardes et fichiers importés (chronogrammes, documents déposés : 10 Mo en base64) : limite élargie
+const bodyParser = (req, res, next) => express.json({ limit: req.path === '/admin/restore' ? '50mb' : /^\/admin\/echeancier\/(chronogrammes|echeances\/\d+\/depot)$/.test(req.path) ? '15mb' : '2mb' })(req, res, next);
 function sessionAndCsrf(req, res, next) {
   res.set('Cache-Control', 'no-store');
   const raw = req.headers.cookie || '';
@@ -117,6 +134,7 @@ tenantApi.use(apiRate, sessionAndCsrf, (req, _res, next) => {
 });
 tenantApi.use('/auth', authRoutes);
 tenantApi.use('/admin/parents', parentsRoutes);
+tenantApi.use('/admin/echeancier', echeancierRoutes);
 tenantApi.use('/admin', adminRoutes);
 tenantApi.use('/pdf', pdfRoutes);
 tenantApi.use('/', commonRoutes);

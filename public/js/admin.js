@@ -6,6 +6,7 @@ import { state, go, refreshPeriods, setParams, rerender } from './app.js';
 import { notesEditor, disciplineEditor, incidentsPage, timetableHtml, periodLabel, studentHistory, entryPeriodOptions, periodParam } from './shared.js';
 import { assiduite, documentsRh, dossier, newDocument } from './rh.js';
 import { messagesParents } from './parents.js';
+import { chronogramme, rappelConnexion } from './echeancier.js';
 
 export const routes = [
   { path: 'dashboard', title: 'Tableau de bord', short: 'Accueil', icon: 'home', group: 'Pilotage', mobile: true, render: dashboard },
@@ -13,6 +14,7 @@ export const routes = [
   { path: 'suivi', title: 'Suivi des saisies', short: 'Saisies', icon: 'progress', group: 'Pilotage', render: suivi },
   { path: 'resultats', title: 'Résultats & bulletins', short: 'Bulletins', icon: 'trophy', group: 'Pilotage', mobile: true, render: resultats },
   { path: 'statistiques', title: 'Statistiques', icon: 'chart', group: 'Pilotage', render: statistiques },
+  { path: 'chronogramme', title: 'Chronogramme des dépôts', short: 'Dépôts', icon: 'calendar', group: 'Pilotage', render: chronogramme },
   { path: 'eleves', title: 'Élèves', icon: 'users', group: 'Scolarité', render: eleves },
   { path: 'classes', title: 'Classes', icon: 'layers', group: 'Scolarité', render: classesPage },
   { path: 'matieres', title: 'Matières', icon: 'book', group: 'Scolarité', render: matieres },
@@ -40,6 +42,7 @@ const classSelect = (classes, sel, attrs = '') => h`<select class="select" style
 /* ========================= Tableau de bord ========================= */
 async function dashboard(view) {
   const d = await get('/admin/dashboard');
+  rappelConnexion();
   const c = d.counts, comp = d.completeness;
   const pct = comp.percent;
   mount(view, h`<div class="page-head"><div><h2>Tableau de bord</h2><p>Vue d'ensemble de l'établissement — année ${state.school.annee_scolaire}.</p></div>

@@ -236,6 +236,23 @@ CREATE TABLE IF NOT EXISTS parent_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_parent_messages ON parent_messages(campaign_id, status);
 
+-- Chronogramme des dépôts des documents périodiques (fichier importé) et échéances à respecter
+CREATE TABLE IF NOT EXISTS chronogrammes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, titre TEXT NOT NULL, annee TEXT NOT NULL,
+  fichier TEXT NOT NULL, nom_fichier TEXT NOT NULL, mime TEXT NOT NULL, taille INTEGER NOT NULL,
+  extraits INTEGER NOT NULL DEFAULT 0, uploaded_by INTEGER, uploaded_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE TABLE IF NOT EXISTS echeances (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chronogramme_id INTEGER REFERENCES chronogrammes(id) ON DELETE SET NULL,
+  annee TEXT NOT NULL, titre TEXT NOT NULL, date_limite TEXT NOT NULL, destinataire TEXT,
+  modele TEXT NOT NULL DEFAULT 'generique', periodicite TEXT, source TEXT, rappel_jours INTEGER NOT NULL DEFAULT 7,
+  status TEXT NOT NULL DEFAULT 'a_produire' CHECK (status IN ('a_produire','depose')),
+  depose_at TEXT, depose_by INTEGER, depot_fichier TEXT, depot_nom TEXT, observation TEXT,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS idx_echeances ON echeances(annee, date_limite);
+
 CREATE TABLE IF NOT EXISTS year_archives (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   annee TEXT NOT NULL UNIQUE, closed_at INTEGER NOT NULL, closed_by TEXT,

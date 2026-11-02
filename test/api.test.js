@@ -680,6 +680,124 @@ test('documents administratifs : émission, numérotation, réponse, suite, annu
   assert.equal((await (await admin()).get('/rh/documents')).data.rows.length, dump.tables.staff_documents.filter((x) => x.annee === dump.tables.staff_documents.at(-1).annee).length);
 });
 
+test('Word (DOCX) : écriture puis relecture des tableaux et paragraphes', async () => {
+  const { buildDocx, readDocx, unzip, p, r, table } = await import('../server/docx.js');
+  const buf = buildDocx({ body: [p([r('Rapport de rentrée', { b: true })]), table([['Document', 'Date limite'], ['Effectifs', '20/10/2026'], [{ content: 'Synthèse & « bilan »', b: true }, '']]), p('Fait à Yaoundé')] });
+  assert.equal(buf.subarray(0, 2).toString(), 'PK');
+  const parts = unzip(buf);
+  for (const k of ['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/styles.xml']) assert.ok(parts.has(k), k);
+  const d = readDocx(buf);
+  assert.deepEqual(d.tables[0], [['Document', 'Date limite'], ['Effectifs', '20/10/2026'], ['Synthèse & « bilan »', '']]);
+  assert.ok(d.paragraphs.includes('Rapport de rentrée') && d.paragraphs.includes('Fait à Yaoundé'));
+});
+
+test('chronogramme : lecture des tableaux PDF (cellules sur plusieurs lignes) et repérage des échéances', async () => {
+  const { pageRows, extractEcheances, findDates, detectModele } = await import('../server/chrono.js');
+  // fragments positionnés comme les restitue pdf.js : n°, intitulé sur 2 lignes, date, destinataire
+  const it = (x, y, s) => ({ str: s, transform: [11, 0, 0, 11, x, y], width: s.length * 5, height: 11 });
+  const rows = pageRows([it(90, 700, 'N°'), it(150, 700, 'Document à produire'), it(300, 700, 'Date limite'), it(420, 700, 'Destinataire'),
+    it(90, 687, '1'), it(150, 687, 'Fiche des effectifs'), it(150, 674, 'par classe'), it(300, 687, '20/10/2026'), it(420, 687, 'DDES'),
+    it(90, 661, '2'), it(150, 661, 'Statistiques'), it(150, 648, "d'assiduité du personnel"), it(300, 661, 'le 5 de chaque'), it(300, 648, 'mois'), it(420, 661, 'DDES'),
+    it(90, 635, '3'), it(150, 635, 'Rapport de fin'), it(150, 622, "d'année"), it(300, 635, '10 juillet 2027'), it(420, 635, 'DRES'),
+    it(90, 590, 'Fait à Bafoussam, le 1er septembre 2026')]);
+  assert.deepEqual(rows.slice(0, 4), [['N°', 'Document à produire', 'Date limite', 'Destinataire'], ['1', 'Fiche des effectifs par classe', '20/10/2026', 'DDES'],
+    ['2', "Statistiques d'assiduité du personnel", 'le 5 de chaque mois', 'DDES'], ['3', "Rapport de fin d'année", '10 juillet 2027', 'DRES']]);
+  const periods = ['2026-09', '2026-10', '2026-11', '2026-12', '2027-01', '2027-02'].map((m, i) => ({ seq: i + 1, start_date: `${m}-01`, end_date: `${m}-20` }));
+  const ech = extractEcheances([...rows, ['4', 'Taux de couverture des programmes', 'dans les 10 jours après chaque séquence', 'IPR'], ['5', 'Procès-verbaux des conseils de classe', 'fin de chaque trimestre', 'DDES']], { y0: 2026, periods });
+  const by = (re) => ech.filter((e) => re.test(e.titre));
+  assert.deepEqual(by(/^Fiche des effectifs/).map((e) => [e.date_limite, e.destinataire, e.modele]), [['2026-10-20', 'DDES', 'effectifs']]);
+  assert.equal(by(/^Rapport de fin/)[0].date_limite, '2027-07-10');
+  assert.equal(by(/^Rapport de fin/)[0].modele, 'rapport_annuel');
+  const mens = by(/^Statistiques d'assiduité/);
+  assert.equal(mens.length, 10); assert.equal(mens[0].date_limite, '2026-10-05'); assert.match(mens[0].titre, /septembre 2026$/); assert.equal(mens[0].modele, 'assiduite_personnel');
+  const seq = by(/^Taux de couverture/); assert.equal(seq.length, 6); assert.equal(seq[0].date_limite, '2026-09-30'); assert.equal(seq[0].periodicite, 'sequentiel');
+  const tri = by(/^Procès-verbaux/); assert.equal(tri.length, 3); assert.match(tri[0].titre, /1er trimestre$/); assert.equal(tri[0].date_limite, '2026-10-27');
+  assert.ok(!ech.some((e) => /^Fait à/.test(e.titre)), 'formule de signature ignorée');
+  assert.deepEqual(findDates('avant le 1er oct. et le 15/01', 2026), ['2026-10-01', '2027-01-15']);
+  assert.equal(detectModele('Liste des candidats au BEPC'), 'candidats');
+});
+
+test('chronogramme des dépôts : import Word/PDF, échéances, modèle Word, dépôt et rappels', async () => {
+  const a = await admin();
+  const { buildDocx, readDocx, table, p } = await import('../server/docx.js');
+  const b64 = (buf) => Buffer.from(buf).toString('base64');
+  const word = buildDocx({ body: [p('CHRONOGRAMME DES DÉPÔTS'), table([['N°', 'Document à produire', 'Date limite', 'Destinataire'], ['1', 'État des effectifs par classe', '15/10/2026', 'DDES du Mfoundi'],
+    ['2', 'Rapport disciplinaire', 'fin de chaque trimestre', 'DRES du Centre'], ['3', 'Rapport de fin d’année scolaire', '10 juillet 2027', 'DRES du Centre']])] });
+  const t = client(); await t.login('mbargajp', 'Prof@2026');
+  assert.equal((await t.get('/admin/echeancier')).status, 403);
+  // formats refusés
+  assert.match((await a.post('/admin/echeancier/chronogrammes', { nom_fichier: 'ancien.doc', data: b64('xx') })).data.error, /\.docx/);
+  assert.equal((await a.post('/admin/echeancier/chronogrammes', { nom_fichier: 'faux.pdf', data: b64('pas un pdf') })).status, 400);
+  // import Word : propositions vérifiables
+  const imp = await a.post('/admin/echeancier/chronogrammes', { titre: 'Chronogramme test', nom_fichier: 'chronogramme_test.docx', data: b64(word) });
+  assert.equal(imp.status, 201);
+  const props = imp.data.propositions;
+  assert.ok(props.find((x) => x.titre === 'État des effectifs par classe' && x.date_limite === '2026-10-15' && x.destinataire === 'DDES du Mfoundi' && x.modele === 'effectifs'));
+  assert.equal(props.filter((x) => /^Rapport disciplinaire — /.test(x.titre)).length, 3);
+  assert.ok(props.find((x) => x.modele === 'rapport_annuel' && x.date_limite === '2027-07-10'));
+  // fichier conservé et relecture
+  const f = await a.get(`/admin/echeancier/chronogrammes/${imp.data.id}/fichier`);
+  assert.equal(f.status, 200); assert.equal(Buffer.from(f.data).subarray(0, 2).toString(), 'PK');
+  assert.equal((await a.post(`/admin/echeancier/chronogrammes/${imp.data.id}/analyser`)).data.propositions.length, props.length);
+  // enregistrement des échéances retenues + une échéance déjà dépassée (rappel)
+  const hier = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const cre = await a.post('/admin/echeancier/echeances', { chronogramme_id: imp.data.id, items: [...props, { titre: 'Liste des candidats aux examens', date_limite: hier, destinataire: 'OBC' }] });
+  assert.equal(cre.status, 201); assert.equal(cre.data.ids.length, props.length + 1);
+  const late = cre.data.ids.at(-1);
+  let list = (await a.get('/admin/echeancier')).data;
+  const e = list.echeances.find((x) => x.id === late);
+  assert.equal(e.etat, 'retard'); assert.equal(e.modele, 'candidats');
+  assert.ok((await a.get('/admin/echeancier/rappels')).data.some((x) => x.id === late));
+  assert.ok((await a.get('/admin/dashboard')).data.alerts.some((x) => x.link === '#/chronogramme' && /en retard de dépôt/.test(x.text)));
+  // modèle Word pré-rempli (en-tête officiel, tableau des candidats)
+  const m = await a.get(`/admin/echeancier/echeances/${late}/modele`);
+  assert.equal(m.status, 200); assert.match(m.ct, /wordprocessingml/);
+  const md = readDocx(Buffer.from(m.data));
+  assert.ok(md.tables[0].flat().join(' ').includes('RÉPUBLIQUE DU CAMEROUN'));
+  assert.ok(md.paragraphs.some((x) => /Liste des candidats aux examens/i.test(x)));
+  for (const type of Object.keys(list.modeles)) assert.equal((await a.get(`/admin/echeancier/modeles/${type}`)).status, 200, type);
+  // dépôt avec la pièce déposée, consultation, annulation
+  assert.equal((await a.post(`/admin/echeancier/echeances/${late}/depot`, { date: '2999-01-01' })).status, 400);
+  const dep = await a.post(`/admin/echeancier/echeances/${late}/depot`, { date: hier, observation: 'Remis contre décharge', nom_fichier: 'candidats.docx', data: b64(Buffer.from(m.data)) });
+  assert.equal(dep.status, 200);
+  list = (await a.get('/admin/echeancier')).data;
+  const d1 = list.echeances.find((x) => x.id === late);
+  assert.equal(d1.etat, 'depose'); assert.equal(d1.a_fichier, true); assert.equal(d1.depot_fichier, undefined);
+  assert.ok(!(await a.get('/admin/echeancier/rappels')).data.some((x) => x.id === late));
+  const got = await a.get(`/admin/echeancier/echeances/${late}/depot`);
+  assert.equal(Buffer.compare(Buffer.from(got.data), Buffer.from(m.data)), 0);
+  assert.equal((await a.post(`/admin/echeancier/echeances/${late}/annuler-depot`)).status, 200);
+  assert.equal((await a.get('/admin/echeancier')).data.echeances.find((x) => x.id === late).etat, 'retard');
+  // modification, PDF scanné (sans texte), suppression du chronogramme et de ses échéances non déposées
+  assert.equal((await a.put(`/admin/echeancier/echeances/${late}`, { date_limite: '2027-06-30', rappel_jours: 10 })).status, 200);
+  const PDFDocument = (await import('pdfkit')).default;
+  const scan = await new Promise((res) => { const doc = new PDFDocument(); const ch = []; doc.on('data', (c) => ch.push(c)); doc.on('end', () => res(Buffer.concat(ch))); doc.rect(50, 50, 200, 100).fill('#999'); doc.end(); });
+  const sc = await a.post('/admin/echeancier/chronogrammes', { nom_fichier: 'scan.pdf', data: b64(scan) });
+  assert.equal(sc.status, 201); assert.equal(sc.data.propositions.length, 0); assert.match(sc.data.message, /scanné/);
+  assert.equal((await a.del(`/admin/echeancier/chronogrammes/${imp.data.id}?garder=0`)).status, 200);
+  list = (await a.get('/admin/echeancier')).data;
+  assert.ok(!list.echeances.some((x) => x.chronogramme_id === imp.data.id));
+  assert.ok(!list.chronogrammes.some((x) => x.id === imp.data.id));
+});
+
+test('nom de domaine canonique : redirection permanente des autres adresses', async () => {
+  // fetch() ignore l'en-tête Host : requête HTTP brute
+  const http = await import('node:http');
+  const get = (host, p = '/e/lpey/admin?x=1', method = 'GET') => new Promise((res, rej) => {
+    const rq = http.request(base + p, { method, headers: { host, 'X-Requested-With': 'EduGest' } }, (r) => { r.resume(); res({ status: r.statusCode, headers: { get: (k) => r.headers[k] } }); });
+    rq.on('error', rej); rq.end();
+  });
+  assert.equal((await get('edugest-cm.onrender.com')).status, 200, 'sans CANONICAL_URL : aucun effet');
+  process.env.CANONICAL_URL = 'https://ai721-schoolx.cm';
+  try {
+    const r1 = await get('edugest-cm.onrender.com');
+    assert.equal(r1.status, 301); assert.equal(r1.headers.get('location'), 'https://ai721-schoolx.cm/e/lpey/admin?x=1');
+    assert.equal((await get('ai721-schoolx-cm.onrender.com', '/e/lpey/api/auth/login', 'POST')).status, 308);
+    assert.equal((await get('ai721-schoolx.cm')).status, 200);
+    assert.equal((await get('10.0.0.7:10000', '/healthz')).status, 200);
+  } finally { delete process.env.CANONICAL_URL; }
+});
+
 test('fin d\'année : clôture avec statistiques annuelles et sauvegarde archivées, puis nouvelle année', async () => {
   const a = await admin();
   const annee = (await a.get('/admin/settings')).data.annee_scolaire;

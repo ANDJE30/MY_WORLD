@@ -1,6 +1,6 @@
 #!/bin/bash
 # Installation automatique sur une VM Ubuntu 22.04/24.04 (Oracle Cloud Always Free, amd64 ou arm64).
-# Usage : sudo DOMAIN=schoolx.ai721.cm SUPERADMIN_PASSWORD='MotDePasseFort!2026' bash oracle-cloud-init.sh
+# Usage : sudo DOMAIN=ai721-schoolx.cm SUPERADMIN_PASSWORD='MotDePasseFort!2026' bash oracle-cloud-init.sh
 set -euo pipefail
 : "${DOMAIN:?Définissez DOMAIN (nom de domaine pointant vers l’adresse IP publique du serveur)}"
 apt-get update && apt-get install -y ca-certificates curl git iptables-persistent
