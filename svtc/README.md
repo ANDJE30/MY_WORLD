@@ -55,19 +55,39 @@ npm test            # 11 tests unitaires : salaires, location, soldes, planning,
 npm run test:e2e    # 29 tests de bout en bout (Playwright) : parcours admin, encadreur, parent et sécurité
 ```
 
-## Hébergement recommandé (gratuit)
+## Mise en ligne (gratuite) : Vercel + Neon
 
 **Vercel (offre Hobby) + Neon PostgreSQL (offre Free)** : pas de mise en veille, HTTPS et CDN mondiaux, base PostgreSQL managée avec sauvegardes et restauration à un instant donné, déploiement automatique à chaque `git push`.
 
+**En un clic** (après fusion de la branche dans `master`) :
+
+[![Déployer sur Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FANDJE30%2FMY_WORLD%2Ftree%2Fmaster%2Fsvtc&project-name=svtc-repetitions&repository-name=svtc-repetitions&env=ADMIN_PASSWORD&envDescription=Mot%20de%20passe%20initial%20du%20compte%20administrateur%20(8%20caract%C3%A8res%20minimum%2C%20lettres%20et%20chiffres)&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D)
+
+Le bouton crée le projet, propose la base **Neon** (gratuite, `DATABASE_URL` renseignée automatiquement) et demande `ADMIN_PASSWORD`.
+
+**Manuellement** :
+
 1. Créez un compte sur vercel.com (connexion avec GitHub).
 2. *Add New ▸ Project* : importez le dépôt, **Root Directory = `svtc`**.
-3. Onglet *Storage* : *Create Database ▸ Neon* (gratuit) et reliez-la au projet : `DATABASE_URL` est renseignée automatiquement.
-4. *Settings ▸ Environment Variables* : ajoutez `ADMIN_PASSWORD` (mot de passe initial de l'administrateur).
-5. *Deploy*. Les migrations de la base s'exécutent automatiquement pendant le build (`npm run build`).
+3. *Environment Variables* : ajoutez `ADMIN_PASSWORD` (mot de passe initial de l'administrateur), puis *Deploy*.
+4. Onglet *Storage* : *Create Database ▸ Neon* (gratuit, région Francfort) ▸ *Connect* : `DATABASE_URL` est renseignée automatiquement.
+5. *Deployments ▸ Redeploy* : les migrations de la base s'exécutent pendant le build (`npm run build`).
+6. Ouvrez `https://<projet>.vercel.app/admin/connexion` (identifiant `admin`, mot de passe `ADMIN_PASSWORD`) et changez le mot de passe.
 
-Variables d'environnement : voir `.env.example` (base de données, mot de passe initial, adresse publique `APP_URL`, passerelle SMS facultative : Orange SMS API, Twilio ou Africa's Talking).
+Variables d'environnement : voir `.env.example` (base de données, mot de passe initial, adresse publique `APP_URL`, passerelle SMS facultative : Orange SMS API, Twilio ou Africa's Talking). Les paramètres `channel_binding` des adresses Neon sont neutralisés automatiquement.
 
-> L'offre Hobby de Vercel est destinée à un usage non commercial. Pour un usage commercial intensif, passez à l'offre Pro, ou déployez la même application sur tout hébergeur Node.js (Render, Railway, VPS) avec la même base Neon.
+> L'offre Hobby de Vercel est destinée à un usage non commercial. Pour un usage commercial intensif, passez à l'offre Pro, ou déployez la même application sur tout hébergeur Node.js (Render, Railway, VPS) avec la même base Neon (`npm run build && npm start`).
+
+## Livrables
+
+| Livrable | Fichiers |
+|---|---|
+| Cahier des charges (avec diagrammes UML) | [`docs/Cahier_des_charges_SVTC_Repetitions.docx`](docs/Cahier_des_charges_SVTC_Repetitions.docx) · [`.pdf`](docs/Cahier_des_charges_SVTC_Repetitions.pdf) |
+| Manuel d'utilisation | [`docs/Manuel_utilisation_SVTC_Repetitions.docx`](docs/Manuel_utilisation_SVTC_Repetitions.docx) · [`.pdf`](docs/Manuel_utilisation_SVTC_Repetitions.pdf) |
+| Diagrammes UML (sources Mermaid + PNG) | [`docs/uml/`](docs/uml) |
+| Captures d'écran et exemples de PDF générés | [`docs/captures/`](docs/captures) |
+
+Régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 docs/scripts/cahier.py`, `python3 docs/scripts/manuel.py` et `python3 docs/scripts/convert.py docs/*.docx` (python-docx, LibreOffice et la police Poppins).
 
 ## Architecture
 

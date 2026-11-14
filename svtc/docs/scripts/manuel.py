@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from docgen import DOCS, Doc  # noqa: E402
 
 URL = os.environ.get('SVTC_URL', 'https://svtc-repetitions.vercel.app')
-DEMO = os.environ.get('SVTC_DEMO', '1') == '1'
+DEMO = os.environ.get('SVTC_DEMO', '0') == '1'
 CAP = os.path.join(DOCS, 'captures')
 c = lambda f: os.path.join(CAP, f)
 today = datetime.date.today().strftime('%d/%m/%Y')
@@ -295,9 +295,20 @@ D.p(f"Chaque reçu et chaque état de suivi porte un **QR code** et un **code d�
 
 # ------------------------------------------------------------------ 10
 D.h1('10. Mise en ligne et maintenance')
-D.h2('10.1 Hébergement')
-D.p(f"L'application est hébergée gratuitement sur **Vercel** (serveur web mondial, HTTPS) avec une base de données **Neon PostgreSQL** (sauvegardes automatiques). Adresse : **{URL}**. "
-    "Le code source est conservé sur GitHub ; chaque mise à jour publiée sur la branche principale est déployée automatiquement, et les modifications de la base s’appliquent toutes seules.")
+D.h2('10.1 Mettre l’application en ligne (Vercel + Neon, gratuit)')
+D.p(f"L'application est conçue pour l'hébergeur **Vercel** (serveur web mondial, HTTPS, pas de mise en veille) avec une base de données **Neon PostgreSQL** "
+    f"(sauvegardes automatiques). Adresse prévue : **{URL}** (le sous-domaine exact est attribué par Vercel). La mise en ligne prend environ 5 minutes :")
+D.steps([
+    'Sur GitHub, fusionnez la branche de développement dans **master** (dépôt ANDJE30/MY_WORLD).',
+    'Créez un compte gratuit sur **vercel.com** avec « Continue with GitHub ».',
+    '**Add New ▸ Project** ▸ importez le dépôt **MY_WORLD** ▸ **Root Directory : svtc** (Vercel détecte Next.js).',
+    'Dans **Environment Variables**, ajoutez **ADMIN_PASSWORD** (mot de passe initial de l’administrateur, 8 caractères minimum avec lettres et chiffres).',
+    'Cliquez sur **Deploy**, puis, dans l’onglet **Storage** du projet : **Create Database ▸ Neon** (offre gratuite, région Francfort) ▸ **Connect** : DATABASE_URL est ajoutée automatiquement.',
+    'Onglet **Deployments** ▸ **Redeploy** : les tables sont créées automatiquement pendant la construction.',
+    'Ouvrez **https://<votre-projet>.vercel.app/admin/connexion** et connectez-vous avec **admin** et ADMIN_PASSWORD, puis changez ce mot de passe.',
+])
+D.p("Ensuite, chaque mise à jour publiée sur la branche master est déployée automatiquement et les modifications de la base s’appliquent toutes seules. "
+    "Un nom de domaine personnalisé (ex. repetitions.svtc.cm) peut être ajouté dans **Settings ▸ Domains**.")
 D.h2('10.2 Paramètres de l’hébergeur')
 D.table(['Variable', 'Rôle'], [
     ['DATABASE_URL', 'Base de données (renseignée automatiquement par l’intégration Neon)'],

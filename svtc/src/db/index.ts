@@ -8,10 +8,21 @@ declare global {
   var __svtcSql: ReturnType<typeof postgres> | undefined;
 }
 
+/** Retire les paramètres d'URL réservés aux clients libpq (ex. channel_binding de Neon), que le pilote transmettrait au serveur. */
+export function cleanDatabaseUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    for (const k of ['channel_binding', 'pgbouncer', 'connect_timeout', 'pool_timeout', 'schema']) u.searchParams.delete(k);
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
 function connectionString() {
   const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!url) throw new Error('DATABASE_URL non définie : configurez la base PostgreSQL (voir .env.example).');
-  return url;
+  return cleanDatabaseUrl(url);
 }
 
 function client() {

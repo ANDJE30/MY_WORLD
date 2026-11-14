@@ -22,9 +22,9 @@ D.cover(
         ('Maître d’ouvrage', 'SILICON VALLEY TRAINING CENTER (SVTC) — Centre Éducatif TYRANNUS, Biyem-Assi Lac, Yaoundé (Cameroun)'),
         ('Projet', 'SVTC Répétitions : planning, séances, présences, notes, suivi des élèves, paiements, caisse, location des salles, salaires et communication avec les parents'),
         ('Document', 'Cahier des charges : besoins, spécifications fonctionnelles et techniques, conception UML, sécurité, hébergement, recette'),
-        ('Version', '1.0 — application réalisée, testée et déployée'),
+        ('Version', '1.0 — application réalisée et testée, prête à être mise en ligne'),
         ('Date', today),
-        ('Adresse de l’application', URL),
+        ('Adresse prévue', f'{URL} (hébergement Vercel, nom attribué à la création du projet)'),
         ('Rédaction', 'Équipe de développement full stack'),
         ('Contacts SVTC', '657 513 641 · 695 840 597 · 697 760 779'),
     ],
@@ -282,8 +282,9 @@ D.table(['Solution', 'Points forts', 'Limites', 'Verdict'], [
     ['Netlify + Neon', 'Usage commercial autorisé', 'Adaptateur Next.js tiers, fonctions plus limitées', 'Alternative'],
     ['Oracle Cloud Always Free', 'VM gratuite permanente, disque persistant', 'Administration système à la charge du centre', 'Pour l’autonomie totale'],
 ], widths=[3.6, 6.0, 4.8, 2.2], caption='Comparatif des hébergeurs gratuits', font=8.4)
-D.p(f"L'application est publiée à l'adresse **{URL}**. Les migrations de la base s'exécutent automatiquement à chaque déploiement ; "
-    "le compte administrateur initial est créé au premier démarrage à partir de la variable ADMIN_PASSWORD.")
+D.p(f"L'application est prête à être publiée sur Vercel, à l'adresse prévue **{URL}** (le sous-domaine exact est attribué par Vercel à la création du projet). "
+    "La mise en ligne se fait en quelques minutes depuis le compte Vercel du centre : import du dépôt GitHub (dossier svtc), création de la base Neon intégrée, "
+    "saisie de ADMIN_PASSWORD, déploiement. Les migrations de la base s'exécutent automatiquement à chaque déploiement et le compte administrateur initial est créé au premier démarrage.")
 D.h2('8.3 Variables d’environnement')
 D.table(['Variable', 'Rôle'], [
     ['DATABASE_URL', 'Connexion PostgreSQL (renseignée automatiquement par l’intégration Neon)'],
@@ -328,7 +329,7 @@ D.table(['Phase', 'Contenu', 'Livrable'], [
     ['2. Conception', 'Modélisation UML, modèle de données, maquettes des trois interfaces', 'Diagrammes UML'],
     ['3. Réalisation', 'Développement full stack, sécurité, PDF, messagerie', 'Code source (GitHub)'],
     ['4. Recette', 'Tests unitaires et de bout en bout, correction', 'Rapport de tests'],
-    ['5. Déploiement', 'Hébergement Vercel + Neon, configuration', f'Application en ligne : {URL}'],
+    ['5. Déploiement', 'Hébergement Vercel + Neon, configuration', 'Application prête à déployer (procédure en un clic, adresse prévue ' + URL + ')'],
     ['6. Accompagnement', 'Manuel d’utilisation illustré, prise en main', 'Manuel (Word et PDF)'],
 ], widths=[3.2, 8.4, 5.0], caption='Phases et livrables', font=8.5)
 

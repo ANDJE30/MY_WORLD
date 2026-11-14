@@ -3,7 +3,13 @@ import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 
-const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+let url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || process.env.POSTGRES_URL;
+if (url) {
+  // Paramètres réservés aux clients libpq (ex. channel_binding de Neon) : à ne pas transmettre au serveur
+  const u = new URL(url);
+  for (const k of ['channel_binding', 'pgbouncer', 'connect_timeout', 'pool_timeout', 'schema']) u.searchParams.delete(k);
+  url = u.toString();
+}
 if (!url) {
   console.warn('[migrate] DATABASE_URL absente : migrations ignorées (configurez la base avant la mise en production).');
   process.exit(0);
