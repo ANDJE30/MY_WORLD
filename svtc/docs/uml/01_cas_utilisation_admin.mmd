@@ -1,0 +1,26 @@
+flowchart LR
+  A(["👤 Administrateur"])
+  subgraph S["Système SVTC Répétitions — espace Administration"]
+    direction TB
+    U1("S'authentifier")
+    U2("Paramétrer la structure<br/>nom, logo, bandeau, horaires, tarifs")
+    U3("Gérer classes, matières et salles")
+    U4("Gérer élèves et parents<br/>inscription, import Excel/CSV")
+    U5("Gérer les encadreurs<br/>et générer leurs comptes")
+    U6("Attribuer classes et matières")
+    U7("Générer le planning<br/>et l'exporter en PDF")
+    U8("Suivre et valider les séances")
+    U9("Consulter les documents pédagogiques")
+    U10("Encaisser les paiements<br/>et imprimer les reçus")
+    U11("Éditer l'état de caisse PDF")
+    U12("Éditer l'état de location des salles PDF")
+    U13("Éditer l'état des salaires PDF")
+    U14("Envoyer des messages aux parents<br/>application, SMS, WhatsApp")
+    U15("Administrer comptes, journal d'audit<br/>et sauvegardes")
+  end
+  A --- U1 & U2 & U3 & U4 & U5 & U6 & U7 & U8
+  A --- U9 & U10 & U11 & U12 & U13 & U14 & U15
+  U7 -.->|"«include»"| U6
+  U13 -.->|"«include»"| U8
+  U12 -.->|"«include»"| U8
+  U10 -.->|"«extend»"| U14

@@ -1,0 +1,40 @@
+erDiagram
+  USERS ||--o| TUTORS : "compte encadreur"
+  USERS ||--o| PARENTS : "compte parent"
+  USERS ||--o{ AUTH_SESSIONS : "ouvre"
+  USERS ||--o{ AUDIT_LOGS : "trace"
+  STUDENTS ||--o{ PAYMENTS : "règle"
+  TUTORS ||--o{ SALARY_SLIPS : "perçoit"
+  SALARY_SLIPS |o--o| EXPENSES : "payé par"
+  RENT_SETTLEMENTS |o--o| EXPENSES : "payé par"
+  MESSAGES ||--o{ MESSAGE_RECIPIENTS : "envoyé à"
+  PARENTS ||--o{ MESSAGE_RECIPIENTS : "reçoit"
+  PAYMENTS ||--o| VERIFICATIONS : "code QR"
+  PAYMENTS {
+    int id PK
+    text receipt_no UK
+    int amount
+    text method
+    boolean cancelled
+  }
+  SALARY_SLIPS {
+    int tutor_id FK
+    text period
+    int planned_minutes
+    int done_minutes
+    float rate_pct
+    int net_amount
+  }
+  EXPENSES {
+    int id PK
+    date date
+    text category
+    int amount
+  }
+  USERS {
+    uuid id PK
+    text role
+    text username UK
+    text password_hash
+    int failed_attempts
+  }

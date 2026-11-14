@@ -1,0 +1,21 @@
+flowchart TB
+  subgraph UI["Interfaces (React Server Components + composants client)"]
+    I1["Espace Administration<br/>/admin"]
+    I2["Espace Encadreur<br/>/encadreur"]
+    I3["Espace Parent<br/>/parent"]
+    I4["Site public, connexion,<br/>vérification QR"]
+  end
+  subgraph ACT["Actions serveur (validation Zod, contrôle du rôle, audit)"]
+    A1["auth"] --- A2["structure"] --- A3["people"] --- A4["pedagogy"]
+    A5["finance"] --- A6["messaging"] --- A7["tutor"]
+  end
+  subgraph LIB["Bibliothèque métier"]
+    L1["calc : salaires, location,<br/>soldes, planning, moyennes"]
+    L2["payroll : paie, location,<br/>journal de caisse"]
+    L3["pdf : gabarit papier en-tête,<br/>11 documents"]
+    L4["auth et sécurité : sessions,<br/>scrypt, limiteur, audit"]
+    L5["sms : Orange, Twilio,<br/>Africa's Talking, WhatsApp"]
+  end
+  DBL[("Drizzle ORM ▸ PostgreSQL")]
+  UI --> ACT --> LIB --> DBL
+  UI --> LIB

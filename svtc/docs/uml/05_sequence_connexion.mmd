@@ -1,0 +1,26 @@
+sequenceDiagram
+  autonumber
+  actor U as Utilisateur
+  participant N as Navigateur
+  participant S as Serveur Next.js
+  participant DB as PostgreSQL
+  U->>N: Saisit identifiant et mot de passe (espace choisi)
+  N->>S: Action serveur loginAction (contrôle d'origine anti-CSRF)
+  S->>DB: Limiteur de débit (IP et identifiant)
+  alt Trop de tentatives
+    S-->>N: « Trop de tentatives, réessayez dans X min »
+  else
+    S->>DB: Recherche du compte
+    S->>S: Vérification scrypt (temps constant)
+    alt Mot de passe incorrect
+      S->>DB: Incrémente les échecs (verrouillage 15 min au 5e)
+      S-->>N: « Identifiant ou mot de passe incorrect »
+    else Compte d'un autre espace
+      S-->>N: Refus et indication du bon espace
+    else Succès
+      S->>DB: Crée la session (empreinte SHA-256 du jeton)
+      S->>DB: Journal d'audit « CONNEXION »
+      S-->>N: Cookie __Host- HttpOnly, Secure, SameSite + redirection
+      N-->>U: Tableau de bord de son espace
+    end
+  end

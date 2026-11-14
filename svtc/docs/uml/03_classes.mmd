@@ -1,0 +1,124 @@
+classDiagram
+  direction LR
+  class Utilisateur {
+    +uuid id
+    +Role role
+    +String identifiant
+    +String empreinteMotDePasse
+    +Boolean actif
+    +int echecs
+    +Date verrouilleJusqua
+  }
+  class Encadreur {
+    +String nom
+    +String prenom
+    +String telephone
+    +int salaireReference
+    +int tauxHoraire
+  }
+  class Parent {
+    +String nomComplet
+    +String telephone
+    +String relation
+  }
+  class Eleve {
+    +String matricule
+    +String nom
+    +String prenom
+    +int reductionPct
+    +Statut statut
+  }
+  class Classe {
+    +String code
+    +String nom
+    +int fraisInscription
+    +int mensualite
+  }
+  class Matiere {
+    +String code
+    +String intitule
+  }
+  class Salle {
+    +String nom
+    +Map tarifsParJour
+  }
+  class Attribution {
+    +int creneauxParSemaine
+  }
+  class Creneau {
+    +int jour
+    +Time debut
+    +Time fin
+  }
+  class Seance {
+    +Date date
+    +Time debutPrevu
+    +Time finPrevue
+    +DateTime debutReel
+    +DateTime finReelle
+    +StatutSeance statut
+    +Boolean validee
+    +dureeEffectuee() int
+  }
+  class Presence {
+    +StatutPresence statut
+  }
+  class Evaluation {
+    +String intitule
+    +Date date
+    +float bareme
+    +float coefficient
+  }
+  class Note {
+    +float valeur
+    +Boolean absent
+  }
+  class Document {
+    +String titre
+    +TypeDocument type
+    +StatutDocument statut
+    +Boolean visibleParents
+  }
+  class Paiement {
+    +String numeroRecu
+    +int montant
+    +ModePaiement mode
+    +Boolean annule
+  }
+  class Depense {
+    +String libelle
+    +int montant
+    +Categorie categorie
+  }
+  class BulletinSalaire {
+    +String periode
+    +float pourcentageHeures
+    +int net
+    +calculer() int
+  }
+  class Message {
+    +String objet
+    +String corps
+    +Categorie categorie
+  }
+  Utilisateur "0..1" -- "0..1" Encadreur
+  Utilisateur "0..1" -- "0..1" Parent
+  Parent "1" -- "0..*" Eleve : responsable de
+  Classe "1" -- "0..*" Eleve
+  Classe "1" -- "0..*" Attribution
+  Matiere "1" -- "0..*" Attribution
+  Encadreur "1" -- "0..*" Attribution
+  Creneau "1" -- "0..*" Seance : génère
+  Seance "*" -- "1" Classe
+  Seance "*" -- "1" Matiere
+  Seance "*" -- "0..1" Encadreur
+  Seance "*" -- "0..1" Salle
+  Seance "1" -- "0..*" Presence
+  Eleve "1" -- "0..*" Presence
+  Evaluation "1" -- "0..*" Note
+  Eleve "1" -- "0..*" Note
+  Encadreur "1" -- "0..*" Document : dépose
+  Eleve "1" -- "0..*" Paiement
+  Encadreur "1" -- "0..*" BulletinSalaire
+  BulletinSalaire "0..1" -- "0..1" Depense
+  Message "1" -- "1..*" Utilisateur : destinataires

@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> PLANIFIEE : génération depuis le planning
+  PLANIFIEE --> EN_COURS : l'encadreur démarre
+  PLANIFIEE --> TERMINEE : saisie manuelle des heures (≤ 7 jours)
+  PLANIFIEE --> ANNULEE : l'administration annule (motif)
+  EN_COURS --> TERMINEE : l'encadreur termine (après l'appel)
+  ANNULEE --> PLANIFIEE : rétablie
+  TERMINEE --> VALIDEE : l'administration valide les heures
+  VALIDEE --> [*]
+  note right of VALIDEE
+    Séance verrouillée :
+    comptée dans la paie
+    et la location des salles
+  end note

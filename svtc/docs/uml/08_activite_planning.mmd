@@ -1,0 +1,16 @@
+flowchart TD
+  D([Début]) --> A1[Lire les attributions de l'année<br/>classe × matière × encadreur × créneaux/semaine]
+  A1 --> A2[Lire les créneaux des jours de séance<br/>mercredi 15h30–18h00, dimanche 10h00–14h00]
+  A2 --> A3[Trier les demandes : encadreurs les plus chargés d'abord]
+  A3 --> B{Demande restante ?}
+  B -- Non --> R{Toutes placées ?}
+  B -- Oui --> C[Chercher les créneaux où la classe,<br/>l'encadreur et au moins une salle sont libres]
+  C --> C2{Créneau trouvé ?}
+  C2 -- Non --> U[Demande non placée] --> B
+  C2 -- Oui --> S[Choisir le meilleur score :<br/>répartir les matières d'une classe sur les jours,<br/>regrouper les jours d'un encadreur,<br/>garder la salle habituelle de la classe]
+  S --> M[Placer : occuper classe, encadreur et salle] --> B
+  R -- Oui --> F[Enregistrer le planning hebdomadaire]
+  R -- Non --> X[Réessayer avec d'autres ordres<br/>jusqu'à 400 essais, garder le meilleur] --> F
+  F --> G[Générer les séances datées sur une période]
+  G --> H[Exporter le planning PDF par classe et général]
+  H --> Z([Fin])

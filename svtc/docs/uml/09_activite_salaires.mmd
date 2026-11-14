@@ -1,0 +1,13 @@
+flowchart TD
+  D([Choix du mois]) --> L[Lister les séances du mois de chaque encadreur]
+  L --> P[Heures prévues = somme des durées prévues<br/>des séances non annulées]
+  L --> H[Heures effectuées = durée réelle pointée,<br/>plafonnée à la durée prévue de chaque séance terminée]
+  P --> R[Pourcentage = effectuées ÷ prévues × 100<br/>plafonné à 100 %]
+  H --> R
+  R --> M{Mode de calcul}
+  M -- Prorata --> S1[Montant dû = salaire de référence × pourcentage]
+  M -- Horaire --> S2[Montant dû = taux horaire × heures effectuées]
+  S1 --> N[Net = montant dû + prime − retenue]
+  S2 --> N
+  N --> PDF[État de paiement PDF avec émargement]
+  N --> PAY[Payer : dépense « Salaires » inscrite au journal de caisse]

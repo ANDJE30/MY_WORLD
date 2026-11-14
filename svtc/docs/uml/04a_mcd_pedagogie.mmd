@@ -1,0 +1,42 @@
+erDiagram
+  PARENTS ||--o{ STUDENTS : "responsable"
+  CLASSES ||--o{ STUDENTS : "regroupe"
+  CLASSES ||--o{ ASSIGNMENTS : "reçoit"
+  SUBJECTS ||--o{ ASSIGNMENTS : "concerne"
+  TUTORS ||--o{ ASSIGNMENTS : "assure"
+  ASSIGNMENTS ||..o{ TIMESLOTS : "planifiée en"
+  TIMESLOTS ||--o{ SEANCES : "génère"
+  ROOMS ||--o{ SEANCES : "accueille"
+  SEANCES ||--o{ ATTENDANCES : "appel"
+  STUDENTS ||--o{ ATTENDANCES : "présence"
+  EVALUATIONS ||--o{ GRADES : "contient"
+  STUDENTS ||--o{ GRADES : "obtient"
+  TUTORS ||--o{ DOCUMENTS : "dépose"
+  STUDENTS {
+    int id PK
+    text matricule UK
+    int class_id FK
+    int parent_id FK
+    text status
+  }
+  SEANCES {
+    int id PK
+    date date
+    text start_time
+    text end_time
+    timestamptz actual_start
+    timestamptz actual_end
+    text status
+    boolean validated
+  }
+  ATTENDANCES {
+    int seance_id FK
+    int student_id FK
+    text status
+  }
+  GRADES {
+    int evaluation_id FK
+    int student_id FK
+    float score
+    boolean absent
+  }

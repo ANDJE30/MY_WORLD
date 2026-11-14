@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor E as Encadreur
+  participant App as SVTC Répétitions
+  participant DB as Base de données
+  actor A as Administrateur
+  actor P as Parent
+  E->>App: « Démarrer la séance » (jour de la séance)
+  App->>DB: statut = EN_COURS, début réel = maintenant
+  E->>App: Appel (Présent / Retard / Absent / Justifié)
+  App->>DB: Enregistre les présences
+  E->>App: Dépose la fiche de TD (PDF) et le contenu
+  App->>App: Contrôle signature %PDF et taille ≤ 4 Mo
+  E->>App: « Terminer la séance »
+  App->>DB: statut = TERMINEE, fin réelle = maintenant
+  A->>App: Valide les heures de la séance
+  App->>DB: validated = vrai (séance verrouillée)
+  A->>App: Édite l'état des salaires du mois
+  App->>App: Salaire = référence × heures effectuées ÷ heures prévues
+  E->>App: Envoie l'état de suivi d'un élève
+  App->>DB: Message dans l'espace parent (+ SMS si passerelle)
+  P->>App: Lit le message et télécharge l'état de suivi PDF

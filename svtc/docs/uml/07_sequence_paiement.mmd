@@ -1,0 +1,17 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrateur
+  participant App as SVTC Répétitions
+  participant DB as Base de données
+  actor P as Parent
+  A->>App: « Encaisser » : élève, montant, mode (espèces, MTN MoMo, Orange Money…)
+  App->>App: Validation (montant > 0, référence obligatoire si Mobile Money)
+  App->>DB: Numéro de reçu séquentiel SVTC-RAAAA-NNNNN
+  App->>DB: Enregistre le paiement + code de vérification
+  App-->>A: Reçu PDF (montant en lettres, solde restant, QR code)
+  P->>App: Espace parent ▸ Paiements
+  App-->>P: Historique, mois réglés, reçus PDF
+  Note over P,App: Toute personne peut vérifier l'authenticité du reçu en scannant le QR code (/verifier/CODE)
+  A->>App: Rappel de paiement aux parents en retard
+  App->>DB: Message personnalisé {parent} {eleve} {solde}
+  App-->>A: Liens WhatsApp en un clic / SMS

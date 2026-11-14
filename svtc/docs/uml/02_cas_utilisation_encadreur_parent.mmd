@@ -1,0 +1,23 @@
+flowchart LR
+  E(["👤 Encadreur"])
+  P(["👤 Parent"])
+  subgraph S["Système SVTC Répétitions — espaces Encadreur et Parent"]
+    direction TB
+    C1("S'authentifier")
+    E1("Démarrer / terminer une séance<br/>heures de début et de fin")
+    E2("Faire l'appel des élèves")
+    E3("Déposer une fiche de TD (PDF)")
+    E4("Saisir les notes d'une évaluation")
+    E5("Consulter l'évolution d'un élève<br/>état de suivi PDF")
+    E6("Envoyer l'état de suivi au parent")
+    E7("Consulter ses heures et son salaire estimé")
+    P1("Consulter le planning des séances")
+    P2("Consulter le détail d'une séance<br/>encadreur, début, fin, contenu")
+    P3("Lire les messages reçus")
+    P4("Télécharger l'état de suivi PDF")
+    P5("Consulter paiements et reçus")
+  end
+  E --- C1 & E1 & E2 & E3 & E4 & E5 & E6 & E7
+  P --- C1 & P1 & P2 & P3 & P4 & P5
+  E6 -.->|"«include»"| E5
+  E6 -.->|"notifie"| P3

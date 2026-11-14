@@ -1,0 +1,24 @@
+flowchart LR
+  subgraph Clients["Terminaux (navigateur ou application installée PWA)"]
+    PC["💻 Ordinateur<br/>Administration"]
+    TAB["📱 Tablette"]
+    TEL["📱 Smartphone<br/>Encadreurs et parents"]
+  end
+  subgraph Vercel["Vercel — réseau mondial (HTTPS, CDN)"]
+    EDGE["Proxy : CSP avec nonce,<br/>en-têtes de sécurité"]
+    FN["Fonctions serverless Node.js<br/>Next.js 16 : pages, actions, API PDF"]
+    ST["Ressources statiques<br/>(CSS, JS, images, polices)"]
+  end
+  subgraph Neon["Neon — PostgreSQL managé"]
+    DB[("Base svtc<br/>données, fichiers PDF,<br/>sessions, journal")]
+    BK["Sauvegardes et restauration<br/>à un instant donné"]
+  end
+  SMS["Passerelle SMS (option)<br/>Orange SMS API / Twilio /<br/>Africa's Talking"]
+  WA["WhatsApp (liens wa.me)"]
+  PC & TAB & TEL -- "HTTPS" --> EDGE
+  EDGE --> FN
+  EDGE --> ST
+  FN -- "TLS (pool PgBouncer)" --> DB
+  DB --- BK
+  FN -- "HTTPS" --> SMS
+  PC -. "un clic" .-> WA
