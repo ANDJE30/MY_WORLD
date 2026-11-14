@@ -55,28 +55,22 @@ npm test            # 11 tests unitaires : salaires, location, soldes, planning,
 npm run test:e2e    # 29 tests de bout en bout (Playwright) : parcours admin, encadreur, parent et sécurité
 ```
 
-## Mise en ligne (gratuite) : Vercel + Neon
+## Mise en ligne sur Render : https://svtc-tutoring.onrender.com
 
-**Vercel (offre Hobby) + Neon PostgreSQL (offre Free)** : pas de mise en veille, HTTPS et CDN mondiaux, base PostgreSQL managée avec sauvegardes et restauration à un instant donné, déploiement automatique à chaque `git push`.
+Le fichier [`render.yaml`](render.yaml) (Blueprint) crée en une fois le **service web `svtc-tutoring`** et sa **base PostgreSQL** (offre gratuite, région Francfort).
 
-**En un clic** (après fusion de la branche dans `master`) :
+1. Connectez-vous sur **dashboard.render.com** (« Sign in with GitHub »).
+2. **New ▸ Blueprint** ▸ choisissez le dépôt **ANDJE30/MY_WORLD**, la branche (`claude/tutoring-management-platform-eqy60z`, ou `master` après fusion) et **Blueprint Path : `svtc/render.yaml`**.
+3. Renseignez **ADMIN_PASSWORD** (mot de passe initial du compte `admin`, 8 caractères minimum avec lettres et chiffres) puis **Deploy Blueprint**.
+4. Après la construction (5 à 10 minutes), ouvrez **https://svtc-tutoring.onrender.com/admin/connexion** (identifiant `admin`) et changez le mot de passe.
 
-[![Déployer sur Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FANDJE30%2FMY_WORLD%2Ftree%2Fmaster%2Fsvtc&project-name=svtc-repetitions&repository-name=svtc-repetitions&env=ADMIN_PASSWORD&envDescription=Mot%20de%20passe%20initial%20du%20compte%20administrateur%20(8%20caract%C3%A8res%20minimum%2C%20lettres%20et%20chiffres)&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22neon%22%2C%22integrationSlug%22%3A%22neon%22%7D%5D)
+Chaque `git push` sur la branche choisie redéploie automatiquement ; les migrations de la base s'appliquent pendant la construction.
 
-Le bouton crée le projet, propose la base **Neon** (gratuite, `DATABASE_URL` renseignée automatiquement) et demande `ADMIN_PASSWORD`.
+> **Limites de l'offre gratuite Render.** Le service s'endort après 15 minutes sans visite (premier affichage d'environ une minute ensuite). La **base PostgreSQL gratuite expire 30 jours après sa création** : avant l'échéance, passez-la à l'offre Basic (quelques dollars par mois) ou remplacez `DATABASE_URL` par une base **Neon** gratuite et permanente (neon.tech), sans autre changement de code.
 
-**Manuellement** :
+Autre hébergeur possible : **Vercel + Neon** (projet Vercel, *Root Directory* `svtc`, base Neon intégrée, variable `ADMIN_PASSWORD`). Les paramètres `channel_binding` des adresses Neon sont neutralisés automatiquement.
 
-1. Créez un compte sur vercel.com (connexion avec GitHub).
-2. *Add New ▸ Project* : importez le dépôt, **Root Directory = `svtc`**.
-3. *Environment Variables* : ajoutez `ADMIN_PASSWORD` (mot de passe initial de l'administrateur), puis *Deploy*.
-4. Onglet *Storage* : *Create Database ▸ Neon* (gratuit, région Francfort) ▸ *Connect* : `DATABASE_URL` est renseignée automatiquement.
-5. *Deployments ▸ Redeploy* : les migrations de la base s'exécutent pendant le build (`npm run build`).
-6. Ouvrez `https://<projet>.vercel.app/admin/connexion` (identifiant `admin`, mot de passe `ADMIN_PASSWORD`) et changez le mot de passe.
-
-Variables d'environnement : voir `.env.example` (base de données, mot de passe initial, adresse publique `APP_URL`, passerelle SMS facultative : Orange SMS API, Twilio ou Africa's Talking). Les paramètres `channel_binding` des adresses Neon sont neutralisés automatiquement.
-
-> L'offre Hobby de Vercel est destinée à un usage non commercial. Pour un usage commercial intensif, passez à l'offre Pro, ou déployez la même application sur tout hébergeur Node.js (Render, Railway, VPS) avec la même base Neon (`npm run build && npm start`).
+Variables d'environnement : voir `.env.example` (base de données, mot de passe initial, adresse publique `APP_URL`, passerelle SMS facultative : Orange SMS API, Twilio ou Africa's Talking).
 
 ## Livrables
 

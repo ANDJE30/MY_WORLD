@@ -4,21 +4,15 @@ flowchart LR
     TAB["📱 Tablette"]
     TEL["📱 Smartphone<br/>Encadreurs et parents"]
   end
-  subgraph Vercel["Vercel — réseau mondial (HTTPS, CDN)"]
-    EDGE["Proxy : CSP avec nonce,<br/>en-têtes de sécurité"]
-    FN["Fonctions serverless Node.js<br/>Next.js 16 : pages, actions, API PDF"]
-    ST["Ressources statiques<br/>(CSS, JS, images, polices)"]
-  end
-  subgraph Neon["Neon — PostgreSQL managé"]
-    DB[("Base svtc<br/>données, fichiers PDF,<br/>sessions, journal")]
-    BK["Sauvegardes et restauration<br/>à un instant donné"]
+  subgraph Render["Render — région Francfort (HTTPS)"]
+    WEB["Service web « svtc-tutoring »<br/>Node.js 22 · Next.js 16<br/>pages, actions, API PDF,<br/>CSP avec nonce"]
+    DB[("PostgreSQL « svtc-tutoring-db »<br/>données, fichiers PDF,<br/>sessions, journal")]
+    GH["Redéploiement automatique<br/>depuis GitHub (render.yaml)"]
   end
   SMS["Passerelle SMS (option)<br/>Orange SMS API / Twilio /<br/>Africa's Talking"]
   WA["WhatsApp (liens wa.me)"]
-  PC & TAB & TEL -- "HTTPS" --> EDGE
-  EDGE --> FN
-  EDGE --> ST
-  FN -- "TLS (pool PgBouncer)" --> DB
-  DB --- BK
-  FN -- "HTTPS" --> SMS
+  PC & TAB & TEL -- "HTTPS<br/>svtc-tutoring.onrender.com" --> WEB
+  WEB -- "réseau privé Render" --> DB
+  GH --> WEB
+  WEB -- "HTTPS" --> SMS
   PC -. "un clic" .-> WA

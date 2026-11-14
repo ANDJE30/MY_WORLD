@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from docgen import DOCS, Doc  # noqa: E402
 
-URL = os.environ.get('SVTC_URL', 'https://svtc-repetitions.vercel.app')
+URL = os.environ.get('SVTC_URL', 'https://svtc-tutoring.onrender.com')
 UML = os.path.join(DOCS, 'uml')
 CAP = os.path.join(DOCS, 'captures')
 u = lambda f: os.path.join(UML, f)
@@ -24,7 +24,7 @@ D.cover(
         ('Document', 'Cahier des charges : besoins, spécifications fonctionnelles et techniques, conception UML, sécurité, hébergement, recette'),
         ('Version', '1.0 — application réalisée et testée, prête à être mise en ligne'),
         ('Date', today),
-        ('Adresse prévue', f'{URL} (hébergement Vercel, nom attribué à la création du projet)'),
+        ('Adresse prévue', f'{URL} (hébergement Render, service « svtc-tutoring »)'),
         ('Rédaction', 'Équipe de développement full stack'),
         ('Contacts SVTC', '657 513 641 · 695 840 597 · 697 760 779'),
     ],
@@ -237,7 +237,7 @@ D.table(['Domaine', 'Exigence', 'Réponse apportée'], [
     ['Responsive', 'Ordinateur, tablette, smartphone', 'Mise en page fluide (360 px à 4K), menu latéral repliable, barre d’onglets mobile, boutons tactiles de 40 px, champs adaptés (clavier numérique pour les notes et téléphones)'],
     ['Application mobile', 'Accès rapide depuis le téléphone', 'PWA installable (icône SVTC sur l’écran d’accueil, plein écran)'],
     ['Performance', 'Pages rapides même en 3G', 'Rendu serveur, graphiques SVG sans bibliothèque, ressources statiques en cache CDN, requêtes SQL indexées'],
-    ['Disponibilité', '24 h/24, sans mise en veille', 'Hébergement serverless Vercel, base Neon managée'],
+    ['Disponibilité', 'Accès 24 h/24', 'Hébergement Render (HTTPS, redéploiement automatique) ; offre gratuite en veille après 15 min d’inactivité, offre payante sans veille'],
     ['Fiabilité', 'Données cohérentes', 'Contraintes d’unicité et clés étrangères, transactions, numérotation protégée contre les doublons, tests automatisés'],
     ['Sécurité', 'Protection des données de mineurs', 'Voir chapitre 7'],
     ['Confidentialité', 'Loi n° 2024/017 du 23 décembre 2024 (protection des données personnelles au Cameroun)', 'Minimisation des données, accès cloisonnés, mots de passe jamais conservés en clair, journal d’audit, export et suppression possibles'],
@@ -261,7 +261,7 @@ D.table(['Menace', 'Mesure mise en œuvre'], [
     ['Injection dans Excel', 'Neutralisation des formules dans les exports CSV'],
     ['Contrefaçon de reçus', '**QR code et code d’authenticité** vérifiables en ligne ; reçus annulés signalés comme tels'],
     ['Répudiation', '**Journal d’audit** : utilisateur, action, élément, détails, adresse IP, date'],
-    ['Perte de données', 'Sauvegardes Neon (restauration à un instant donné) + export JSON/CSV à la demande'],
+    ['Perte de données', 'Export JSON/CSV à la demande depuis l’application + sauvegardes automatiques de l’hébergeur de la base (offres payantes Render, ou Neon)'],
 ], widths=[4.0, 12.6], caption='Mesures de sécurité', font=8.5)
 
 # ------------------------------------------------------------------ 8
@@ -270,24 +270,25 @@ D.h2('8.1 Choix technologiques')
 D.table(['Couche', 'Technologie', 'Justification'], [
     ['Interface', 'Next.js 16 (App Router), React 19, Tailwind CSS 4, Poppins', 'Standard mondial, rendu serveur rapide, composants modernes, police de l’identité SVTC'],
     ['Logique serveur', 'Server Actions, routes API Next.js (Node.js 22), TypeScript', 'Un seul langage typé de bout en bout, sécurité intégrée (contrôle d’origine)'],
-    ['Base de données', 'PostgreSQL (Neon), Drizzle ORM, migrations SQL', 'Base relationnelle robuste, transactions, contraintes d’intégrité'],
+    ['Base de données', 'PostgreSQL (Render ou Neon), Drizzle ORM, migrations SQL', 'Base relationnelle robuste, transactions, contraintes d’intégrité'],
     ['Documents', '@react-pdf/renderer, QR codes', 'PDF vectoriels au gabarit du papier en-tête SVTC, générés côté serveur'],
     ['Messagerie', 'Orange SMS API, Twilio, Africa’s Talking, liens WhatsApp', 'Couverture du Cameroun, solution gratuite par WhatsApp'],
     ['Qualité', 'Tests node:test (calculs) et Playwright (parcours complets)', 'Non-régression des calculs financiers et des parcours utilisateurs'],
 ], widths=[2.8, 6.4, 7.4], caption='Pile technique', font=8.5)
 D.h2('8.2 Choix de l’hébergeur gratuit')
 D.table(['Solution', 'Points forts', 'Limites', 'Verdict'], [
-    ['**Vercel (Hobby) + Neon (Free)**', 'Optimisé pour Next.js, aucune mise en veille, HTTPS et CDN mondiaux, déploiement à chaque git push ; PostgreSQL managé, sauvegardes, 0,5 Go', 'Offre Hobby à usage non commercial (passage à Pro si nécessaire)', '**Retenu**'],
-    ['Render (Free) + Neon', 'Simple, Node.js classique', 'Mise en veille après 15 min (30 à 60 s de réveil), disque éphémère', 'Alternative'],
+    ['**Render (Free) : service web + PostgreSQL**', 'Choix du centre : tout chez un seul hébergeur, Blueprint (render.yaml) qui crée le service et la base en une fois, HTTPS, redéploiement à chaque git push, usage commercial autorisé', 'Veille après 15 min sans visite (réveil d’environ une minute) ; base gratuite limitée à 30 jours, puis offre Basic payante ou base Neon gratuite', '**Retenu**'],
+    ['Vercel (Hobby) + Neon (Free)', 'Optimisé pour Next.js, aucune mise en veille, CDN mondial ; PostgreSQL Neon permanent', 'Offre Hobby à usage non commercial', 'Alternative'],
     ['Netlify + Neon', 'Usage commercial autorisé', 'Adaptateur Next.js tiers, fonctions plus limitées', 'Alternative'],
     ['Oracle Cloud Always Free', 'VM gratuite permanente, disque persistant', 'Administration système à la charge du centre', 'Pour l’autonomie totale'],
 ], widths=[3.6, 6.0, 4.8, 2.2], caption='Comparatif des hébergeurs gratuits', font=8.4)
-D.p(f"L'application est prête à être publiée sur Vercel, à l'adresse prévue **{URL}** (le sous-domaine exact est attribué par Vercel à la création du projet). "
-    "La mise en ligne se fait en quelques minutes depuis le compte Vercel du centre : import du dépôt GitHub (dossier svtc), création de la base Neon intégrée, "
-    "saisie de ADMIN_PASSWORD, déploiement. Les migrations de la base s'exécutent automatiquement à chaque déploiement et le compte administrateur initial est créé au premier démarrage.")
+D.p(f"L'application est publiée sur **Render** sous le nom de service **svtc-tutoring**, à l'adresse **{URL}** (Render ajoute un suffixe si ce nom est déjà pris). "
+    "Le fichier svtc/render.yaml (Blueprint) crée le service web (Node.js 22, région Francfort) et la base PostgreSQL ; la construction est réglée pour tenir dans les 512 Mo "
+    "de l'offre gratuite. Le centre saisit seulement ADMIN_PASSWORD. Les migrations de la base s'exécutent à chaque déploiement et le compte administrateur initial est créé au premier démarrage.")
+D.note("**Point de vigilance.** La base PostgreSQL gratuite de Render expire **30 jours** après sa création. Avant l'échéance, passez-la à l'offre Basic, ou remplacez DATABASE_URL par une base **Neon** gratuite et permanente : aucune modification du code n'est nécessaire.", 'warn')
 D.h2('8.3 Variables d’environnement')
 D.table(['Variable', 'Rôle'], [
-    ['DATABASE_URL', 'Connexion PostgreSQL (renseignée automatiquement par l’intégration Neon)'],
+    ['DATABASE_URL', 'Connexion PostgreSQL (renseignée automatiquement par le Blueprint Render, ou adresse Neon)'],
     ['ADMIN_PASSWORD', 'Mot de passe initial du compte « admin » (premier démarrage)'],
     ['APP_URL', 'Adresse publique (liens des QR codes et des fiches d’accès)'],
     ['SMS_PROVIDER', 'SIMULATION, ORANGE, TWILIO ou AFRICASTALKING'],
@@ -329,7 +330,7 @@ D.table(['Phase', 'Contenu', 'Livrable'], [
     ['2. Conception', 'Modélisation UML, modèle de données, maquettes des trois interfaces', 'Diagrammes UML'],
     ['3. Réalisation', 'Développement full stack, sécurité, PDF, messagerie', 'Code source (GitHub)'],
     ['4. Recette', 'Tests unitaires et de bout en bout, correction', 'Rapport de tests'],
-    ['5. Déploiement', 'Hébergement Vercel + Neon, configuration', 'Application prête à déployer (procédure en un clic, adresse prévue ' + URL + ')'],
+    ['5. Déploiement', 'Hébergement Render (service web + PostgreSQL), configuration', 'Blueprint render.yaml, adresse ' + URL],
     ['6. Accompagnement', 'Manuel d’utilisation illustré, prise en main', 'Manuel (Word et PDF)'],
 ], widths=[3.2, 8.4, 5.0], caption='Phases et livrables', font=8.5)
 

@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from docgen import DOCS, Doc  # noqa: E402
 
-URL = os.environ.get('SVTC_URL', 'https://svtc-repetitions.vercel.app')
+URL = os.environ.get('SVTC_URL', 'https://svtc-tutoring.onrender.com')
 DEMO = os.environ.get('SVTC_DEMO', '0') == '1'
 CAP = os.path.join(DOCS, 'captures')
 c = lambda f: os.path.join(CAP, f)
@@ -295,27 +295,28 @@ D.p(f"Chaque reçu et chaque état de suivi porte un **QR code** et un **code d�
 
 # ------------------------------------------------------------------ 10
 D.h1('10. Mise en ligne et maintenance')
-D.h2('10.1 Mettre l’application en ligne (Vercel + Neon, gratuit)')
-D.p(f"L'application est conçue pour l'hébergeur **Vercel** (serveur web mondial, HTTPS, pas de mise en veille) avec une base de données **Neon PostgreSQL** "
-    f"(sauvegardes automatiques). Adresse prévue : **{URL}** (le sous-domaine exact est attribué par Vercel). La mise en ligne prend environ 5 minutes :")
+D.h2('10.1 Mettre l’application en ligne sur Render')
+D.p(f"L'application est hébergée sur **Render** : un service web nommé **svtc-tutoring** et sa base de données **PostgreSQL**, créés ensemble par le fichier "
+    f"**svtc/render.yaml** (Blueprint). Adresse : **{URL}**.")
 D.steps([
-    'Sur GitHub, fusionnez la branche de développement dans **master** (dépôt ANDJE30/MY_WORLD).',
-    'Créez un compte gratuit sur **vercel.com** avec « Continue with GitHub ».',
-    '**Add New ▸ Project** ▸ importez le dépôt **MY_WORLD** ▸ **Root Directory : svtc** (Vercel détecte Next.js).',
-    'Dans **Environment Variables**, ajoutez **ADMIN_PASSWORD** (mot de passe initial de l’administrateur, 8 caractères minimum avec lettres et chiffres).',
-    'Cliquez sur **Deploy**, puis, dans l’onglet **Storage** du projet : **Create Database ▸ Neon** (offre gratuite, région Francfort) ▸ **Connect** : DATABASE_URL est ajoutée automatiquement.',
-    'Onglet **Deployments** ▸ **Redeploy** : les tables sont créées automatiquement pendant la construction.',
-    'Ouvrez **https://<votre-projet>.vercel.app/admin/connexion** et connectez-vous avec **admin** et ADMIN_PASSWORD, puis changez ce mot de passe.',
+    'Connectez-vous sur **dashboard.render.com** avec « Sign in with GitHub ».',
+    '**New ▸ Blueprint** ▸ choisissez le dépôt **ANDJE30/MY_WORLD** et la branche de l’application (master après fusion).',
+    'Dans **Blueprint Path**, saisissez **svtc/render.yaml**.',
+    'Renseignez **ADMIN_PASSWORD** (mot de passe initial de l’administrateur, 8 caractères minimum avec lettres et chiffres) puis **Deploy Blueprint**.',
+    'Attendez la fin de la construction (5 à 10 minutes) : le service passe à l’état **Live**.',
+    f'Ouvrez **{URL}/admin/connexion**, connectez-vous avec **admin** et ADMIN_PASSWORD, puis changez ce mot de passe.',
 ])
-D.p("Ensuite, chaque mise à jour publiée sur la branche master est déployée automatiquement et les modifications de la base s’appliquent toutes seules. "
-    "Un nom de domaine personnalisé (ex. repetitions.svtc.cm) peut être ajouté dans **Settings ▸ Domains**.")
+D.p("Chaque mise à jour publiée sur la branche est ensuite redéployée automatiquement et les modifications de la base s’appliquent toutes seules. "
+    "Un nom de domaine personnalisé (ex. repetitions.svtc.cm) peut être ajouté dans **Settings ▸ Custom Domains** du service.")
+D.note("**Offre gratuite Render.** Le service s’endort après 15 minutes sans visite : le premier affichage suivant prend environ une minute. "
+       "La base de données gratuite **expire 30 jours après sa création** : avant l’échéance, passez-la à l’offre Basic (payante) ou remplacez DATABASE_URL par une base Neon gratuite (neon.tech).", 'warn')
 D.h2('10.2 Paramètres de l’hébergeur')
 D.table(['Variable', 'Rôle'], [
-    ['DATABASE_URL', 'Base de données (renseignée automatiquement par l’intégration Neon)'],
+    ['DATABASE_URL', 'Base de données (renseignée automatiquement par le Blueprint Render)'],
     ['ADMIN_PASSWORD', 'Mot de passe initial du compte administrateur « admin »'],
     ['APP_URL', 'Adresse publique de l’application (QR codes, fiches d’accès)'],
     ['SMS_PROVIDER + clés', 'ORANGE, TWILIO ou AFRICASTALKING et leurs identifiants (facultatif)'],
-], widths=[5.0, 11.6], caption='Variables d’environnement (Vercel ▸ Settings ▸ Environment Variables)')
+], widths=[5.0, 11.6], caption='Variables d’environnement (Render ▸ service svtc-tutoring ▸ Environment)')
 D.h2('10.3 Bonnes pratiques')
 D.bullets([
     'Changez le mot de passe administrateur après la première connexion et ne le partagez pas ; créez un compte par personne (secrétariat).',

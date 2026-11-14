@@ -10,6 +10,10 @@ const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'off' },
 ];
 
+// Hébergeurs à faible mémoire (Render gratuit : 512 Mo) : un seul processus de compilation,
+// vérification des types faite en amont (npm run typecheck et tests) plutôt que pendant le build.
+const lowMemory = process.env.LOW_MEMORY_BUILD === '1';
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
@@ -19,7 +23,9 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: { bodySizeLimit: '4.4mb' },
+    ...(lowMemory ? { cpus: 1, workerThreads: false, webpackMemoryOptimizations: true } : {}),
   },
+  ...(lowMemory ? { typescript: { ignoreBuildErrors: true } } : {}),
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
