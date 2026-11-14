@@ -28,7 +28,12 @@ function connectionString() {
 function client() {
   if (!globalThis.__svtcSql) {
     const url = connectionString();
-    const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
+    // SSL obligatoire vers une base distante (Neon, Render externe) ; inutile en local ou sur un réseau privé (hôte sans domaine)
+    let host = '';
+    try {
+      host = new URL(url).hostname;
+    } catch {}
+    const local = ['localhost', '127.0.0.1'].includes(host) || (host !== '' && !host.includes('.')) || /sslmode=disable/.test(url);
     globalThis.__svtcSql = postgres(url, {
       max: process.env.VERCEL ? 3 : 10,
       prepare: false, // compatible avec les pools PgBouncer (Neon, Supabase)

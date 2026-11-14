@@ -14,7 +14,8 @@ if (!url) {
   console.warn('[migrate] DATABASE_URL absente : migrations ignorées (configurez la base avant la mise en production).');
   process.exit(0);
 }
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
+const host = new URL(url).hostname;
+const local = ['localhost', '127.0.0.1'].includes(host) || !host.includes('.') || /sslmode=disable/.test(url);
 const sql = postgres(url, { max: 1, prepare: false, ssl: local ? false : 'require', onnotice: () => {} });
 try {
   await migrate(drizzle(sql), { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
