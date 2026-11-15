@@ -897,6 +897,9 @@ test('sauvegarde externe : signature AWS SigV4 conforme aux exemples officiels',
   assert.equal(s3Config({ ...k, S3_ENDPOINT: 'https://s3.us-west-004.backblazeb2.com' }).region, 'us-west-004');
   assert.equal(s3Config({ ...k, S3_ENDPOINT: 'https://abc.r2.cloudflarestorage.com' }).region, 'auto');
   assert.equal(s3Config({ ...k, S3_ENDPOINT: '' }), null);
+  const { superadminPassword } = await import('../server/platform.js');
+  for (const v of ["'Ai721@2026'", '"Ai721@2026"', '  Ai721@2026 ', '« Ai721@2026 »', 'Ai721@2026']) assert.equal(superadminPassword({ SUPERADMIN_PASSWORD: v }), 'Ai721@2026', v);
+  assert.equal(superadminPassword({ SUPERADMIN_PASSWORD: "it's" }), "it's");
 });
 
 test('sauvegarde externe : instantané chiffré, restauration sur disque vide, clé erronée refusée, accès AI721 réinitialisé sans perte', { timeout: 120000 }, async () => {
@@ -966,6 +969,15 @@ test('sauvegarde externe : instantané chiffré, restauration sur disque vide, c
     const pw = await fetch(D.base + '/console/api/auth/password', { method: 'POST', headers: { ...H, cookie: k.cookie }, body: JSON.stringify({ current: 'Nouveau!2026abc', next: 'Autre!2026abcd' }) });
     assert.equal(pw.status, 400, 'mot de passe défini sur le serveur : changement refusé dans la console');
     await D.stop();
+    // 5. Valeur saisie avec des apostrophes et des espaces (« 'Ai721@2026' ») : identifiant AI721 (majuscules indifférentes), données conservées
+    const E = await boot({ SUPERADMIN_PASSWORD: "  'Ai721@2026'  " }, D.dir);
+    assert.match(E.out(), /accès réinitialisé depuis SUPERADMIN_PASSWORD/);
+    assert.match(E.out(), /affiché publiquement par d'anciennes versions/);
+    const e = await login(E.base, 'ai721', 'Ai721@2026');
+    assert.equal(e.status, 200);
+    assert.ok((await (await fetch(E.base + '/console/api/tenants', { headers: { cookie: e.cookie } })).json()).some((t) => t.code === 'lpey'));
+    assert.equal((await (await fetch(E.base + '/console/api/persistance', { headers: { cookie: e.cookie } })).json()).superadminPublic, true);
+    await E.stop();
   } finally {
     await s3.close();
     for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
