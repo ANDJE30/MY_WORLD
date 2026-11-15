@@ -10,7 +10,7 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre é
 D = Doc("Manuel d'utilisation — AI721 SchoolX CM", "Manuel d'utilisation")
 D.cover("Manuel d'utilisation", 'AI721 SchoolX CM',
         "Guide pas à pas pour le super administrateur AI721, les administrateurs d'établissement, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.5 (anciennement EduGest CM)'), ('Date', today),
+        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.5.1 (anciennement EduGest CM)'), ('Date', today),
          ('Public', 'Super administrateur AI721 TECH STUFF, administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Éditeur', 'AI721 TECH STUFF'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -182,6 +182,9 @@ D.h3("Réinitialiser l'accès du super administrateur")
 D.p("Dans Render ▸ *Environment*, modifiez **SUPERADMIN_PASSWORD** puis enregistrez. Le service redémarre, restaure la base et applique le nouveau mot de passe. "
     "L'identifiant **AI721** est conservé, le compte est déverrouillé et les autres sessions AI721 sont fermées ; **aucune donnée n'est modifiée**. "
     "Tant que cette variable est définie, le mot de passe ne se change pas depuis la console (il serait remplacé au redémarrage suivant).", align='justify')
+D.note("**Saisie de la valeur :** tapez le mot de passe **sans guillemets ni apostrophes** autour (des guillemets ou des espaces ajoutés par erreur sont de toute façon ignorés). "
+       "À la connexion, l'identifiant AI721 peut être tapé en majuscules ou en minuscules. Si vous choisissez un mot de passe déjà affiché par une ancienne version de la plateforme, "
+       "la console le signale : changez-le dès que possible, car toute personne qui l'a vu pourrait ouvrir la console.", 'warn')
 D.note("**Avant d'appliquer une mise à jour importante,** vérifiez dans la carte que la dernière sauvegarde est récente, ou cliquez sur Sauvegarder maintenant.", 'info')
 
 # =============================================================== 4

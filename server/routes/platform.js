@@ -6,7 +6,7 @@ import { db, audit, tx, DATA_DIR } from '../db.js';
 import { hashPassword, genPassword, verifyPassword, destroyUserSessions } from '../security.js';
 import { seal, unseal } from '../vault.js';
 import { pdb, getTenant, createTenant, inTenant, closeTenant, tenantDir, subscriptionStatus, schoolYearOf, isSchoolYear, yearBounds,
-  suggestCode, getPlatformSettings, savePlatformSettings, PLATFORM_DEFAULTS, CODE_RE, today, COMPANY } from '../platform.js';
+  suggestCode, getPlatformSettings, savePlatformSettings, PLATFORM_DEFAULTS, CODE_RE, today, COMPANY, superadminPassword, superadminPasswordIsPublic } from '../platform.js';
 import { str, num, id, bool, date, oneOf, bad, HttpError } from '../util.js';
 import { requireRole } from './access.js';
 import * as P from '../pdf.js';
@@ -260,7 +260,7 @@ r.get('/pdf/etablissements', (req, res) => {
 });
 
 /* ---------- Sauvegarde externe automatique (stockage compatible S3) ---------- */
-const persistInfo = () => ({ ...persistState, superadminEnv: !!process.env.SUPERADMIN_PASSWORD });
+const persistInfo = () => ({ ...persistState, superadminEnv: !!superadminPassword(), superadminPublic: superadminPasswordIsPublic() });
 r.get('/persistance', (_req, res) => res.json(persistInfo()));
 r.post('/persistance/sauvegarder', async (req, res) => {
   if (!persistState.enabled) throw bad(persistState.error || "La sauvegarde externe n'est pas configurée (variables S3_… et VAULT_KEY sur le serveur).");

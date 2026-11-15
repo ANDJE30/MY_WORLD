@@ -76,7 +76,7 @@ npm test                  # 40 tests d'intégration (plateforme, abonnements, is
 
 Le stockage garde les 48 derniers instantanés, plus un par jour sur 14 jours. Si les sauvegardes ne peuvent pas être lues (clé différente), le serveur refuse de démarrer plutôt que de les écraser par une plateforme vide.
 
-**Accès à la console AI721** : identifiant `AI721`, mot de passe = valeur de `SUPERADMIN_PASSWORD`. Elle fait foi à chaque démarrage : pour réinitialiser l'accès, modifiez-la dans Render (*Environment*). Le service redémarre et applique le nouveau mot de passe **sans toucher aux données**.
+**Accès à la console AI721** : identifiant `AI721`, mot de passe = valeur de `SUPERADMIN_PASSWORD`. Elle fait foi à chaque démarrage : pour réinitialiser l'accès, modifiez-la dans Render (*Environment*). Le service redémarre, ramène l'identifiant à `AI721` et applique le nouveau mot de passe **sans toucher aux données**. Saisissez la valeur sans guillemets ; des guillemets, apostrophes ou espaces autour de la valeur sont de toute façon ignorés. Un mot de passe déjà publié par une ancienne version est accepté, mais signalé dans la console et les journaux.
 
 **Mettre à jour le site** :
 - **Render** : chaque fusion dans `master` redéploie automatiquement le service. Avec la sauvegarde externe, la base est restaurée au redémarrage et les migrations s'appliquent automatiquement : les données sont conservées. Définissez `SUPERADMIN_PASSWORD` dans *Environment* (Render le demande à la création du Blueprint).
@@ -130,6 +130,8 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
 
 ## Historique des versions
+
+- **3.5.1** : réinitialisation de l'accès AI721 plus robuste. La valeur de `SUPERADMIN_PASSWORD` est débarrassée des guillemets, apostrophes et espaces qui l'entoureraient, l'identifiant est ramené à `AI721` et ne tient pas compte des majuscules. Un mot de passe déjà publié est signalé dans la console.
 
 - **3.5** :
   - **sauvegarde externe automatique** de toute la base (console, établissements, fichiers) vers un stockage gratuit compatible S3. L'instantané est chiffré et envoyé après chaque modification et à l'arrêt, puis restauré au démarrage sur un disque vide : les données survivent aux mises à jour et aux mises en veille de Render. La console affiche l'état de la sauvegarde et propose *Sauvegarder maintenant* ;

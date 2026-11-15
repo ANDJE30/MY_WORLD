@@ -304,6 +304,7 @@ function persistCard(ps) {
       ${row('Dernière sauvegarde', ps.last ? `${fmtTs(Date.parse(ps.last.at) / 1000)} — ${sizeOf(ps.last.size)} chiffrés, ${ps.last.files} fichiers (${ps.last.reason})` : ps.pending ? 'en attente (dans la minute)' : 'aucune depuis le démarrage : les données n’ont pas changé')}
       ${row('Au démarrage', ps.restored ? (ps.restored.at ? `données restaurées depuis la sauvegarde ${ps.restored.from}` : ps.restored.from === 'disque local' ? 'données du disque local conservées' : 'première mise en service : aucune sauvegarde à restaurer') : '—')}
       ${row('Mot de passe de la console', ps.superadminEnv ? 'défini sur le serveur (SUPERADMIN_PASSWORD) : il se change dans l’hébergeur, sans perte de données' : 'défini dans la console (Mon compte)')}</div>
+    ${ps.superadminPublic ? h`<div class="card-b" style="padding-bottom:0"><div class="alert warn">${icon('alert')}<div><b>Mot de passe déjà connu publiquement.</b> Ce mot de passe était affiché par d'anciennes versions de la plateforme : toute personne qui l'a vu peut ouvrir la console. Choisissez-en un autre dans l'hébergeur (SUPERADMIN_PASSWORD) dès que possible.</div></div></div>` : ''}
     <div class="card-b row" style="justify-content:flex-end"><button class="btn btn-primary" data-snap ${ps.enabled ? '' : raw('disabled')}>${icon('upload')} Sauvegarder maintenant</button></div>` : ''}</div>`;
 }
 
