@@ -204,6 +204,15 @@ export function initPlatform() {
     pdb.prepare(`INSERT INTO users(role, username, pass_hash, full_name, must_change) VALUES('superadmin', 'AI721', ?, ?, ?)`)
       .run(hashPassword(pw), `Super administrateur ${COMPANY}`, process.env.SUPERADMIN_PASSWORD ? 0 : 1);
     logSuperadmin('compte super administrateur créé', pw);
+  } else if (process.env.SUPERADMIN_PASSWORD) {
+    // SUPERADMIN_PASSWORD fait foi : la modifier dans l'hébergeur (Render ▸ Environment) réinitialise l'accès AI721 au
+    // démarrage suivant, identifiant conservé, sans toucher aux données (établissements, abonnements, comptes…)
+    const u = pdb.prepare("SELECT * FROM users WHERE role = 'superadmin' ORDER BY id LIMIT 1").get();
+    if (u && (!verifyPassword(process.env.SUPERADMIN_PASSWORD, u.pass_hash) || u.must_change || u.locked_until || !u.active)) {
+      pdb.prepare('UPDATE users SET pass_hash = ?, must_change = 0, failed_attempts = 0, locked_until = 0, active = 1 WHERE id = ?').run(hashPassword(process.env.SUPERADMIN_PASSWORD), u.id);
+      pdb.prepare('DELETE FROM sessions WHERE user_id = ?').run(u.id);
+      logSuperadmin(`accès ${u.username} réinitialisé depuis SUPERADMIN_PASSWORD (données conservées)`, '');
+    }
   } else if (process.env.SUPERADMIN_RESET === '1') {
     // mot de passe AI721 oublié : redémarrer une fois avec SUPERADMIN_RESET=1 (et SUPERADMIN_PASSWORD, sinon mot de passe aléatoire)
     const pw = process.env.SUPERADMIN_PASSWORD || genPassword();

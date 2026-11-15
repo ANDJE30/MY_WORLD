@@ -11,6 +11,7 @@ import { str, num, id, bool, date, oneOf, bad, HttpError } from '../util.js';
 import { requireRole } from './access.js';
 import * as P from '../pdf.js';
 import { PROVIDERS, gatewayConfig, sendSms, normalizePhone } from '../sms.js';
+import { state as persistState, snapshotNow } from '../persist.js';
 
 const r = Router();
 r.use(requireRole('superadmin'));
@@ -256,6 +257,16 @@ r.get('/pdf/etablissements', (req, res) => {
     eleves: ts.reduce((a, t) => a + (t.eleves || 0), 0), recettes_annee: subs.filter((s) => s.annee === year && s.paid).reduce((a, s) => a + s.montant, 0),
     recettes_total: subs.filter((s) => s.paid).reduce((a, s) => a + s.montant, 0) });
   P.finalize(doc);
+});
+
+/* ---------- Sauvegarde externe automatique (stockage compatible S3) ---------- */
+const persistInfo = () => ({ ...persistState, superadminEnv: !!process.env.SUPERADMIN_PASSWORD });
+r.get('/persistance', (_req, res) => res.json(persistInfo()));
+r.post('/persistance/sauvegarder', async (req, res) => {
+  if (!persistState.enabled) throw bad(persistState.error || "La sauvegarde externe n'est pas configurée (variables S3_… et VAULT_KEY sur le serveur).");
+  try { await snapshotNow('manuel'); } catch (e) { throw new HttpError(502, `Envoi vers le stockage impossible : ${e.message}`); }
+  audit(req, 'SAUVEGARDE_EXTERNE', persistState.last?.key || '');
+  res.json(persistInfo());
 });
 
 export default r;

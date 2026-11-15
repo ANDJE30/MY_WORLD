@@ -10,8 +10,10 @@ function loadKey() {
   const env = process.env.VAULT_KEY;
   if (env) {
     const k = /^[0-9a-f]{64}$/i.test(env) ? Buffer.from(env, 'hex') : Buffer.from(env, 'base64');
-    if (k.length !== 32) throw new Error('VAULT_KEY doit contenir 32 octets (64 caractères hexadécimaux ou base64).');
-    return k;
+    if (k.length === 32) return k;
+    // valeur d'un autre format (ex. générée par l'hébergeur) : clé de 32 octets dérivée par SHA-256
+    if (env.length < 16) throw new Error('VAULT_KEY est trop courte (16 caractères au moins, idéalement 32 octets en base64 ou 64 caractères hexadécimaux).');
+    return crypto.createHash('sha256').update(env).digest();
   }
   const file = path.join(DATA_DIR, 'vault.key');
   if (fs.existsSync(file)) return Buffer.from(fs.readFileSync(file, 'utf8').trim(), 'base64');

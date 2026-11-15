@@ -88,6 +88,8 @@ r.post('/password', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, key: (req) =>
   const current = str(req.body?.current, { max: 128, required: true, label: 'Mot de passe actuel' });
   const next = str(req.body?.next, { max: 128, required: true, label: 'Nouveau mot de passe' });
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  // mot de passe AI721 défini sur le serveur : un changement ici serait annulé au prochain redémarrage
+  if (!req.tenant && u.role === 'superadmin' && process.env.SUPERADMIN_PASSWORD) throw bad("Le mot de passe de la console est défini sur le serveur (variable SUPERADMIN_PASSWORD) : modifiez-le dans l'hébergeur (Render ▸ Environment). Il s'applique au redémarrage, sans perte de données.");
   if (!verifyPassword(current, u.pass_hash)) throw bad('Mot de passe actuel incorrect.');
   const issues = passwordIssues(next);
   if (issues.length) throw bad(`Le mot de passe doit contenir ${issues.join(', ')}.`);

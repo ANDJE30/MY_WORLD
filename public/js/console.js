@@ -258,7 +258,7 @@ async function abonnements(view, params) {
 
 /* ---------- Paramètres de l'entreprise ---------- */
 async function parametres(view) {
-  const s = await get('/settings');
+  const [s, ps] = await Promise.all([get('/settings'), get('/persistance').catch(() => null)]);
   const F = [{ name: 'societe', label: 'Raison sociale', required: true, full: true }, { name: 'slogan', label: 'Slogan', full: true },
     { name: 'adresse', label: 'Adresse' }, { name: 'tel', label: 'Téléphone', type: 'tel' }, { name: 'email', label: 'E-mail', type: 'email' }, { name: 'site', label: 'Site web' },
     { name: 'rccm', label: 'RCCM' }, { name: 'niu', label: 'NIU (numéro contribuable)' },
@@ -275,7 +275,11 @@ async function parametres(view) {
       <p class="small muted" style="margin-top:0">Les établissements envoient par cette passerelle les SMS aux parents (remise des bulletins, réunions…). Sans passerelle, ils envoient leurs messages un par un par WhatsApp ou SMS depuis leur téléphone, ou par export CSV.</p>
       <form class="form-grid" data-gw>${G.map((f) => fieldHtml(f, f.name === 'sms_secret' ? '' : s[f.name]))}</form>
       <div class="row mt" style="gap:8px;flex-wrap:wrap"><input class="input" style="max-width:220px" data-test-to placeholder="Numéro de test (ex. 699000000)" aria-label="Numéro de test">
-        <button class="btn btn-outline" data-test>${icon('send')} Envoyer un SMS de test</button><div style="flex:1"></div><button class="btn btn-primary" data-save-gw>${icon('save')} Enregistrer la passerelle</button></div></div></div>`);
+        <button class="btn btn-outline" data-test>${icon('send')} Envoyer un SMS de test</button><div style="flex:1"></div><button class="btn btn-primary" data-save-gw>${icon('save')} Enregistrer la passerelle</button></div></div></div>
+    ${ps ? persistCard(ps) : ''}`);
+  $('[data-snap]', view)?.addEventListener('click', (e) => withBusy(e.currentTarget, async () => {
+    try { await post('/persistance/sauvegarder'); toast('Sauvegarde externe envoyée'); rerender(); } catch (ex) { toast(ex.message, 'err'); }
+  }));
   $('[data-save]', view).onclick = (e) => withBusy(e.currentTarget, async () => {
     try { const ns = await put('/settings', readForm($('[data-form]', view), F)); Object.assign(state.school, ns); toast('Paramètres enregistrés'); } catch (ex) { toast(ex.message, 'err'); }
   });
@@ -285,6 +289,22 @@ async function parametres(view) {
   $('[data-test]', view).onclick = (e) => withBusy(e.currentTarget, async () => {
     try { const r = await post('/sms/test', { to: $('[data-test-to]', view).value }); toast(r.simulated ? 'Simulation : le SMS de test aurait été envoyé.' : 'SMS de test envoyé.'); } catch (ex) { toast(ex.message, 'err'); }
   });
+}
+
+/* ---------- Sauvegarde externe automatique ---------- */
+const sizeOf = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`);
+function persistCard(ps) {
+  const badge = !ps.configured ? h`<span class="badge amber">Non configurée</span>` : ps.status === 'active' ? h`<span class="badge green">Active</span>` : h`<span class="badge red">Erreur</span>`;
+  const row = (k, v) => h`<div class="list-item"><div style="flex:1"><div class="small muted">${k}</div><div>${v}</div></div></div>`;
+  return h`<div class="card mt"><div class="card-h"><h3>${icon('database', 'sm')} Sauvegarde externe automatique</h3>${badge}</div>
+    <div class="card-b" style="padding-bottom:6px"><p class="small muted" style="margin-top:0">Après chaque modification, toutes les données de la plateforme (console et établissements) sont copiées, chiffrées, vers un stockage externe compatible S3, puis restaurées automatiquement si le serveur redémarre sur un disque vide (mise à jour, mise en veille de l'hébergement gratuit).</p>
+    ${!ps.configured ? h`<div class="alert warn">${icon('alert')}<div><b>Les données ne survivent pas à un redémarrage de l'hébergement gratuit.</b> Renseignez dans l'hébergeur (Render ▸ Environment) : S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY (et VAULT_KEY, clé de chiffrement à conserver). Voir le manuel, section 3.6.</div></div>`
+    : ps.error ? h`<div class="alert danger">${icon('alert')}<div>${ps.error}</div></div>` : ''}</div>
+    ${ps.configured ? h`<div class="list">${row('Stockage', `${ps.provider} • compartiment ${ps.bucket} • région ${ps.region} • dossier ${ps.prefix}`)}
+      ${row('Dernière sauvegarde', ps.last ? `${fmtTs(Date.parse(ps.last.at) / 1000)} — ${sizeOf(ps.last.size)} chiffrés, ${ps.last.files} fichiers (${ps.last.reason})` : ps.pending ? 'en attente (dans la minute)' : 'aucune depuis le démarrage : les données n’ont pas changé')}
+      ${row('Au démarrage', ps.restored ? (ps.restored.at ? `données restaurées depuis la sauvegarde ${ps.restored.from}` : ps.restored.from === 'disque local' ? 'données du disque local conservées' : 'première mise en service : aucune sauvegarde à restaurer') : '—')}
+      ${row('Mot de passe de la console', ps.superadminEnv ? 'défini sur le serveur (SUPERADMIN_PASSWORD) : il se change dans l’hébergeur, sans perte de données' : 'défini dans la console (Mon compte)')}</div>
+    <div class="card-b row" style="justify-content:flex-end"><button class="btn btn-primary" data-snap ${ps.enabled ? '' : raw('disabled')}>${icon('upload')} Sauvegarder maintenant</button></div>` : ''}</div>`;
 }
 
 /* ---------- Journal ---------- */

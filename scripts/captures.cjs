@@ -60,6 +60,9 @@ const visit = async (page, portal, hash, name, full) => { await page.goto(`${BAS
   await page.click('.modal [data-close]');
   await visit(page, '/console', 'abonnements', '45_console_abonnements');
   await visit(page, '/console', 'parametres', '46_console_parametres', true);
+  // carte de la sauvegarde externe (v3.5), si le serveur capturé l'a configurée
+  if (await page.locator('[data-snap]').count()) { await page.click('[data-snap]'); await page.waitForTimeout(1500); await page.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));
+    await page.locator('.card:has([data-snap])').screenshot({ path: OUT + '46b_console_sauvegarde_externe.png' }); }
   await ctx.close();
   // ---- Administrateur de l'établissement
   ({ ctx, page } = await ctxFor(browser, D));

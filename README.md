@@ -53,23 +53,33 @@ Les autres établissements de démonstration illustrent les situations d'abonnem
 Pour une installation réelle, lancez `npm start` sur un dossier de données vide. Le compte `AI721` est créé au premier démarrage avec le mot de passe `SUPERADMIN_PASSWORD`, ou un mot de passe aléatoire affiché une seule fois dans la console (à changer à la première connexion). L'ancien mot de passe de démonstration de la console, publié jusqu'à la version 3.3, est **remplacé automatiquement au démarrage**. Mot de passe AI721 oublié : redémarrez une fois avec `SUPERADMIN_RESET=1` (et `SUPERADMIN_PASSWORD`), puis retirez la variable. Une installation 1.x existante (`data/edugest.db`) est **convertie automatiquement** en premier établissement de la plateforme.
 
 ```bash
-npm test                  # 38 tests d'intégration (plateforme, abonnements, isolation, cloisonnement des interfaces, sécurité, calculs, clôtures, assiduité, documents administratifs, chronogramme et modèles Word, nom de domaine, PDF, migrations)
+npm test                  # 40 tests d'intégration (plateforme, abonnements, isolation, cloisonnement des interfaces, sauvegarde externe, sécurité, calculs, clôtures, assiduité, documents administratifs, chronogramme et modèles Word, nom de domaine, PDF, migrations)
 ```
 
 ## Déploiement
 
 | Usage | Hébergeur | Procédure |
 |---|---|---|
-| **Démonstration** (gratuit, en un clic) | Render (offre Free) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/andje30/my_world) — le fichier `render.yaml` crée le service **`ai721-schoolx-cm`**, publié à l'adresse **https://ai721-schoolx-cm.onrender.com**. Le disque gratuit est éphémère : la base de démonstration se recrée à chaque redémarrage. |
+| **En ligne gratuitement** (en un clic) | Render (offre Free) + stockage gratuit compatible S3 (ex. Backblaze B2) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/andje30/my_world) — le fichier `render.yaml` crée le service **`ai721-schoolx`**, publié à l'adresse **https://ai721-schoolx.onrender.com**. Le disque gratuit est effacé à chaque mise à jour et à chaque mise en veille : la **sauvegarde externe automatique** (ci-dessous) conserve toute la base. |
 | **Production gratuite** | Oracle Cloud *Always Free* (VM ARM, 200 Go persistants) | Créez une VM Ubuntu, pointez un domaine vers son IP, puis exécutez `sudo DOMAIN=ai721-schoolx.cm SUPERADMIN_PASSWORD='…' bash deploy/oracle-cloud-init.sh` (Docker + Caddy, HTTPS automatique, clé du coffre générée). |
 | Production sur un serveur existant | Tout VPS | `cd deploy && DOMAIN=… SUPERADMIN_PASSWORD=… VAULT_KEY=$(openssl rand -hex 32) docker compose up -d --build` |
 
 **Nom de domaine** : l'adresse reprend le nom de l'application.
-- Render : `https://ai721-schoolx-cm.onrender.com` (service `ai721-schoolx-cm`). Le sous-domaine d'un service Render existant ne se renomme pas : le Blueprint crée un nouveau service. Sur l'ancien service `edugest-cm`, définissez `CANONICAL_URL=https://ai721-schoolx-cm.onrender.com` pour rediriger les anciens liens, ou supprimez-le.
+- Render : `https://ai721-schoolx.onrender.com` (service `ai721-schoolx`). Les adresses ne distinguent pas majuscules et minuscules : `ai721-schoolX` mène au même site. Le sous-domaine d'un service Render existant ne se renomme pas : le Blueprint crée un nouveau service. Sur les anciens services (`edugest-cm`, `ai721-schoolx-cm`), définissez `CANONICAL_URL=https://ai721-schoolx.onrender.com` pour rediriger les anciens liens, ou supprimez-les.
 - Domaine propre (recommandé pour la production) : `ai721-schoolx.cm`. Déclarez-le dans Render (*Settings ▸ Custom Domains*) ou utilisez-le comme `DOMAIN` sur un serveur. Définissez ensuite `CANONICAL_URL=https://ai721-schoolx.cm` : toutes les autres adresses y seront redirigées (redirection 301).
 
+**Sauvegarde externe automatique (conservation de la base)** : après chaque modification (au plus une minute plus tard) et à chaque arrêt, la plateforme envoie un instantané **chiffré** de toutes ses données vers un stockage compatible S3. Elle le restaure automatiquement au démarrage lorsque le disque est vide. Le contenu couvre la console, tous les établissements, les fichiers importés et les pièces déposées.
+1. Créez un compte gratuit [Backblaze B2](https://www.backblaze.com/cloud-storage) (10 Go gratuits), puis un compartiment **privé** (ex. `ai721-schoolx-sauvegardes`). Créez ensuite une **clé d'application** limitée à ce compartiment (la clé principale ne fonctionne pas avec l'API S3).
+2. Dans Render (*Environment*), renseignez `S3_ENDPOINT` (ex. `https://s3.us-west-004.backblazeb2.com`, affiché sur la page du compartiment), `S3_BUCKET`, `S3_ACCESS_KEY_ID` (keyID) et `S3_SECRET_ACCESS_KEY` (applicationKey).
+3. `VAULT_KEY` est générée une fois par Render : **conservez-en une copie**. Sans elle, les sauvegardes sont illisibles ; recopiez-la telle quelle si vous recréez un jour le service.
+4. Vérifiez dans la console AI721 (*Paramètres ▸ Sauvegarde externe automatique*) que l'état est « Active », puis cliquez sur *Sauvegarder maintenant*.
+
+Le stockage garde les 48 derniers instantanés, plus un par jour sur 14 jours. Si les sauvegardes ne peuvent pas être lues (clé différente), le serveur refuse de démarrer plutôt que de les écraser par une plateforme vide.
+
+**Accès à la console AI721** : identifiant `AI721`, mot de passe = valeur de `SUPERADMIN_PASSWORD`. Elle fait foi à chaque démarrage : pour réinitialiser l'accès, modifiez-la dans Render (*Environment*). Le service redémarre et applique le nouveau mot de passe **sans toucher aux données**.
+
 **Mettre à jour le site** :
-- **Render** : chaque fusion dans `master` redéploie automatiquement le service. Définissez `SUPERADMIN_PASSWORD` dans *Environment* (Render le demande à la création du Blueprint) : sans cette variable, le disque gratuit étant recréé à chaque démarrage, un nouveau mot de passe AI721 aléatoire est généré à chaque fois et ne figure que dans les journaux du service.
+- **Render** : chaque fusion dans `master` redéploie automatiquement le service. Avec la sauvegarde externe, la base est restaurée au redémarrage et les migrations s'appliquent automatiquement : les données sont conservées. Définissez `SUPERADMIN_PASSWORD` dans *Environment* (Render le demande à la création du Blueprint).
 - **Serveur de production** : lancez `sudo bash /opt/edugest/deploy/mise-a-jour.sh`. Le script sauvegarde la base, récupère le code et redémarre l'application. Les migrations de la base s'appliquent automatiquement et les données sont conservées.
 
 Variables d'environnement :
@@ -78,9 +88,11 @@ Variables d'environnement :
 |---|---|
 | `PORT` | Port d'écoute |
 | `DATA_DIR` | Dossier des données, `./data` par défaut. Contient `platform.db`, `tenants/<code>/edugest.db`, `backups/`, `vault.key` |
-| `SUPERADMIN_PASSWORD` | Mot de passe du compte AI721 (à la création du compte, ou avec `SUPERADMIN_RESET=1`) |
-| `SUPERADMIN_RESET=1` | Réinitialise le mot de passe AI721 au démarrage (puis retirer la variable) |
-| `VAULT_KEY` | 32 octets en hexadécimal : clé du coffre des accès (sinon `DATA_DIR/vault.key`, à sauvegarder avec les données) |
+| `SUPERADMIN_PASSWORD` | Mot de passe du compte AI721. Il fait foi à chaque démarrage : le modifier réinitialise l'accès sans toucher aux données. Il ne se change alors plus depuis la console |
+| `SUPERADMIN_RESET=1` | Sans `SUPERADMIN_PASSWORD` : nouveau mot de passe AI721 aléatoire au démarrage, affiché dans les journaux (puis retirer la variable) |
+| `VAULT_KEY` | Clé du coffre des accès et des sauvegardes externes (64 caractères hexadécimaux, 32 octets en base64, ou toute valeur longue) ; sinon `DATA_DIR/vault.key`. **Obligatoire pour la sauvegarde externe** |
+| `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Stockage compatible S3 de la sauvegarde externe automatique (Backblaze B2, Cloudflare R2, Supabase, MinIO…) |
+| `S3_REGION`, `S3_PREFIX` | Facultatifs : région (déduite pour B2 et R2, sinon `us-east-1`) et dossier dans le compartiment (`ai721-schoolx`) |
 | `DEMO=1` | Plateforme de démonstration |
 | `TRUST_PROXY` | 1 derrière un proxy, 0 en exposition directe |
 | `AUTO_BACKUP=0` | Désactive les sauvegardes automatiques (toutes les 6 h, 14 jours conservés) |
@@ -103,7 +115,8 @@ Variables d'environnement :
   - coffre des accès chiffré en AES-256-GCM, limité aux mots de passe **générés** (un mot de passe choisi par l'utilisateur n'est jamais conservé) ;
   - contrôle de l'abonnement et de la suspension à chaque requête ;
   - **cloisonnement des interfaces** : un compte n'ouvre que son interface. Le serveur redirige vers son propre espace un enseignant ou un responsable disciplinaire qui ouvre l'administration. Il ferme la console AI721 (page et API) à tout navigateur connecté à un établissement, grâce à un témoin signé HttpOnly. Chaque appel à l'API vérifie que l'interface appelante (`X-Portal`) correspond au rôle de la session ;
-  - aucun identifiant de démonstration affiché ni transmis par l'API, et aucun mot de passe fixe pour la console AI721.
+  - aucun identifiant de démonstration affiché ni transmis par l'API, et aucun mot de passe fixe pour la console AI721 ;
+  - sauvegarde externe chiffrée en AES-256-GCM (clé dérivée de `VAULT_KEY`, jamais stockée avec les données), requêtes S3 signées (AWS SigV4) sans dépendance externe.
 
 ```
 server/            API, sécurité, calculs, PDF, base de données, jeu de démonstration
@@ -117,6 +130,11 @@ scripts/           génération des captures, des diagrammes et des documents Wo
 Pour régénérer les documents : `node scripts/render-uml.cjs <mermaid.min.js>`, puis `python3 scripts/docs/cahier.py`, `python3 scripts/docs/manuel.py` et `python3 scripts/docs/convert.py docs/*.docx` (nécessite python-docx et LibreOffice).
 
 ## Historique des versions
+
+- **3.5** :
+  - **sauvegarde externe automatique** de toute la base (console, établissements, fichiers) vers un stockage gratuit compatible S3. L'instantané est chiffré et envoyé après chaque modification et à l'arrêt, puis restauré au démarrage sur un disque vide : les données survivent aux mises à jour et aux mises en veille de Render. La console affiche l'état de la sauvegarde et propose *Sauvegarder maintenant* ;
+  - **accès AI721 réinitialisable sans perte de données** : `SUPERADMIN_PASSWORD` fait foi à chaque démarrage, et l'identifiant `AI721` est conservé ;
+  - **nom de domaine** : service Render `ai721-schoolx` (https://ai721-schoolx.onrender.com).
 
 - **3.4** (sécurité) :
   - identifiants de démonstration retirés de l'accueil, des pages de connexion et de l'API publique ;
