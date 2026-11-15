@@ -4,9 +4,13 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { currentDb, withDb } from './context.js';
+import { restoreAtBoot } from './persist.js';
 
 export const DATA_DIR = process.env.DATA_DIR || path.resolve('data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
+// Disque vide (hébergement éphémère) : restauration de la dernière sauvegarde externe AVANT d'ouvrir la moindre base.
+// Tous les modules qui ouvrent une base importent celui-ci : ils attendent la fin de cette restauration.
+await restoreAtBoot(DATA_DIR);
 
 /** Base courante : proxy vers la base de l'établissement (ou de la plateforme) de la requête. */
 export const db = new Proxy({}, {

@@ -1,15 +1,20 @@
-# Déploiement en un clic sur Render (offre gratuite) — instance de DÉMONSTRATION.
-# Le disque de l'offre gratuite est éphémère : la plateforme de démonstration (console AI721 + 4 établissements fictifs)
-# est recréée à chaque redémarrage.
-# Pour la production, voir docs/DEPLOIEMENT.md (Oracle Cloud Always Free ou Render avec disque persistant).
-# Nom du service = nom de l'application : adresse publique https://ai721-schoolx-cm.onrender.com
-# (Render ajoute un suffixe aléatoire si ce sous-domaine est déjà pris ; le sous-domaine d'un service existant ne change pas).
+# Déploiement en un clic sur Render (offre gratuite).
+# Nom du service = nom de l'application : adresse publique https://ai721-schoolx.onrender.com
+# (les adresses ne distinguent pas majuscules et minuscules : « ai721-schoolX » mène au même site ;
+#  Render ajoute un suffixe si ce sous-domaine est déjà pris ; le sous-domaine d'un service existant ne change pas).
+#
+# CONSERVATION DES DONNÉES : le disque de l'offre gratuite est effacé à chaque mise à jour et à chaque mise en veille.
+# La plateforme sauvegarde donc automatiquement toutes ses données, chiffrées, vers un stockage gratuit compatible S3
+# (ex. Backblaze B2) et les restaure au démarrage : renseignez les 4 variables S3_… ci-dessous (Render les demande à la
+# création du Blueprint). VAULT_KEY est générée une fois par Render : CONSERVEZ-EN UNE COPIE, sans elle les sauvegardes
+# sont illisibles (à recopier telle quelle si vous recréez un jour le service).
+#
 # Domaine personnalisé (ex. ai721-schoolx.cm) : l'ajouter dans Render ▸ Settings ▸ Custom Domains, puis définir
 # CANONICAL_URL=https://ai721-schoolx.cm pour rediriger automatiquement les autres adresses vers lui.
-# Ancien service « edugest-cm » : définir CANONICAL_URL=https://ai721-schoolx-cm.onrender.com pour rediriger les anciens liens.
+# Anciens services (edugest-cm, ai721-schoolx-cm) : définir CANONICAL_URL=https://ai721-schoolx.onrender.com pour rediriger les anciens liens.
 services:
   - type: web
-    name: ai721-schoolx-cm
+    name: ai721-schoolx
     runtime: node
     plan: free
     region: frankfurt
@@ -23,7 +28,21 @@ services:
         value: "1"
       - key: TRUST_PROXY
         value: "1"
-      # Mot de passe de la console AI721 : saisi dans Render (jamais dans le dépôt). Sans lui, un mot de passe aléatoire est créé
-      # à chaque démarrage et n'apparaît que dans les journaux du service (Render ▸ Logs).
+      # Mot de passe de la console AI721 (identifiant AI721) : saisi dans Render, jamais dans le dépôt. Il fait foi à chaque
+      # démarrage : le modifier ici réinitialise l'accès sans toucher aux données.
       - key: SUPERADMIN_PASSWORD
+        sync: false
+      # Clé de chiffrement du coffre des accès et des sauvegardes externes : générée une fois, stable ensuite.
+      - key: VAULT_KEY
+        generateValue: true
+      # Stockage des sauvegardes (compatible S3). Backblaze B2 : S3_ENDPOINT = https://s3.<région>.backblazeb2.com
+      # (affiché sur la page du compartiment), S3_ACCESS_KEY_ID = keyID et S3_SECRET_ACCESS_KEY = applicationKey
+      # d'une clé d'application (pas la clé principale). Autre fournisseur : ajouter S3_REGION si nécessaire.
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
         sync: false

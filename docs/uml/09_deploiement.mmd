@@ -18,6 +18,7 @@ flowchart LR
     KEY[["vault.key / VAULT_KEY<br/>AES-256-GCM"]]
     BK[("Sauvegardes auto (6 h, 14 j)<br/>+ archives de fin d'année")]
   end
+  S3[("Stockage externe compatible S3<br/>(Backblaze B2, R2, Supabase…)<br/>instantanés chiffrés AES-256-GCM")]
   SA & PC & TEL & TAB -- "HTTPS 443" --> RP
   RP -- ":3000" --> APP
   APP --- CTX & PDF
@@ -25,6 +26,8 @@ flowchart LR
   CTX --> TDB
   APP -. chiffre/déchiffre .- KEY
   PDB & TDB -. "VACUUM INTO" .-> BK
+  APP -- "HTTPS signé SigV4 : instantané après chaque modification et à l'arrêt" --> S3
+  S3 -. "restauration au démarrage sur disque vide" .-> APP
   classDef n fill:#e8f5f0,stroke:#0b5d4b,color:#0b2e25
   classDef p fill:#eef2ff,stroke:#4338ca,color:#1e1b4b
   class PC,TEL,TAB,RP,APP,CTX,PDF n

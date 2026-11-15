@@ -23,6 +23,7 @@ import parentsRoutes from './routes/parents.js';
 import echeancierRoutes from './routes/echeancier.js';
 import platformRoutes from './routes/platform.js';
 import { espacesOuverts, ROLE_SLUG, SLUG_ROLE } from './espace.js';
+import { markDirty, afterBoot, flushBeforeExit, state as persistState } from './persist.js';
 import { HttpError } from './util.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -43,7 +44,7 @@ app.disable('x-powered-by');
 const tp = process.env.TRUST_PROXY ?? '1';
 app.set('trust proxy', /^\d+$/.test(tp) ? Number(tp) : tp);
 
-// Nom de domaine canonique (ex. CANONICAL_URL=https://ai721-schoolx.cm ou https://ai721-schoolx-cm.onrender.com) :
+// Nom de domaine canonique (ex. CANONICAL_URL=https://ai721-schoolx.cm ou https://ai721-schoolx.onrender.com) :
 // toute autre adresse publique (ancienne URL edugest-cm.onrender.com, sous-domaine onrender.com après l'ajout d'un domaine
 // personnalisé…) est redirigée de façon permanente vers la même page sur le domaine canonique. Sans la variable : aucun effet.
 let canon = { raw: null, url: null };
@@ -142,6 +143,12 @@ function sessionAndCsrf(req, res, next) {
 const apiRate = rateLimit({ windowMs: 60_000, max: 3000 });
 const notFound = () => { throw new HttpError(404, 'Ressource introuvable'); };
 
+// Sauvegarde externe : toute écriture réussie (POST, PUT, DELETE) déclenche un instantané dans la minute
+app.use(['/console/api', '/e/:code/api'], (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') res.on('finish', () => { if (res.statusCode < 400) markDirty(); });
+  next();
+});
+
 /* ---------------- Console du super administrateur ---------------- */
 const consoleApi = express.Router();
 consoleApi.use(apiRate, sessionAndCsrf);
@@ -237,5 +244,16 @@ autoBackup();
 setInterval(autoBackup, 6 * 3600_000).unref();
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  app.listen(PORT, () => console.log(`AI721 SchoolX CM (${COMPANY}) démarré sur http://localhost:${PORT}`));
+  const server = app.listen(PORT, () => {
+    console.log(`AI721 SchoolX CM (${COMPANY}) démarré sur http://localhost:${PORT}`);
+    if (persistState.configured) console.log(`Sauvegarde externe : ${persistState.enabled ? `active (${persistState.provider}/${persistState.bucket})` : persistState.error}`);
+    afterBoot();
+  });
+  // Arrêt demandé par l'hébergeur (mise à jour, mise en veille) : dernier instantané externe, puis sortie
+  for (const sig of ['SIGTERM', 'SIGINT']) process.once(sig, async () => {
+    console.log(`Arrêt (${sig})${persistState.enabled ? ' : sauvegarde externe finale…' : ''}`);
+    server.close();
+    await flushBeforeExit();
+    process.exit(0);
+  });
 }

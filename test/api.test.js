@@ -886,6 +886,92 @@ test('cloisonnement : chaque compte n\'ouvre que son interface ; la console est 
   assert.equal((await page('/console')).status, 200);
 });
 
+test('sauvegarde externe : signature AWS SigV4 conforme aux exemples officiels', async () => {
+  const { signV4, s3Config } = await import('../server/persist.js');
+  const base = { host: 'examplebucket.s3.amazonaws.com', region: 'us-east-1', accessKey: 'AKIAIOSFODNN7EXAMPLE', secret: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY', date: new Date('2013-05-24T00:00:00Z') };
+  const EMPTY = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  assert.equal(signV4({ ...base, method: 'GET', path: '/test.txt', headers: { Range: 'bytes=0-9' }, payloadHash: EMPTY }).signature, 'f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41');
+  assert.equal(signV4({ ...base, method: 'GET', path: '/', query: { 'max-keys': 2, prefix: 'J' }, payloadHash: EMPTY }).signature, '34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7');
+  assert.equal(signV4({ ...base, method: 'GET', path: '/', query: { lifecycle: '' }, payloadHash: EMPTY }).signature, 'fea454ca298b7da1c68078a5d1bdbfbbe0d65c699e0f91ac7a200a0136783543');
+  const k = { S3_BUCKET: 'b', S3_ACCESS_KEY_ID: 'i', S3_SECRET_ACCESS_KEY: 's' };
+  assert.equal(s3Config({ ...k, S3_ENDPOINT: 'https://s3.us-west-004.backblazeb2.com' }).region, 'us-west-004');
+  assert.equal(s3Config({ ...k, S3_ENDPOINT: 'https://abc.r2.cloudflarestorage.com' }).region, 'auto');
+  assert.equal(s3Config({ ...k, S3_ENDPOINT: '' }), null);
+});
+
+test('sauvegarde externe : instantané chiffré, restauration sur disque vide, clé erronée refusée, accès AI721 réinitialisé sans perte', { timeout: 120000 }, async () => {
+  const { spawn } = await import('node:child_process');
+  const net = await import('node:net');
+  const { startS3Mock } = await import('./helpers/s3mock.js');
+  const { openSnapshot, snapshotKey } = await import('../server/persist.js');
+  const s3 = await startS3Mock();
+  const VAULT_KEY = 'b'.repeat(64), H = { 'Content-Type': 'application/json', 'X-Requested-With': 'EduGest' };
+  const freePort = () => new Promise((r) => { const sv = net.createServer(); sv.listen(0, () => { const p = sv.address().port; sv.close(() => r(p)); }); });
+  const dirs = [];
+  const boot = async (extra = {}, dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sx-persist-'))) => {
+    dirs.push(dir);
+    const port = await freePort(); let out = '';
+    const env = { ...process.env, ...s3.env, DATA_DIR: dir, PORT: String(port), DEMO: '1', AUTO_BACKUP: '0', VAULT_KEY, SUPERADMIN_PASSWORD: 'Console!2026xyz', S3_DELAY_MS: '300', ...extra };
+    const child = spawn(process.execPath, ['--no-warnings', 'server/index.js'], { env });
+    child.stdout.on('data', (d) => { out += d; }); child.stderr.on('data', (d) => { out += d; });
+    const exited = new Promise((r) => child.on('exit', (c) => r(c)));
+    for (let i = 0; i < 300 && !/démarré sur/.test(out) && child.exitCode === null; i++) await new Promise((r) => setTimeout(r, 100));
+    return { child, dir, exited, out: () => out, base: `http://127.0.0.1:${port}`, stop: async () => { child.kill('SIGTERM'); return exited; } };
+  };
+  const login = async (b, u, p, portal) => {
+    const r = await fetch(b + (portal ? '/e/lpey/api/auth/login' : '/console/api/auth/login'), { method: 'POST', headers: H, body: JSON.stringify({ username: u, password: p, portal }) });
+    return { status: r.status, cookie: r.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ') };
+  };
+  const waitFor = async (fn) => { for (let i = 0; i < 100 && !(await fn()); i++) await new Promise((r) => setTimeout(r, 100)); };
+  try {
+    // 1. Première mise en service sur un stockage vide : instantané initial ; modification ; arrêt → instantané final
+    const A = await boot();
+    await waitFor(() => s3.objects.size >= 1);
+    assert.equal(s3.objects.size, 1, A.out());
+    const a = await login(A.base, 'admin', 'Admin@2026', 'admin');
+    assert.equal((await fetch(A.base + '/e/lpey/api/admin/announcements', { method: 'POST', headers: { ...H, cookie: a.cookie }, body: JSON.stringify({ title: 'Annonce à conserver', body: 'Survit aux redémarrages', audience: 'all' }) })).status, 201);
+    assert.equal(await A.stop(), 0);
+    assert.equal(s3.objects.size, 2, 'instantané final à l\'arrêt');
+    assert.ok(s3.log.length && s3.log.every((l) => l.ok), 'toutes les requêtes S3 correctement signées');
+    // contenu : chiffré, sans la clé du coffre ni les sauvegardes locales
+    const last = [...s3.objects.keys()].sort().pop(), blob = s3.objects.get(last);
+    assert.ok(!blob.includes(Buffer.from('Annonce à conserver')), 'données chiffrées');
+    const files = openSnapshot(blob, snapshotKey({ VAULT_KEY })).map((f) => f.p);
+    assert.ok(files.includes('platform.db') && files.includes('tenants/lpey/edugest.db'));
+    assert.ok(!files.some((f) => f === 'vault.key' || /(^|\/)backups\//.test(f) || /-wal$/.test(f)));
+    // 2. Redémarrage sur disque vide : restauration complète
+    const B = await boot();
+    assert.match(B.out(), /données restaurées/);
+    const b = await login(B.base, 'admin', 'Admin@2026', 'admin');
+    assert.ok(JSON.stringify(await (await fetch(B.base + '/e/lpey/api/announcements', { headers: { cookie: b.cookie } })).json()).includes('Annonce à conserver'));
+    assert.equal((await login(B.base, 'AI721', 'Console!2026xyz')).status, 200);
+    await B.stop();
+    // 3. Clé de chiffrement différente : démarrage refusé, sauvegardes intactes
+    const before = [...s3.objects.keys()].join();
+    const C = await boot({ VAULT_KEY: 'c'.repeat(64) });
+    assert.notEqual(await C.exited, 0);
+    assert.match(C.out(), /VAULT_KEY ne correspond pas/);
+    assert.equal([...s3.objects.keys()].join(), before);
+    // 4. Nouveau SUPERADMIN_PASSWORD : accès AI721 réinitialisé, identifiant et données conservés
+    const D = await boot({ SUPERADMIN_PASSWORD: 'Nouveau!2026abc' });
+    assert.equal((await login(D.base, 'AI721', 'Console!2026xyz')).status, 401);
+    const k = await login(D.base, 'AI721', 'Nouveau!2026abc');
+    assert.equal(k.status, 200);
+    const tenants = await (await fetch(D.base + '/console/api/tenants', { headers: { cookie: k.cookie } })).json();
+    assert.ok(tenants.some((t) => t.code === 'lpey'));
+    const ps = await (await fetch(D.base + '/console/api/persistance', { headers: { cookie: k.cookie } })).json();
+    assert.equal(ps.status, 'active'); assert.equal(ps.superadminEnv, true);
+    const snap = await fetch(D.base + '/console/api/persistance/sauvegarder', { method: 'POST', headers: { ...H, cookie: k.cookie } });
+    assert.equal(snap.status, 200); assert.equal((await snap.json()).last.reason, 'manuel');
+    const pw = await fetch(D.base + '/console/api/auth/password', { method: 'POST', headers: { ...H, cookie: k.cookie }, body: JSON.stringify({ current: 'Nouveau!2026abc', next: 'Autre!2026abcd' }) });
+    assert.equal(pw.status, 400, 'mot de passe défini sur le serveur : changement refusé dans la console');
+    await D.stop();
+  } finally {
+    await s3.close();
+    for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
+  }
+});
+
 test('limitation de débit : seules les tentatives échouées sont comptées', async () => {
   for (let i = 0; i < 12; i++) assert.equal((await client().login('sg.essomba', 'faux')).status === 429 ? 'bloqué' : 'ok', i < 10 ? 'ok' : 'bloqué');
   // 12 connexions réussies d'un même compte (plusieurs appareils) ne bloquent jamais

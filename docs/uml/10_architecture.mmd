@@ -25,6 +25,7 @@ flowchart TB
     V["vault.js<br/>coffre AES-256-GCM"]
     C["calc.js / pdf.js"]
     D["db.js<br/>schéma, migrations, transactions"]
+    PS["persist.js<br/>sauvegarde externe chiffrée :<br/>restauration au démarrage, instantanés (SigV4)"]
   end
   PDB[("platform.db")]
   TDB[("tenants/*/edugest.db")]
@@ -40,3 +41,5 @@ flowchart TB
   PL --> PDB
   D --> TDB
   RT --> D
+  D -- "avant l'ouverture des bases" --> PS
+  PS -- "HTTPS signé" --> S3[("Stockage compatible S3")]

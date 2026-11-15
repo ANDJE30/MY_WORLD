@@ -10,7 +10,7 @@ URL = sys.argv[1] if len(sys.argv) > 1 else "l'adresse communiquée par votre é
 D = Doc("Manuel d'utilisation — AI721 SchoolX CM", "Manuel d'utilisation")
 D.cover("Manuel d'utilisation", 'AI721 SchoolX CM',
         "Guide pas à pas pour le super administrateur AI721, les administrateurs d'établissement, les enseignants et les responsables disciplinaires — sur ordinateur, tablette et smartphone",
-        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.4 (anciennement EduGest CM)'), ('Date', today),
+        [('Application', 'AI721 SchoolX CM — notes, discipline, emplois du temps, assiduité et documents administratifs du personnel'), ('Version', '3.5 (anciennement EduGest CM)'), ('Date', today),
          ('Public', 'Super administrateur AI721 TECH STUFF, administrateurs (proviseurs, directeurs, censeurs), enseignants, surveillants généraux'),
          ('Éditeur', 'AI721 TECH STUFF'),
          ('Accès', URL)], logo=os.path.join(ROOT, 'public', 'img', 'icon-192.png'))
@@ -38,6 +38,9 @@ D.note("**Nouveau en version 3.3 :** l'administrateur charge le **chronogramme d
 D.note("**Nouveau en version 3.4 (sécurité) :** aucun identifiant ni mot de passe de démonstration n'est plus affiché. **Chaque compte n'ouvre que son espace de travail** : "
        "la console AI721 est fermée aux administrateurs d'établissement, aux enseignants et aux responsables disciplinaires ; l'interface d'administration est fermée aux enseignants "
        "et aux responsables disciplinaires, qui sont reconduits vers leur propre espace (section 2.1).", 'ok')
+D.note("**Nouveau en version 3.5 :** **toute la base de données est conservée** d'une mise à jour à l'autre grâce à la **sauvegarde externe automatique** et chiffrée "
+       "(section 3.6) ; l'accès du super administrateur AI721 se réinitialise depuis l'hébergeur sans perte de données ; l'adresse de l'application devient "
+       "**ai721-schoolx.onrender.com** (« ai721-schoolX » y mène aussi).", 'ok')
 D.table(['Votre profil', 'Ce que vous pouvez faire', 'Chapitre'], [
     ['Super administrateur (AI721)', "Créer les établissements abonnés, enregistrer abonnements et paiements, transmettre et retrouver les accès des administrateurs", '3'],
     ['Administrateur', "Paramétrer l'établissement, créer les comptes et transmettre les accès, gérer élèves et classes, emplois du temps, clôtures, bulletins, statistiques, fin d'année, assiduité et documents administratifs des enseignants, chronogramme des dépôts et modèles Word", '4'],
@@ -114,9 +117,9 @@ D.p("Cliquez sur votre avatar (en haut à droite) pour accéder à **Mon profil*
 # =============================================================== 3 (nouveau) — console AI721
 D.h1('3. Guide du super administrateur (AI721 TECH STUFF)')
 D.p("La console AI721 (adresse /console) permet à l'éditeur de gérer les établissements abonnés : création, abonnements annuels, paiements, accès des administrateurs et suivi.", align='justify')
-D.note("**Mot de passe de la console :** il n'existe plus de mot de passe fixe. Il est défini par la variable **SUPERADMIN_PASSWORD** du serveur (sur Render : *Environment*), "
-       "sinon généré au premier démarrage et affiché une seule fois dans les journaux du serveur, puis à changer à la première connexion. En cas d'oubli, l'équipe technique "
-       "redémarre une fois le serveur avec SUPERADMIN_RESET=1. **La console est refusée à tout navigateur connecté à un établissement** : pour intervenir dans l'espace "
+D.note("**Accès à la console :** identifiant **AI721**, mot de passe défini par la variable **SUPERADMIN_PASSWORD** du serveur (sur Render : *Environment*). "
+       "Il n'existe aucun mot de passe fixe. Pour **réinitialiser l'accès**, modifiez cette variable : le service redémarre et applique le nouveau mot de passe "
+       "**sans toucher aux données** (section 3.6). **La console est refusée à tout navigateur connecté à un établissement** : pour intervenir dans l'espace "
        "d'un établissement, utilisez une fenêtre de navigation privée, ou déconnectez-vous de cet espace avant de revenir à la console.", 'warn')
 D.h2('3.1 Tableau de bord de la console')
 D.figure(c('40_console_tableau_de_bord.png'), 'Tableau de bord de la console AI721', max_h=14)
@@ -156,6 +159,30 @@ D.p("Sur la même page, la carte **Passerelle SMS** configure l'envoi des SMS au
 D.figure(c('46_console_parametres.png'), "Paramètres de l'entreprise et passerelle SMS", max_h=14)
 D.note("**Règle d'accès :** un établissement ne peut se connecter que si son abonnement couvre la date du jour, est **payé**, et si l'établissement n'est pas suspendu. "
        "Au 31 août, tous les accès sont bloqués jusqu'au renouvellement.", 'warn')
+D.h2('3.6 Sauvegarde externe automatique et accès à la console')
+D.p("L'hébergement gratuit (Render) **efface son disque** à chaque mise à jour de l'application et à chaque mise en veille (15 minutes sans visite). Pour que "
+    "**toute la base de données soit conservée**, la plateforme dépose, au plus une minute après chaque modification et à chaque arrêt, une copie **chiffrée** "
+    "de toutes ses données sur un stockage gratuit compatible S3. Elle la restaure automatiquement au redémarrage. Cette copie couvre la console, tous les "
+    "établissements, les fichiers importés, les pièces déposées et les archives de fin d'année.", align='justify')
+D.h3('Mise en place (une seule fois)')
+D.numbered(["Créez un compte gratuit **Backblaze B2** (10 Go gratuits). Créez ensuite un **compartiment privé**, par exemple ai721-schoolx-sauvegardes.",
+            "Dans *Application Keys*, créez une **clé d'application** limitée à ce compartiment ; notez le **keyID** et l'**applicationKey** (affichée une seule fois). La clé principale du compte ne convient pas.",
+            "Dans Render ▸ service **ai721-schoolx** ▸ *Environment*, renseignez : **S3_ENDPOINT** (adresse « Endpoint » du compartiment, par exemple https://s3.us-west-004.backblazeb2.com), **S3_BUCKET** (nom du compartiment), **S3_ACCESS_KEY_ID** (keyID) et **S3_SECRET_ACCESS_KEY** (applicationKey).",
+            "Notez la valeur de **VAULT_KEY**, générée par Render, et **conservez-en une copie en lieu sûr** : elle chiffre les sauvegardes, et sans elle elles sont illisibles.",
+            "Ouvrez la console ▸ **Paramètres de l'entreprise** : la carte « Sauvegarde externe automatique » doit indiquer **Active**. Cliquez sur **Sauvegarder maintenant** pour un premier envoi."])
+D.figure(c('46b_console_sauvegarde_externe.png'), 'Carte « Sauvegarde externe automatique » de la console', max_h=9)
+D.table(['Situation', 'Ce que fait la plateforme'], [
+    ['Modification (note, paiement, établissement…)', 'Instantané chiffré envoyé dans la minute'],
+    ["Mise à jour de l'application, mise en veille", "Dernier instantané à l'arrêt, puis restauration automatique au redémarrage"],
+    ['Premier démarrage sur un stockage vide', 'Démarrage normal et premier instantané immédiat'],
+    ['VAULT_KEY différente de celle des sauvegardes', "Le serveur refuse de démarrer, pour ne jamais écraser les sauvegardes : remettez la bonne VAULT_KEY"],
+    ['Historique', 'Les 48 derniers instantanés et un par jour sur 14 jours sont conservés']],
+    widths=[6.4, 10.2], font=9.5, caption='Fonctionnement de la sauvegarde externe')
+D.h3("Réinitialiser l'accès du super administrateur")
+D.p("Dans Render ▸ *Environment*, modifiez **SUPERADMIN_PASSWORD** puis enregistrez. Le service redémarre, restaure la base et applique le nouveau mot de passe. "
+    "L'identifiant **AI721** est conservé, le compte est déverrouillé et les autres sessions AI721 sont fermées ; **aucune donnée n'est modifiée**. "
+    "Tant que cette variable est définie, le mot de passe ne se change pas depuis la console (il serait remplacé au redémarrage suivant).", align='justify')
+D.note("**Avant d'appliquer une mise à jour importante,** vérifiez dans la carte que la dernière sauvegarde est récente, ou cliquez sur Sauvegarder maintenant.", 'info')
 
 # =============================================================== 4
 D.h1("4. Guide de l'administrateur")
@@ -631,7 +658,9 @@ D.table(['Problème', 'Solution'], [
     ["Session expirée", "Après 2 heures d'inactivité, reconnectez-vous ; les saisies non envoyées sont restaurées."],
     ["« Ce compte doit se connecter via… »", "Vous êtes sur l'interface d'un autre rôle : cliquez sur « Ouvrir cette interface » ou utilisez le lien qui vous a été transmis."],
     ["« L'abonnement … a expiré » / « en attente de paiement »", "L'établissement doit renouveler ou régler son abonnement auprès d'AI721 TECH STUFF ; l'accès est rétabli dès l'encaissement."],
-    ["J'ai oublié mon mot de passe", "Enseignants et responsables : l'administrateur le retrouve dans son coffre. Administrateur : contactez AI721 TECH STUFF. Console AI721 : redémarrage du serveur avec SUPERADMIN_RESET=1."],
+    ["J'ai oublié mon mot de passe", "Enseignants et responsables : l'administrateur le retrouve dans son coffre. Administrateur : contactez AI721 TECH STUFF. Console AI721 : modifiez SUPERADMIN_PASSWORD dans Render ▸ Environment (section 3.6), sans perte de données."],
+    ["Les données ont disparu après une mise à jour", "La sauvegarde externe n'était pas configurée : renseignez les variables S3_… et VAULT_KEY (section 3.6). Une fois configurée, la base est restaurée automatiquement à chaque redémarrage."],
+    ["Le site ne démarre plus et les journaux parlent de VAULT_KEY", "La clé VAULT_KEY ne correspond pas à celle des sauvegardes : remettez la valeur conservée lors de la mise en place. Le serveur refuse de démarrer pour protéger les sauvegardes."],
     ["« Accès refusé » en ouvrant l'Administration ou la console AI721", "Ces interfaces ne sont pas celles de votre compte : vous êtes ramené dans votre espace. Sur un ordinateur partagé, déconnectez-vous d'abord de votre espace pour laisser l'administrateur se connecter."],
     ["Le taux d'assiduité d'un enseignant semble faux", "Vérifiez son emploi du temps (les heures dues en dépendent), les jours non ouvrés et le pointage de la période (onglet Absences & retards)."],
     ["Aucun cours n'apparaît dans le pointage", "Le jour n'est pas un jour de cours, est un jour non ouvré, ou les emplois du temps ne sont pas encore générés."],
@@ -644,7 +673,7 @@ D.table(['Problème', 'Solution'], [
     ["Mon chronogramme est un fichier .doc", "Ouvrez-le dans Word ou LibreOffice et enregistrez-le au format .docx, puis importez-le."],
     ["Une date ou un intitulé est mal repéré", "Corrigez la ligne avant d'enregistrer, ou plus tard avec le bouton crayon de l'échéance."],
     ["Le modèle Word ne s'ouvre pas sur mon téléphone", "Installez Microsoft Word ou WPS Office (gratuits), ou ouvrez le fichier sur un ordinateur."],
-    ["L'ancienne adresse edugest-cm.onrender.com", "L'application est désormais à l'adresse ai721-schoolx-cm.onrender.com (ou ai721-schoolx.cm) : mettez à jour vos favoris et l'icône installée."],
+    ["Les anciennes adresses edugest-cm ou ai721-schoolx-cm.onrender.com", "L'application est désormais à l'adresse ai721-schoolx.onrender.com (ou ai721-schoolx.cm) : mettez à jour vos favoris et l'icône installée."],
     ["Enseignant : où répondre à une demande d'explication ?", "Menu Mes documents & assiduité ▸ bouton Répondre ; ou à la main sur le document imprimé."]],
     widths=[5.6, 11], font=9.5)
 
@@ -652,7 +681,7 @@ D.table(['Problème', 'Solution'], [
 D.h1('9. Bonnes pratiques de sécurité')
 D.bullets(["Ne communiquez jamais votre mot de passe, même à un collègue ; l'administrateur n'en a pas besoin.",
            "Chaque compte n'ouvre que son espace : ne cherchez pas à ouvrir l'administration ou la console AI721 avec un compte enseignant ou de vie scolaire, l'accès est refusé et tracé.",
-           "AI721 TECH STUFF : définissez SUPERADMIN_PASSWORD sur le serveur, ne publiez jamais les accès de démonstration et ouvrez la console dans un navigateur non connecté à un établissement.",
+           "AI721 TECH STUFF : définissez SUPERADMIN_PASSWORD sur le serveur, conservez une copie de VAULT_KEY hors du serveur, ne publiez jamais les accès de démonstration et ouvrez la console dans un navigateur non connecté à un établissement.",
            "Déconnectez-vous sur les ordinateurs partagés (salle des professeurs, cybercafé).",
            "Détruisez la fiche d'identifiants papier après avoir choisi votre mot de passe personnel.",
            "Administrateurs : téléchargez une sauvegarde chaque semaine, consultez le journal d'audit, désactivez immédiatement le compte d'un personnel qui quitte l'établissement.",
